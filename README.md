@@ -1,140 +1,93 @@
 <div align="center">
 
-# Zombie Survivor
+# 🧟 Zombie Survivor · 末日清道夫
 
-**English** | [简体中文](#简体中文)
+**A fast, browser-based top-down zombie-survivor roguelite — built from scratch with TypeScript, Vite, Canvas 2D, and a tiny deterministic ECS.**
 
-2D top-down zombie survivor roguelite built with TypeScript, Vite, Canvas 2D, and a small custom ECS.
+[![License](https://img.shields.io/badge/license-MIT-22c55e.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.x-646cff.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Vitest](https://img.shields.io/badge/tested%20with-vitest-fcc72b.svg?logo=vitest&logoColor=white)](https://vitest.dev/)
 
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)
-![Vite](https://img.shields.io/badge/Vite-6.x-646CFF.svg)
-![Tests](https://img.shields.io/badge/tests-vitest-yellow.svg)
+**English** · [简体中文](README.zh-CN.md)
 
-![Zombie Survivor gameplay screenshot](docs/screenshots/gameplay-hero.png)
+<img src="docs/screenshots/gameplay-hero.jpg" alt="Zombie Survivor gameplay" width="80%" />
 
 </div>
 
-## English
+---
 
-Zombie Survivor is a browser-based survival action game about holding the line against a growing horde. Move, aim, collect XP, build a loadout, buy tactical items, and survive long enough to bring down the boss.
+## Overview
 
-### Features
+Hold the line against an ever-growing horde. Move, auto-fire at the cursor, vacuum up XP, draft upgrades, spend gold on consumables between waves, and survive long enough to bring down the **Hive Tyrant** boss.
 
-- Fast top-down combat with automatic weapon fire.
-- Deterministic custom ECS simulation with a headless test harness.
-- Weapons, passives, evolutions, shop items, shields, buffs, XP, coins, and pickups.
-- Canvas 2D renderer with sprite assets, screen shake, hit flashes, particles, tracers, corpses, and blood decals.
-- One consistent player character sprite; weapon identity is expressed through projectiles, effects, upgrades, and UI.
+The whole simulation runs on a small custom ECS that is fully deterministic — the same systems power both the live game and a headless test harness, so balance can be verified in CI without a browser.
 
-### Controls
+## ✨ Highlights
+
+- ⚡ **Fast top-down combat** — weapons fire automatically toward the mouse; you focus on positioning and kiting.
+- 🧬 **Deterministic ECS** — entity/component storage + a seeded RNG, exercised by a headless simulation in tests.
+- 🔫 **Deep build crafting** — 12 weapons, passives, and weapon evolutions drafted from level-up choices.
+- 🛒 **Consumable economy** — gold is a renewable resource: buy charges, timed potions, and stacking shields between fights.
+- 🎨 **Juicy Canvas 2D renderer** — sprite art, procedural run cycle, screen shake, hit flashes, particles, tracers, corpses, and blood decals.
+- 🧟 **Six enemy archetypes** — Walker, Runner, Spitter, Exploder, Brute, and the Hive Tyrant boss.
+
+## 🎮 Controls
 
 | Action | Input |
 |---|---|
-| Move | `WASD` / Arrow keys |
-| Aim | Mouse |
+| Move | `W` `A` `S` `D` / Arrow keys |
+| Aim | Mouse (auto-fire) |
+| Use item slots | `Q` `E` `R` |
 | Open shop | `B` |
-| Pick level-up choice | `1` / `2` / `3` |
-| Use items | Item hotkeys shown in the HUD |
+| Pick a level-up | `1` / `2` / `3` |
+| Start / restart | `Space` |
 
-### Quick Start
+## 🚀 Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the local Vite URL printed in the terminal.
+Then open the local Vite URL printed in the terminal (defaults to `http://localhost:5173`).
 
-### Scripts
+## 🛠️ Scripts
 
-```bash
-npm test
-npm run typecheck
-npm run build
-npm run preview
-```
-
-### Project Layout
-
-- `src/ecs/`: entity-component storage and deterministic RNG.
-- `src/systems/`: gameplay systems for movement, spawning, combat, weapons, pickups, and equipment.
-- `src/render/`: Canvas renderer, asset loading, sprite sizing, and player sprite selection.
-- `src/data/`: balance, enemies, weapons, passives, and equipment definitions.
-- `public/assets/`: runtime sprites and audio.
-- `tests/`: Vitest coverage for core systems and headless simulation.
-- `docs/`: development notes and screenshots.
-
-### Roadmap
-
-- Optional GitHub Pages deployment.
-- Better balancing for late-game item economy.
-- More unified 2D character animation if new character art is produced.
-- Real held-weapon interaction via layered sprites and hand anchors, not unrelated character swaps.
-
-### License
-
-MIT License. See [LICENSE](LICENSE).
-
----
-
-## 简体中文
-
-Zombie Survivor 是一个浏览器 2D 俯视角丧尸生存 roguelite。你需要移动、瞄准、收集经验、升级武器、购买道具，并在尸潮中坚持到 Boss 战。
-
-### 特色
-
-- 快节奏俯视角战斗，武器自动朝鼠标方向开火。
-- 自研 ECS 与确定性模拟，支持 headless 测试。
-- 包含武器、被动、进化、商店道具、护盾、增益、经验、金币和拾取物。
-- Canvas 2D 渲染，包含精灵图、屏幕震动、受击闪烁、粒子、弹道、尸体和血迹效果。
-- 当前版本只保留一个统一主角形象；武器差异通过弹道、特效、升级和 UI 表达，避免人物风格混乱。
-
-### 操作
-
-| 行为 | 输入 |
+| Command | What it does |
 |---|---|
-| 移动 | `WASD` / 方向键 |
-| 瞄准 | 鼠标 |
-| 打开商店 | `B` |
-| 选择升级 | `1` / `2` / `3` |
-| 使用道具 | HUD 中显示的道具快捷键 |
+| `npm run dev` | Start the Vite dev server with HMR. |
+| `npm run build` | Type-check, then build the production bundle to `dist/`. |
+| `npm run preview` | Serve the production build locally. |
+| `npm run typecheck` | Run `tsc --noEmit`. |
+| `npm test` | Run the Vitest suite (unit + headless simulation). |
 
-### 快速开始
+## 📦 Tech & Layout
 
-```bash
-npm install
-npm run dev
+Built with **TypeScript**, **Vite 6**, **Canvas 2D**, **Vitest**, and **Zod** for schema validation — no game engine, no runtime UI framework.
+
+```
+src/
+├─ ecs/        entity/component storage + seeded deterministic RNG
+├─ systems/    movement, spawning, combat, weapons, pickups, equipment
+├─ render/     Canvas renderer, asset loading, sprite sizing
+├─ data/       balance, enemies, weapons, passives, equipment definitions
+├─ fx/         particles, corpses, blood decals
+├─ sim/        headless simulation harness (shares the live systems)
+├─ ui/         DOM overlay (title, HUD, level-up, shop, game-over)
+└─ game.ts     state machine, system pipeline, world rendering
+public/assets/ runtime sprites & audio
+tests/         Vitest coverage for core systems + headless sim
 ```
 
-然后打开终端中 Vite 输出的本地地址。
+## 🗺️ Roadmap
 
-### 常用命令
+- [ ] Optional GitHub Pages deployment for instant play.
+- [ ] Late-game item-economy balance tuning.
+- [ ] Richer per-enemy animation if new art lands.
+- [ ] Layered held-weapon sprites with hand anchors.
 
-```bash
-npm test
-npm run typecheck
-npm run build
-npm run preview
-```
+## 📄 License
 
-### 项目结构
+[MIT](LICENSE) © contributors. Art and audio assets under `public/assets/` follow the notes in [`public/assets/ASSETS.md`](public/assets/ASSETS.md).
 
-- `src/ecs/`：实体组件存储和确定性随机数。
-- `src/systems/`：移动、生成、战斗、武器、拾取、装备等玩法系统。
-- `src/render/`：Canvas 渲染、资源加载、精灵尺寸和玩家精灵选择。
-- `src/data/`：数值、敌人、武器、被动和装备定义。
-- `public/assets/`：浏览器运行时加载的图片和音频资源。
-- `tests/`：核心系统和无头模拟测试。
-- `docs/`：开发说明和截图。
-
-### 后续方向
-
-- 可选配置 GitHub Pages 在线试玩。
-- 调整后期金币和道具经济。
-- 如果有统一美术资源，再补主角动画。
-- 若要做真实持枪互动，建议使用 2D 分层角色和手部锚点，不要混用不同人物图。
-
-### 开源协议
-
-MIT License，见 [LICENSE](LICENSE)。
