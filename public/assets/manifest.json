@@ -1,0 +1,17 @@
+{
+  "player": "player.png",
+  "walker": "walker.png",
+  "runner": "runner.png",
+  "spitter": "spitter.png",
+  "exploder": "exploder.png",
+  "brute": "brute.png",
+  "boss": "boss.png",
+  "ground": "ground.png",
+  "coin": "coin.png",
+  "pistol": "pistol.png",
+  "shotgun": "shotgun.png",
+  "smg": "smg.png",
+  "magnum": "magnum.png",
+  "shockwave": "shockwave.png",
+  "orbit_blade": "orbit_blade.png"
+}
