@@ -94,3 +94,22 @@
 - `README.md`: added the gameplay screenshot near the top.
 - `progress.md`: appended this upload record.
 - Rollback: remove `docs/screenshots/gameplay-hero.png`, remove the README image line, and remove this progress entry.
+
+## 2026-06-21 - Task: Polish open-source metadata
+### What was done
+- Reworked the README into a more formal bilingual project page with badges, screenshot, controls, features, project layout, roadmap, and license sections.
+- Added the MIT License file.
+- Added package metadata for license, repository, homepage, and issue tracker.
+### Testing
+- `npm install --package-lock-only` completed and synchronized lockfile metadata.
+- `npm test` passed: 7 test files, 26 tests.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- UTF-8 README content check passed for the Simplified Chinese section.
+### Notes
+- `README.md`: replaced the plain README with a bilingual open-source style project page.
+- `LICENSE`: added standard MIT License text for `hhzz-svg`.
+- `package.json`: added MIT and GitHub repository metadata.
+- `package-lock.json`: synchronized root package metadata.
+- `progress.md`: appended this metadata polish record.
+- Rollback: restore the previous README, remove `LICENSE`, remove the new package metadata, restore `package-lock.json`, and remove this progress entry.
