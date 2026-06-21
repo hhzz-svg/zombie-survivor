@@ -9,6 +9,8 @@
 [![Vite](https://img.shields.io/badge/Vite-6.x-646cff.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Vitest](https://img.shields.io/badge/tested%20with-vitest-fcc72b.svg?logo=vitest&logoColor=white)](https://vitest.dev/)
 
+### [▶ 立即试玩](https://zombie-survivor.huz43462.workers.dev/)
+
 [English](README.md) · **简体中文**
 
 <img src="docs/screenshots/gameplay-hero.jpg" alt="末日清道夫 游戏截图" width="80%" />

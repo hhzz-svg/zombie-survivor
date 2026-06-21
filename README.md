@@ -9,6 +9,8 @@
 [![Vite](https://img.shields.io/badge/Vite-6.x-646cff.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Vitest](https://img.shields.io/badge/tested%20with-vitest-fcc72b.svg?logo=vitest&logoColor=white)](https://vitest.dev/)
 
+### [▶ Play Now](https://zombie-survivor.huz43462.workers.dev/)
+
 **English** · [简体中文](README.zh-CN.md)
 
 <img src="docs/screenshots/gameplay-hero.jpg" alt="Zombie Survivor gameplay" width="80%" />
