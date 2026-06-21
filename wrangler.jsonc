@@ -1,0 +1,11 @@
+{
+  // Static-assets-only deployment for Cloudflare (Workers Builds / `wrangler deploy`).
+  // No Worker script — `dist` is served directly as a single-page app.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zombie-survivor",
+  "compatibility_date": "2026-06-21",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
