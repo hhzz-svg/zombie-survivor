@@ -20,6 +20,7 @@ import { useItem, startBuff } from './systems/equipment';
 import { Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity } from './components';
 import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI } from './ui/ui';
+import { currentRunStage } from './data/balance';
 
 type State = 'title' | 'playing' | 'levelup' | 'shop' | 'gameover' | 'victory';
 
@@ -489,6 +490,7 @@ export class Game {
     const w = ctx.world;
     const ph = w.get(ctx.player, Health)!;
     const lo = w.get(ctx.player, Loadout)!;
+    const stage = currentRunStage(ctx.time.elapsed);
     let bossHp: number | null = null;
     for (const e of w.query(Enemy)) {
       const en = w.get(e, Enemy)!;
@@ -516,6 +518,8 @@ export class Game {
     }
 
     this.ui.updateHud({
+      stage: stage.index,
+      stageName: stage.name,
       hp: ph.hp,
       maxHp: ctx.stats.maxHp,
       xp: ctx.stats.xp,

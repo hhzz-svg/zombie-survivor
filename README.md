@@ -21,17 +21,18 @@
 
 ## Overview
 
-Hold the line against an ever-growing horde. Move, auto-fire at the cursor, vacuum up XP, draft upgrades, spend gold on consumables between waves, and survive long enough to bring down the **Hive Tyrant** boss.
+Hold the line through five escalating stages. Each stage raises the horde cap and spawn pressure, while the **Hive Tyrant** boss enters with telegraphed warnings, radial volleys, summon waves, and a slam shockwave.
 
 The whole simulation runs on a small custom ECS that is fully deterministic — the same systems power both the live game and a headless test harness, so balance can be verified in CI without a browser.
 
 ## ✨ Highlights
 
 - ⚡ **Fast top-down combat** — weapons fire automatically toward the mouse; you focus on positioning and kiting.
+- 🧭 **Stage-based horde pressure** — five visible stages ramp enemy cap and spawn density from cleanup to late-game pressure.
 - 🧬 **Deterministic ECS** — entity/component storage + a seeded RNG, exercised by a headless simulation in tests.
-- 🔫 **Deep build crafting** — 12 weapons, passives, and weapon evolutions drafted from level-up choices.
+- 🔫 **Boss fights with skills** — the Hive Tyrant now telegraphs its arrival, fires radial volleys, summons reinforcements, and slams the arena.
 - 🛒 **Consumable economy** — gold is a renewable resource: buy charges, timed potions, and stacking shields between fights.
-- 🎨 **Juicy Canvas 2D renderer** — sprite art, procedural run cycle, screen shake, hit flashes, particles, tracers, corpses, and blood decals.
+- 🎨 **Juicy Canvas 2D renderer** — sprite art, procedural run cycle, screen shake, hit flashes, shockwaves, particles, tracers, corpses, and blood decals.
 - 🧟 **Six enemy archetypes** — Walker, Runner, Spitter, Exploder, Brute, and the Hive Tyrant boss.
 
 ## 🎮 Controls
@@ -92,4 +93,3 @@ tests/         Vitest coverage for core systems + headless sim
 ## 📄 License
 
 [MIT](LICENSE) © contributors. Art and audio assets under `public/assets/` follow the notes in [`public/assets/ASSETS.md`](public/assets/ASSETS.md).
-

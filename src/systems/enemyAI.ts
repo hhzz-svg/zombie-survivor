@@ -2,7 +2,8 @@ import type { GameContext } from '../ctx';
 import { Transform, Velocity, Enemy, Health } from '../components';
 import { speedScale, WAVE } from '../data/balance';
 import { ENEMIES } from '../data/enemies';
-import { spawnEnemyBullet, spawnEnemyAt } from '../factory';
+import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet } from '../factory';
+import { damagePlayer } from './combat';
 
 /**
  * Enemy steering: seek the player + separation (anti-clumping) via the spatial hash.
@@ -66,12 +67,42 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
       }
       en.summonCd -= dt;
       if (en.summonCd <= 0 && w.query(Enemy).length < WAVE.cap) {
-        en.summonCd = en.enraged ? 3 : 5;
+        en.summonCd = en.enraged ? 2.8 : 4.8;
         const count = en.enraged ? 4 : 3;
         for (let i = 0; i < count; i++) {
           const a = ctx.rng() * Math.PI * 2;
           spawnEnemyAt(ctx, ENEMIES['runner']!, t.x + Math.cos(a) * 60, t.y + Math.sin(a) * 60);
         }
+      }
+      en.volleyCd -= dt;
+      if (en.volleyCd <= 0) {
+        en.volleyCd = en.enraged ? 1.35 : 2.15;
+        const shots = en.enraged ? 12 : 8;
+        const speed = en.enraged ? 0.95 : 1;
+        for (let i = 0; i < shots; i++) {
+          const a = (i / shots) * Math.PI * 2 + en.t * 0.5;
+          spawnBossBullet(ctx, t.x, t.y, Math.cos(a) * speed, Math.sin(a) * speed);
+        }
+        ctx.fx.shockwave(t.x, t.y, 42 + (en.enraged ? 14 : 0), '#e36aa0', 0.22);
+        ctx.fx.flash(t.x, t.y, 18, '#ffe7f2', '#e36aa0', 0.12);
+        ctx.audio.boss();
+      }
+      en.slamCd -= dt;
+      if (en.slamCd <= 0) {
+        en.slamCd = en.enraged ? 4.7 : 6.5;
+        const radius = 128 + (en.enraged ? 32 : 0);
+        ctx.fx.shockwave(t.x, t.y, radius, '#ffb4d0', 0.38);
+        ctx.fx.burst(t.x, t.y, en.enraged ? 28 : 20, '#ff87b5', 220, ctx.rng);
+        const ptDist = Math.hypot(pt.x - t.x, pt.y - t.y) || 1;
+        const push = en.enraged ? 260 : 180;
+        const px = (pt.x - t.x) / ptDist;
+        const py = (pt.y - t.y) / ptDist;
+        if (ptDist <= radius + 14) damagePlayer(ctx, en.enraged ? 24 : 16);
+        pt.x += px * push * 0.02;
+        pt.y += py * push * 0.02;
+        ctx.time.hitStop = Math.max(ctx.time.hitStop, en.enraged ? 45 : 28);
+        ctx.screen.shake = Math.max(ctx.screen.shake, en.enraged ? 18 : 12);
+        ctx.audio.explode();
       }
     }
 

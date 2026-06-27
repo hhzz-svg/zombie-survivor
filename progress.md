@@ -113,3 +113,31 @@
 - `package-lock.json`: synchronized root package metadata.
 - `progress.md`: appended this metadata polish record.
 - Rollback: restore the previous README, remove `LICENSE`, remove the new package metadata, restore `package-lock.json`, and remove this progress entry.
+
+## 2026-06-21 - Task: Stage-based horde and boss skill pass
+### What was done
+- Added explicit run stages so horde pressure ramps in visible steps instead of one flat curve.
+- Wired the spawn director to stage caps and stage spawn multipliers.
+- Expanded the Hive Tyrant fight with telegraphed entry, radial volleys, summon waves, and a slam shockwave.
+- Added shockwave VFX and surfaced the current stage in the HUD.
+- Refreshed the bilingual README highlights to match the current game loop.
+### Testing
+- `npm test -- tests/director.test.ts` passed.
+- `npm run typecheck` passed.
+- `npm test` passed: 8 test files, 30 tests.
+- `npm run build` passed.
+### Notes
+- `src/data/balance.ts`: added stage definitions and helpers for stage lookup and stage-based horde caps.
+- `src/systems/spawn.ts`: switched the director to stage-based spawn limits and added boss arrival telegraphing.
+- `src/components/index.ts`: extended boss runtime state with volley/slam cooldowns.
+- `src/factory.ts`: added boss bullet spawning and initialized boss runtime cooldowns.
+- `src/fx/fx.ts`: added pooled shockwave VFX.
+- `src/systems/weapons.ts`: now emits a shockwave when the nova weapon fires.
+- `src/systems/enemyAI.ts`: added boss volley and slam behavior.
+- `src/ctx.ts`: added optional boss warning tracking on the director state.
+- `src/ui/ui.ts`: shows the current stage and stage name in the HUD.
+- `src/game.ts`: forwards stage data into the HUD model.
+- `README.md`: updated the English highlights to mention stage pressure, boss skills, and shockwaves.
+- `README.zh-CN.md`: updated the Chinese highlights to match the new gameplay loop.
+- `tests/director.test.ts`: covers stage caps, boss telegraphing, and boss skill output.
+- Rollback: revert the files above to the previous commit and remove this progress entry.

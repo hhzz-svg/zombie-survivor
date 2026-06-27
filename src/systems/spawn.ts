@@ -1,7 +1,7 @@
 import type { GameContext } from '../ctx';
 import type { EnemyDef } from '../data/schemas';
-import { Enemy } from '../components';
-import { WAVE } from '../data/balance';
+import { Enemy, Transform } from '../components';
+import { hordeCapAt, spawnRateMulAt, WAVE } from '../data/balance';
 import { ENEMIES, SPAWN_TABLE } from '../data/enemies';
 import { spawnEnemyRing, spawnBoss } from '../factory';
 
@@ -13,9 +13,10 @@ import { spawnEnemyRing, spawnBoss } from '../factory';
 export function directorSystem(ctx: GameContext, dt: number): void {
   const d = ctx.director;
   let alive = ctx.world.query(Enemy).length;
-  d.budget += (WAVE.baseRate + ctx.time.elapsed * WAVE.ratePerSec) * dt;
+  const cap = hordeCapAt(ctx.time.elapsed);
+  d.budget += (WAVE.baseRate + ctx.time.elapsed * WAVE.ratePerSec) * spawnRateMulAt(ctx.time.elapsed) * dt;
 
-  while (d.budget >= 1 && alive < WAVE.cap) {
+  while (d.budget >= 1 && alive < cap) {
     const def = pickEnemy(ctx);
     if (!def) break;
     d.budget -= def.cost;
@@ -23,8 +24,21 @@ export function directorSystem(ctx: GameContext, dt: number): void {
     alive++;
   }
 
+  const bossLeadIn = 15;
+  if (!d.bossSpawned && d.bossWarningAt === undefined && ctx.time.elapsed >= WAVE.bossAt - bossLeadIn) {
+    d.bossWarningAt = ctx.time.elapsed;
+    const pt = ctx.world.get(ctx.player, Transform);
+    const x = pt?.x ?? 0;
+    const y = pt?.y ?? 0;
+    ctx.fx.shockwave(x, y, 180, '#ffb4d0', 0.5);
+    ctx.fx.flash(x, y, 24, '#ffe7f2', '#ff87b5', 0.16);
+    ctx.screen.shake = Math.max(ctx.screen.shake, 7);
+    ctx.audio.boss();
+  }
+
   if (!d.bossSpawned && ctx.time.elapsed >= WAVE.bossAt) {
     d.bossSpawned = true;
+    d.bossWarningAt = undefined;
     spawnBoss(ctx);
   }
 }

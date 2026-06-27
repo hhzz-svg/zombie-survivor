@@ -2,6 +2,8 @@ import type { Choice } from '../progression';
 import { EQUIPMENT, type EquipDef } from '../data/equipment';
 
 export interface HudData {
+  stage: number;
+  stageName: string;
   hp: number;
   maxHp: number;
   xp: number;
@@ -130,7 +132,7 @@ export class UI {
     this.xpFill.style.width = `${Math.min(100, (d.xp / d.xpToNext) * 100)}%`;
     this.hpFill.style.width = `${Math.max(0, (d.hp / d.maxHp) * 100)}%`;
     this.hpLabel.textContent = `HP ${Math.ceil(d.hp)} / ${d.maxHp}`;
-    this.topEl.innerHTML = `时间 <b>${UI.fmt(d.time)}</b> | 等级 <b>${d.level}</b> | 击杀 <b>${d.kills}</b>`;
+    this.topEl.innerHTML = `第 <b>${d.stage}</b> 阶段 ${d.stageName} | 时间 <b>${UI.fmt(d.time)}</b> | 等级 <b>${d.level}</b> | 击杀 <b>${d.kills}</b>`;
     this.weaponsEl.innerHTML = d.weapons
       .map((w) => `<div><span class="w">${w.name}</span> <span class="lv">Lv.${w.level}</span></div>`)
       .join('');

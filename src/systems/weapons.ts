@@ -79,6 +79,7 @@ function fire(ctx: GameContext, wi: WeaponInst, px: number, py: number, ax: numb
         damageEnemy(ctx, o, dmg, (ot.x - px) / (d || 1), (ot.y - py) / (d || 1), def.knockback, crit);
       }
     }
+    ctx.fx.shockwave(px, py, r, '#5fd0ff', 0.26);
     ctx.fx.flash(px, py, r * 0.5, '#eaffff', '#5fd0ff', 0.16);
     ctx.fx.burst(px, py, 20, '#bfe9ff', 280, ctx.rng);
     ctx.audio.nova();

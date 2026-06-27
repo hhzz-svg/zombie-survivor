@@ -12,6 +12,10 @@ interface Flash {
   x: number; y: number; r: number; core: string; glow: string;
   life: number; max: number; active: boolean;
 }
+interface Shockwave {
+  x: number; y: number; r: number; color: string;
+  life: number; max: number; active: boolean;
+}
 
 /**
  * Pooled particles + floating combat text + impact flashes. Kept as plain arrays (not ECS
@@ -22,6 +26,7 @@ export class FX {
   private parts: Particle[] = [];
   private texts: FloatText[] = [];
   private flashes: Flash[] = [];
+  private waves: Shockwave[] = [];
 
   burst(x: number, y: number, count: number, color: string, speed = 120, rng: () => number = Math.random): void {
     for (let i = 0; i < count; i++) {
@@ -52,6 +57,15 @@ export class FX {
       this.flashes.push(f);
     }
     f.x = x; f.y = y; f.r = r; f.core = core; f.glow = glow; f.life = life; f.max = life; f.active = true;
+  }
+
+  shockwave(x: number, y: number, r: number, color = '#e36aa0', life = 0.35): void {
+    let w = this.waves.find((q) => !q.active);
+    if (!w) {
+      w = { x: 0, y: 0, r: 0, color: '', life: 0, max: 0, active: false };
+      this.waves.push(w);
+    }
+    w.x = x; w.y = y; w.r = r; w.color = color; w.life = life; w.max = life; w.active = true;
   }
 
   private spawnPart(x: number, y: number, vx: number, vy: number, color: string, life: number, size: number): void {
@@ -89,9 +103,20 @@ export class FX {
       f.life -= dt;
       if (f.life <= 0) f.active = false;
     }
+    for (const w of this.waves) {
+      if (!w.active) continue;
+      w.life -= dt;
+      if (w.life <= 0) w.active = false;
+    }
   }
 
   draw(r: Renderer): void {
+    for (const w of this.waves) {
+      if (!w.active) continue;
+      const k = 1 - w.life / w.max;
+      r.drawRing(w.x, w.y, w.r * (0.25 + k * 0.75), w.color, 5 * (1 - k) + 1, 0.8 * (1 - k));
+      r.drawRing(w.x, w.y, w.r * (0.15 + k * 0.65), '#ffffff', 2, 0.45 * (1 - k));
+    }
     for (const f of this.flashes) {
       if (!f.active) continue;
       const k = f.life / f.max; // 1 → 0
@@ -111,5 +136,6 @@ export class FX {
     for (const p of this.parts) p.active = false;
     for (const t of this.texts) t.active = false;
     for (const f of this.flashes) f.active = false;
+    for (const w of this.waves) w.active = false;
   }
 }

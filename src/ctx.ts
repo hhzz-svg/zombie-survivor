@@ -32,6 +32,7 @@ export interface Director {
   budget: number;
   bossSpawned: boolean;
   bossDead: boolean;
+  bossWarningAt?: number;
 }
 
 export interface GameEvents {

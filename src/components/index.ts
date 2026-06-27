@@ -17,6 +17,8 @@ export interface EnemyRuntime {
   t: number; // age in seconds
   shootCd: number; // spitter fire timer
   summonCd: number; // boss summon timer
+  volleyCd: number; // boss radial bullet timer
+  slamCd: number; // boss shockwave timer
   enraged: boolean; // boss phase-2 flag
 }
 

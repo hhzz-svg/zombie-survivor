@@ -32,7 +32,15 @@ export function spawnEnemyAt(ctx: GameContext, def: EnemyDef, x: number, y: numb
   w.add(e, Health, { hp, max: hp, invuln: 0, flash: 0 });
   w.add(e, Collider, { r: def.radius });
   w.add(e, Renderable, { shape: 'circle', r: def.radius, color: def.color });
-  w.add(e, Enemy, { def, t: 0, shootCd: 1 + ctx.rng() * 1.5, summonCd: 5, enraged: false });
+  w.add(e, Enemy, {
+    def,
+    t: 0,
+    shootCd: 1 + ctx.rng() * 1.5,
+    summonCd: 5,
+    volleyCd: 2.2,
+    slamCd: 6.5,
+    enraged: false,
+  });
   return e;
 }
 
@@ -77,6 +85,19 @@ export function spawnEnemyBullet(ctx: GameContext, x: number, y: number, dx: num
   w.add(e, Renderable, { shape: 'circle', r: 6, color: '#9ef06f' });
   w.add(e, Bullet, { dmg: 10, pierce: 0, team: 'enemy', knockback: 0, crit: false, hit: new Set<Entity>() });
   w.add(e, Lifetime, { t: 3 });
+  return e;
+}
+
+export function spawnBossBullet(ctx: GameContext, x: number, y: number, dx: number, dy: number): Entity {
+  const w = ctx.world;
+  const e = w.create();
+  const sp = 255;
+  w.add(e, Transform, { x, y, rot: 0 });
+  w.add(e, Velocity, { x: dx * sp, y: dy * sp });
+  w.add(e, Collider, { r: 7 });
+  w.add(e, Renderable, { shape: 'circle', r: 7, color: '#e36aa0' });
+  w.add(e, Bullet, { dmg: 14, pierce: 0, team: 'enemy', knockback: 0, crit: false, hit: new Set<Entity>() });
+  w.add(e, Lifetime, { t: 3.6 });
   return e;
 }
 

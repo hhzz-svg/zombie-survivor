@@ -21,6 +21,39 @@ export function speedScale(t: number): number {
   return 1 + t / 320;
 }
 
+export interface RunStage {
+  index: number;
+  name: string;
+  from: number;
+  hordeCap: number;
+  spawnMul: number;
+}
+
+export const RUN_STAGES: readonly RunStage[] = [
+  { index: 1, name: 'Outbreak', from: 0, hordeCap: 80, spawnMul: 0.72 },
+  { index: 2, name: 'Street Swarm', from: 60, hordeCap: 140, spawnMul: 0.95 },
+  { index: 3, name: 'Night Push', from: 120, hordeCap: 220, spawnMul: 1.18 },
+  { index: 4, name: 'Hive Breach', from: 180, hordeCap: 320, spawnMul: 1.38 },
+  { index: 5, name: 'Tyrant Arrival', from: 225, hordeCap: 420, spawnMul: 1.55 },
+];
+
+export function currentRunStage(t: number): RunStage {
+  let stage = RUN_STAGES[0]!;
+  for (const s of RUN_STAGES) {
+    if (t >= s.from) stage = s;
+    else break;
+  }
+  return stage;
+}
+
+export function hordeCapAt(t: number): number {
+  return currentRunStage(t).hordeCap;
+}
+
+export function spawnRateMulAt(t: number): number {
+  return currentRunStage(t).spawnMul;
+}
+
 export const WAVE: WaveConfig = WaveConfigSchema.parse({
   baseRate: 1.8,
   ratePerSec: 0.075,
