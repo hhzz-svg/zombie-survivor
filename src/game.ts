@@ -231,7 +231,15 @@ export class Game {
     const offers = currentShopOffers(this.ctx);
     // Per-item "currently held" status line for the shop cards.
     const status = (id: string): string => {
-      const def = EQUIPMENT.find((e) => e.id === id)!;
+      // Skill offers carry ids that are not in EQUIPMENT, so resolve them first.
+      const skill = SKILLS.find((s) => s.id === id);
+      if (skill) {
+        if (!this.ctx!.skills.owned.has(id)) return '';
+        const remain = skillCooldownRemaining(this.ctx!, id);
+        return remain > 0 ? `冷却 ${Math.ceil(remain)}s` : '已解锁';
+      }
+      const def = EQUIPMENT.find((e) => e.id === id);
+      if (!def) return '';
       if (def.kind === 'charge') {
         const n = eq.charges.get(id) ?? 0;
         return n > 0 ? `持有 ×${n}` : '';
@@ -242,11 +250,6 @@ export class Game {
       const until = eq.buffs.get(id);
       if (until !== undefined && this.ctx!.time.elapsed < until) {
         return `生效中 ${Math.ceil(until - this.ctx!.time.elapsed)}s`;
-      }
-      const skill = SKILLS.find((s) => s.id === id);
-      if (skill && this.ctx!.skills.owned.has(id)) {
-        const remain = skillCooldownRemaining(this.ctx!, id);
-        return remain > 0 ? `冷却 ${Math.ceil(remain)}s` : '已解锁';
       }
       return '';
     };
