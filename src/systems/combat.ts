@@ -4,12 +4,14 @@ import { Transform, Health, Enemy } from '../components';
 import { spawnGem, spawnMedkit, spawnCoin } from '../factory';
 import { COIN_DROP, DEATH_DANCE_CAP } from '../data/equipment';
 import { buffActive } from './equipment';
+import { barrierAbsorb } from './skills';
 
 /** Shared damage resolution — used by bullets, nova, and explosions so the rules live in one place. */
 
 export function damagePlayer(ctx: GameContext, dmg: number): void {
   const h = ctx.world.get(ctx.player, Health)!;
   if (h.invuln > 0 || h.hp <= 0) return;
+  if (barrierAbsorb(ctx)) return;
   // Shield absorbs one hit completely, consuming one stacked layer.
   if (ctx.equip.shield > 0) {
     ctx.equip.shield--;

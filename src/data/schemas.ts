@@ -47,6 +47,18 @@ export const PassiveDefSchema = z.object({
 });
 export type PassiveDef = z.infer<typeof PassiveDefSchema>;
 
+export const SkillDefSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  desc: z.string(),
+  cost: z.number().positive(),
+  unlockStage: z.number().int().positive(),
+  cooldown: z.number().positive(),
+  key: z.string(),
+  iconKey: z.string(),
+});
+export type SkillDef = z.infer<typeof SkillDefSchema>;
+
 export const WaveConfigSchema = z.object({
   baseRate: z.number().nonnegative(), // base spawn budget per second
   ratePerSec: z.number().nonnegative(), // budget growth per elapsed second

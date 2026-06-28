@@ -4,6 +4,7 @@ import { speedScale, WAVE } from '../data/balance';
 import { ENEMIES } from '../data/enemies';
 import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet } from '../factory';
 import { damagePlayer } from './combat';
+import { SLOW_FACTOR, slowActive } from './skills';
 
 /**
  * Enemy steering: seek the player + separation (anti-clumping) via the spatial hash.
@@ -13,6 +14,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
   const w = ctx.world;
   const pt = w.get(ctx.player, Transform)!;
   const neigh: number[] = [];
+  const slowMul = slowActive(ctx) ? SLOW_FACTOR : 1;
 
   for (const e of w.query(Enemy, Transform, Velocity)) {
     const t = w.get(e, Transform)!;
@@ -53,7 +55,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         mx = -dx + sx * 0.8;
         my = -dy + sy * 0.8;
       }
-      en.shootCd -= dt;
+      en.shootCd -= dt * slowMul;
       if (en.shootCd <= 0 && dist < 460) {
         en.shootCd = 2.4;
         spawnEnemyBullet(ctx, t.x, t.y, dx, dy);
@@ -65,7 +67,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         ctx.audio.boss();
         ctx.screen.shake = Math.max(ctx.screen.shake, 12);
       }
-      en.summonCd -= dt;
+      en.summonCd -= dt * slowMul;
       if (en.summonCd <= 0 && w.query(Enemy).length < WAVE.cap) {
         en.summonCd = en.enraged ? 2.8 : 4.8;
         const count = en.enraged ? 4 : 3;
@@ -74,7 +76,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
           spawnEnemyAt(ctx, ENEMIES['runner']!, t.x + Math.cos(a) * 60, t.y + Math.sin(a) * 60);
         }
       }
-      en.volleyCd -= dt;
+      en.volleyCd -= dt * slowMul;
       if (en.volleyCd <= 0) {
         en.volleyCd = en.enraged ? 1.35 : 2.15;
         const shots = en.enraged ? 12 : 8;
@@ -87,7 +89,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         ctx.fx.flash(t.x, t.y, 18, '#ffe7f2', '#e36aa0', 0.12);
         ctx.audio.boss();
       }
-      en.slamCd -= dt;
+      en.slamCd -= dt * slowMul;
       if (en.slamCd <= 0) {
         en.slamCd = en.enraged ? 4.7 : 6.5;
         const radius = 128 + (en.enraged ? 32 : 0);
@@ -107,7 +109,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
     }
 
     const ml = Math.hypot(mx, my) || 1;
-    const speed = en.def.speed * speedScale(ctx.time.elapsed) * (en.enraged ? 1.4 : 1);
+    const speed = en.def.speed * speedScale(ctx.time.elapsed) * (en.enraged ? 1.4 : 1) * slowMul;
     v.x = (mx / ml) * speed;
     v.y = (my / ml) * speed;
   }

@@ -13,5 +13,9 @@
   "smg": "smg.png",
   "magnum": "magnum.png",
   "shockwave": "shockwave.png",
-  "orbit_blade": "orbit_blade.png"
+  "orbit_blade": "orbit_blade.png",
+  "skill_dash": "skill_dash.png",
+  "skill_burst": "skill_burst.png",
+  "skill_barrier": "skill_barrier.png",
+  "skill_slow": "skill_slow.png"
 }

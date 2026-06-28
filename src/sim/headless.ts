@@ -3,7 +3,7 @@ import { makeRng } from '../ecs/rng';
 import { SpatialHash } from '../ecs/spatialHash';
 import { FX } from '../fx/fx';
 import { AudioBus } from '../audio/audio';
-import type { GameContext, PlayerStats, Director, TimeState, EquipmentState } from '../ctx';
+import type { GameContext, PlayerStats, Director, TimeState, EquipmentState, SkillState } from '../ctx';
 import { PLAYER_BASE, xpToNext } from '../data/balance';
 import { createPlayer } from '../factory';
 import { runSystems } from '../systems/pipeline';
@@ -47,6 +47,17 @@ function freshEquip(): EquipmentState {
   };
 }
 
+function freshSkills(): SkillState {
+  return {
+    owned: new Set<string>(),
+    cooldowns: new Map<string, number>(),
+    barrierUntil: 0,
+    barrierLayers: 0,
+    slowUntil: 0,
+    dashUntil: 0,
+  };
+}
+
 /**
  * Run a full match with no rendering at a fixed 60 Hz. This is the plan's highest-leverage tool:
  * it shares the EXACT systems with the live game, so it (a) catches runtime crashes in CI without a
@@ -70,6 +81,7 @@ export function runHeadless(seed: number, maxSeconds: number): SimResult {
     director,
     stats,
     equip: freshEquip(),
+    skills: freshSkills(),
     input: ai,
     rng: world.rng,
     camera: { x: 0, y: 0 },

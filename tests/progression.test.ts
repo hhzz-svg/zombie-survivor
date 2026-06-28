@@ -25,6 +25,7 @@ function makeCtx(): GameContext {
     rng: world.rng, camera: { x: 0, y: 0 }, screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: { gold: 0, charges: new Map(), buffs: new Map(), buffUndo: new Map(), shield: 0, deathDanceStacks: 0 },
+    skills: { owned: new Set(), cooldowns: new Map(), barrierUntil: 0, barrierLayers: 0, slowUntil: 0, dashUntil: 0 },
   };
   ctx.player = createPlayer(ctx);
   return ctx;

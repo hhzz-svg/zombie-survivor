@@ -59,6 +59,15 @@ export interface EquipmentState {
   deathDanceStacks: number;
 }
 
+export interface SkillState {
+  owned: Set<string>;
+  cooldowns: Map<string, number>;
+  barrierUntil: number;
+  barrierLayers: number;
+  slowUntil: number;
+  dashUntil: number;
+}
+
 /**
  * Optional visual-only hooks. The live game supplies these to spawn corpses/afterimages that
  * need sprites; the headless sim leaves them undefined so it never depends on rendering.
@@ -85,5 +94,6 @@ export interface GameContext {
   screen: { shake: number }; // current screen-shake magnitude, decayed by the camera each frame
   events: GameEvents;
   equip: EquipmentState;
+  skills: SkillState;
   vfx?: VfxHooks; // optional; present only in the live game
 }

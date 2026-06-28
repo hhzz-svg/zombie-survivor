@@ -4,7 +4,7 @@ import { makeRng } from '../src/ecs/rng';
 import { SpatialHash } from '../src/ecs/spatialHash';
 import { FX } from '../src/fx/fx';
 import { AudioBus } from '../src/audio/audio';
-import type { GameContext, PlayerStats, EquipmentState } from '../src/ctx';
+import type { GameContext, PlayerStats, EquipmentState, SkillState } from '../src/ctx';
 import { PLAYER_BASE, xpToNext } from '../src/data/balance';
 import { WEAPONS } from '../src/data/weapons';
 import { createPlayer } from '../src/factory';
@@ -26,6 +26,17 @@ function freshEquip(): EquipmentState {
   };
 }
 
+function freshSkills(): SkillState {
+  return {
+    owned: new Set(),
+    cooldowns: new Map(),
+    barrierUntil: 0,
+    barrierLayers: 0,
+    slowUntil: 0,
+    dashUntil: 0,
+  };
+}
+
 function makeCtx(): GameContext {
   const world = new World(makeRng(5));
   const ctx: GameContext = {
@@ -35,6 +46,7 @@ function makeCtx(): GameContext {
     rng: world.rng, camera: { x: 0, y: 0 }, screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
+    skills: freshSkills(),
   };
   ctx.player = createPlayer(ctx);
   return ctx;

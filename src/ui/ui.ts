@@ -1,5 +1,7 @@
 import type { Choice } from '../progression';
-import { EQUIPMENT, type EquipDef } from '../data/equipment';
+import type { EquipDef } from '../data/equipment';
+import type { SkillDef } from '../data/schemas';
+import type { ShopOffer } from '../shop';
 
 export interface HudData {
   stage: number;
@@ -15,6 +17,7 @@ export interface HudData {
   bossHp: number | null; // 0..1 fraction, or null if no boss
   gold: number;
   items: Array<{ def: EquipDef; count: number; remain: number }>;
+  skills: Array<{ def: SkillDef; remain: number; active: boolean }>;
   shield: number;
 }
 
@@ -29,13 +32,17 @@ const STYLE = `
 #ui-shopbtn{position:fixed;top:36px;right:16px;pointer-events:auto;cursor:pointer;background:rgba(25,70,55,.7);border:1px solid #3fae84;border-radius:8px;padding:4px 12px;font-size:12px;color:#9ff7c8;letter-spacing:1px;transition:.12s}
 #ui-shopbtn:hover{background:rgba(40,120,90,.9);color:#eafff5}
 #ui-items{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:auto}
-#ui-items .slot{position:relative;width:48px;height:48px;background:rgba(15,35,28,.8);border:2px solid #2a5a45;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:.12s;user-select:none}
+#ui-items .slot{position:relative;width:48px;height:48px;background:rgba(15,35,28,.8);border:2px solid #2a5a45;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:.12s;user-select:none;overflow:visible}
 #ui-items .slot:hover{border-color:#5fd0a0;background:rgba(25,70,55,.8)}
+#ui-items .slot .slot-img{width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(159,247,200,.35))}
 #ui-items .slot .cd-overlay{position:absolute;inset:0;background:rgba(0,0,0,.65);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#ff9;font-weight:700}
 #ui-items .slot .slot-key{position:absolute;top:-8px;right:-6px;background:#1a3a2a;border:1px solid #3fae84;border-radius:4px;font-size:9px;color:#9ff7c8;padding:1px 4px;letter-spacing:0.5px}
 #ui-items .slot .slot-count{position:absolute;bottom:-6px;right:-4px;background:#3a2a1a;border:1px solid #ae843f;border-radius:4px;font-size:10px;color:#ffe66a;font-weight:700;padding:0 4px}
 #ui-items .slot.passive{border-color:#5a4a20;background:rgba(40,35,15,.8)}
 #ui-items .slot.passive .slot-key{display:none}
+#ui-items .slot.skill{border-color:#3f6fae;background:rgba(15,28,45,.84)}
+#ui-items .slot.skill.ready{border-color:#74c7ff;box-shadow:0 0 14px rgba(116,199,255,.26)}
+#ui-items .slot.skill.active{border-color:#b7a5ff;box-shadow:0 0 18px rgba(183,165,255,.38)}
 #ui-hpwrap{position:fixed;left:16px;bottom:16px;width:240px}
 #ui-hp{height:16px;border-radius:9px;background:#2a1414;overflow:hidden;border:1px solid #5a2a2a}
 #ui-hp>i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#e5483b,#ff8b6b);transition:width .1s}
@@ -46,15 +53,19 @@ const STYLE = `
 #ui-boss>i{display:block;height:10px;width:100%;background:linear-gradient(90deg,#9b3b6a,#e36aa0);border-radius:6px}
 #ui-boss .t{font-size:12px;color:#e8a8c8;text-align:center;margin-bottom:3px;letter-spacing:2px}
 #ui-overlay{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(4,8,7,.78);backdrop-filter:blur(3px);pointer-events:auto}
-#ui-overlay .panel{width:min(640px,94%);max-height:85vh;overflow-y:auto;text-align:center;padding:30px 26px;background:linear-gradient(160deg,#11221c,#0a1512);border:1px solid #2f5c4a;border-radius:18px;box-shadow:0 0 50px rgba(40,200,140,.18);font-family:system-ui,"Microsoft YaHei",sans-serif;color:#dfe7e3}
+#ui-overlay .panel{width:min(720px,94%);max-height:85vh;overflow-y:auto;text-align:center;padding:30px 26px;background:linear-gradient(160deg,#11221c,#0a1512);border:1px solid #2f5c4a;border-radius:18px;box-shadow:0 0 50px rgba(40,200,140,.18);font-family:system-ui,"Microsoft YaHei",sans-serif;color:#dfe7e3}
 #ui-overlay h1{font-size:30px;margin:0 0 8px;color:#9ff7c8;letter-spacing:3px}
 #ui-overlay p{font-size:14px;color:#8fc0ac;line-height:1.8;margin:6px 0 18px}
 #ui-overlay .cards{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-#ui-overlay .card{flex:1;min-width:130px;max-width:170px;cursor:pointer;background:rgba(25,70,55,.5);border:1px solid #3fae84;border-radius:12px;padding:16px 12px;transition:.12s}
+#ui-overlay .card{flex:1;min-width:132px;max-width:172px;cursor:pointer;background:rgba(25,70,55,.5);border:1px solid #3fae84;border-radius:12px;padding:16px 12px;transition:.12s}
 #ui-overlay .card:hover{background:rgba(40,120,90,.8);transform:translateY(-3px);box-shadow:0 6px 18px rgba(40,200,140,.3)}
+#ui-overlay .card.skill-card{background:rgba(18,42,72,.58);border-color:#4b91d8}
+#ui-overlay .card.skill-card:hover{background:rgba(30,72,116,.82);box-shadow:0 6px 18px rgba(90,170,255,.28)}
 #ui-overlay .card.cantafford{opacity:.55;cursor:not-allowed}
-#ui-overlay .card .icon{font-size:28px;margin-bottom:4px}
+#ui-overlay .card .icon{font-size:28px;margin-bottom:4px;min-height:34px}
+#ui-overlay .card .icon img{width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 0 7px rgba(159,247,200,.45))}
 #ui-overlay .card .k{font-size:11px;color:#7fc0a4;letter-spacing:1px}
+#ui-overlay .card.skill-card .k{color:#9ccfff}
 #ui-overlay .card .n{font-size:15px;color:#eafff5;margin:6px 0 4px;font-weight:600}
 #ui-overlay .card .d{font-size:12px;color:#9fd0bc;line-height:1.5}
 #ui-overlay .card .cost{font-size:13px;color:#ffd700;margin-top:8px;font-weight:700}
@@ -93,7 +104,7 @@ export class UI {
       <div id="ui-gold"></div>
       <div id="ui-shopbtn">[B] 商店</div>
       <div id="ui-items"></div>
-      <div id="ui-boss"><div class="t">母 巢 暴 君</div><i></i></div>
+      <div id="ui-boss"><div class="t">母巢暴君</div><i></i></div>
       <div id="ui-hpwrap"><div id="ui-hp"><i></i></div><div id="ui-hplabel"></div></div>
       <div id="ui-weapons"></div>`;
     document.body.appendChild(hud);
@@ -143,10 +154,8 @@ export class UI {
       this.bossFill.style.width = `${Math.max(0, d.bossHp * 100)}%`;
     }
 
-    // Gold display
-    this.goldEl.innerHTML = `🪙 <b>${d.gold}</b>`;
+    this.goldEl.innerHTML = `金币 <b>${d.gold}</b>`;
 
-    // Inventory bar: charge/shield items show a ×count badge; buffs show remaining seconds.
     let barHtml = '';
     for (const item of d.items) {
       const isBuff = item.def.kind === 'buff';
@@ -155,12 +164,22 @@ export class UI {
         ? `<div class="cd-overlay">${Math.ceil(item.remain)}s</div>`
         : '';
       const countBadge = !isBuff
-        ? `<span class="slot-count">×${item.count}</span>`
+        ? `<span class="slot-count">x${item.count}</span>`
         : '';
       const keyHint = item.def.kind === 'charge' && item.def.key
         ? `<span class="slot-key">${keyLabel(item.def.key)}</span>`
         : '';
       barHtml += `<div class="${cls}" title="${item.def.tip}">${item.def.icon}${overlay}${countBadge}${keyHint}</div>`;
+    }
+    for (const skill of d.skills) {
+      const ready = skill.remain <= 0;
+      const cls = `slot skill${ready ? ' ready' : ''}${skill.active ? ' active' : ''}`;
+      const overlay = ready ? '' : `<div class="cd-overlay">${Math.ceil(skill.remain)}s</div>`;
+      barHtml += `<div class="${cls}" title="${skill.def.desc}">
+        <img class="slot-img" src="/assets/${skill.def.iconKey}.png" alt="">
+        ${overlay}
+        <span class="slot-key">${keyLabel(skill.def.key)}</span>
+      </div>`;
     }
     this.itemsBar.innerHTML = barHtml;
   }
@@ -169,10 +188,10 @@ export class UI {
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>末日清道夫</h1>
-        <p>WASD / 方向键移动 · 鼠标瞄准 · 自动开火<br>
-        击杀丧尸掉落金币，按 <b style="color:#ffd700">B</b> 打开商店购买装备。<br>
-        升级三选一构筑你的 build，活到母巢暴君出现并击杀它。${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
-        <button class="start">开 始 （Space）</button>
+        <p>WASD / 方向键移动 | 鼠标瞄准 | 自动开火<br>
+        击杀丧尸掉落金币，按 <b style="color:#ffd700">B</b> 打开商店购买装备与后期技能。<br>
+        升级三选一构筑你的 build，撑到母巢暴君出现并击杀它。${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
+        <button class="start">开始 (Space)</button>
       </div>`;
     (this.overlay.querySelector('.start') as HTMLElement).onclick = onStart;
     this.overlay.style.display = 'flex';
@@ -190,10 +209,11 @@ export class UI {
           const spriteImg = spriteKey
             ? `<img src="/assets/${spriteKey}.png" style="width:56px;height:56px;object-fit:contain;margin-bottom:4px;filter:drop-shadow(0 0 6px rgba(63,174,132,.5))" alt="">`
             : '';
+          const kind = c.kind === 'passive' ? '强化' : c.kind === 'weapon-new' ? '武器' : c.kind === 'weapon-evo' ? '进化' : '升级';
           return `
         <div class="card" data-i="${i}">
           ${spriteImg}
-          <div class="k">${c.kind === 'passive' ? '强化' : c.kind === 'weapon-new' ? '武器' : c.kind === 'weapon-evo' ? '进化' : '升级'}</div>
+          <div class="k">${kind}</div>
           <div class="n">${c.label}</div>
           <div class="d">${c.desc}</div>
           <div class="key">按 ${i + 1}</div>
@@ -201,7 +221,7 @@ export class UI {
         },
       )
       .join('');
-    this.overlay.innerHTML = `<div class="panel"><h1>升 级</h1><p>选择一项强化</p><div class="cards">${cards}</div></div>`;
+    this.overlay.innerHTML = `<div class="panel"><h1>升级</h1><p>选择一项强化</p><div class="cards">${cards}</div></div>`;
     this.overlay.querySelectorAll('.card').forEach((el) => {
       (el as HTMLElement).onclick = () => onPick(Number((el as HTMLElement).dataset.i));
     });
@@ -214,27 +234,35 @@ export class UI {
 
   showShop(
     gold: number,
+    offers: ShopOffer[],
     status: (id: string) => string,
-    onBuy: (id: string) => boolean,
+    onBuy: (offer: ShopOffer) => boolean,
     onClose: () => void,
   ): void {
-    const cards = EQUIPMENT
-      .map((eq) => {
-        const canAfford = gold >= eq.cost;
-        const held = status(eq.id);
-        let cls = 'card';
+    const cards = offers
+      .map((offer, i) => {
+        const isSkill = offer.type === 'skill';
+        const def = isSkill ? offer.skill : offer.equipment;
+        const canAfford = gold >= def.cost;
+        const held = status(offer.id);
+        let cls = isSkill ? 'card skill-card' : 'card';
         if (!canAfford) cls += ' cantafford';
         const heldLine = held ? `<div class="held-label">${held}</div>` : '';
-        const kindLabel = eq.kind === 'charge' ? '消耗' : eq.kind === 'shield' ? '护盾' : '药剂';
-        const keyHint = eq.kind === 'charge' && eq.key
-          ? `<div class="key">快捷键: ${keyLabel(eq.key)}</div>`
-          : '';
-        return `<div class="${cls}" data-id="${eq.id}">
-          <div class="icon">${eq.icon}</div>
+        const kindLabel = isSkill ? '主动技能' : equipmentKindLabel(offer.equipment.kind);
+        const icon = isSkill
+          ? `<img src="/assets/${offer.skill.iconKey}.png" alt="">`
+          : offer.equipment.icon;
+        const keyHint = isSkill
+          ? `<div class="key">技能键 ${keyLabel(offer.skill.key)}</div>`
+          : offer.equipment.kind === 'charge' && offer.equipment.key
+            ? `<div class="key">快捷键 ${keyLabel(offer.equipment.key)}</div>`
+            : '';
+        return `<div class="${cls}" data-offer="${i}">
+          <div class="icon">${icon}</div>
           <div class="k">${kindLabel}</div>
-          <div class="n">${eq.name}</div>
-          <div class="d">${eq.desc}</div>
-          <div class="cost">🪙 ${eq.cost}</div>
+          <div class="n">${def.name}</div>
+          <div class="d">${def.desc}</div>
+          <div class="cost">金币 ${def.cost}</div>
           ${heldLine}
           ${keyHint}
         </div>`;
@@ -243,17 +271,17 @@ export class UI {
 
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>装 备 商 店</h1>
-        <div class="gold-display">金币: <b>${gold}</b> 🪙</div>
+        <h1>装备商店</h1>
+        <div class="gold-display">金币: <b>${gold}</b></div>
         <div class="cards">${cards}</div>
-        <p style="margin-top:14px;font-size:12px;color:#6a9a84">装备均为一次性消耗品，可反复购买 · 按 B / Esc 关闭</p>
-        <button class="start" id="shop-close">关 闭 （B）</button>
+        <p style="margin-top:14px;font-size:12px;color:#6a9a84">装备可重复购买；第 3 阶段后会出现本局主动技能。按 B / Esc 关闭。</p>
+        <button class="start" id="shop-close">关闭 (B)</button>
       </div>`;
 
     this.overlay.querySelectorAll('.card').forEach((el) => {
       (el as HTMLElement).onclick = () => {
-        const id = (el as HTMLElement).dataset.id!;
-        onBuy(id);
+        const offer = offers[Number((el as HTMLElement).dataset.offer)];
+        if (offer) onBuy(offer);
       };
     });
     (this.overlay.querySelector('#shop-close') as HTMLElement).onclick = onClose;
@@ -267,10 +295,10 @@ export class UI {
   showEnd(victory: boolean, time: number, kills: number, best: number, onRestart: () => void): void {
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>${victory ? '胜 利' : '阵 亡'}</h1>
-        <p>${victory ? '你击杀了母巢暴君，清道夫传说诞生。' : '丧尸潮将你吞没……'}<br>
-        生存 ${UI.fmt(time)} · 击杀 ${kills} · 最佳 ${UI.fmt(best)}</p>
-        <button class="start">再来一局 （Space）</button>
+        <h1>${victory ? '胜利' : '阵亡'}</h1>
+        <p>${victory ? '你击杀了母巢暴君，清道夫传说诞生。' : '丧尸潮将你吞没...'}<br>
+        生存 ${UI.fmt(time)} | 击杀 ${kills} | 最佳 ${UI.fmt(best)}</p>
+        <button class="start">再来一局 (Space)</button>
       </div>`;
     (this.overlay.querySelector('.start') as HTMLElement).onclick = onRestart;
     this.overlay.style.display = 'flex';
@@ -279,6 +307,12 @@ export class UI {
   hideEnd(): void {
     this.overlay.style.display = 'none';
   }
+}
+
+function equipmentKindLabel(kind: EquipDef['kind']): string {
+  if (kind === 'charge') return '消耗品';
+  if (kind === 'shield') return '护盾';
+  return '药剂';
 }
 
 function keyLabel(code: string): string {

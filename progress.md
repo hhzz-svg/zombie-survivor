@@ -141,3 +141,34 @@
 - `README.zh-CN.md`: updated the Chinese highlights to match the new gameplay loop.
 - `tests/director.test.ts`: covers stage caps, boss telegraphing, and boss skill output.
 - Rollback: revert the files above to the previous commit and remove this progress entry.
+
+## 2026-06-28 - Task: Active skills and mixed shop
+### What was done
+- Added run-only active skills unlocked from the shop after the mid-game stage.
+- Extended the shop to sell both consumable equipment and active skills without changing the single-player-sprite art strategy.
+- Added cooldown HUD slots for `Z` / `X` / `C` / `V` skills and wired dash, burst, barrier, and time-slow effects into combat.
+- Added transparent PNG skill icons and registered them in the asset manifest.
+- Refreshed bilingual README and asset documentation for the new shop and skill rules.
+### Testing
+- `npm test -- tests/skills.test.ts` passed: 7 tests.
+- `npm test` passed: 9 test files, 37 tests.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+### Notes
+- `src/data/skills.ts`: added the active skill catalog and stage unlock helper.
+- `src/systems/skills.ts`: added skill purchase, activation, cooldown, barrier, and slow-state logic.
+- `src/shop.ts`: added mixed equipment/skill shop offer generation.
+- `src/game.ts`: initialized skill state, handled skill hotkeys, and passed skill/shop data into the UI.
+- `src/ui/ui.ts`: added mixed shop cards, skill HUD slots, and readable Chinese UI text.
+- `src/systems/combat.ts`: made temporary skill barriers absorb hits before equipment shields.
+- `src/systems/enemyAI.ts`: applied the time-slow skill to enemy movement and attack timers.
+- `src/systems/pipeline.ts`: runs skill maintenance each tick.
+- `src/ctx.ts` and `src/data/schemas.ts`: added skill runtime and data types.
+- `src/sim/headless.ts`: initialized skill state in headless simulation.
+- `tests/skills.test.ts`: covers shop stage gating, purchase dedupe, cooldown, dash, burst, barrier, and slow behavior.
+- Existing test helpers were updated to include the new skill state.
+- `public/assets/skill_dash.png`, `public/assets/skill_burst.png`, `public/assets/skill_barrier.png`, `public/assets/skill_slow.png`: added transparent skill icons.
+- `public/assets/manifest.json`: registered the skill icons.
+- `tools/generate-skill-icons.mjs`: added a reproducible icon generation script.
+- `README.md`, `README.zh-CN.md`, `public/assets/ASSETS.md`, `docs/skill-system.md`: documented controls, shop skills, asset rules, and the single-player-sprite strategy.
+- Rollback: revert this commit/branch, or restore the files listed above from `main` and delete the four `skill_*.png` assets plus this progress entry.

@@ -4,7 +4,7 @@ import { makeRng } from '../src/ecs/rng';
 import { SpatialHash } from '../src/ecs/spatialHash';
 import { FX } from '../src/fx/fx';
 import { AudioBus } from '../src/audio/audio';
-import type { GameContext, PlayerStats, EquipmentState } from '../src/ctx';
+import type { GameContext, PlayerStats, EquipmentState, SkillState } from '../src/ctx';
 import { PLAYER_BASE, currentRunStage, hordeCapAt, xpToNext, WAVE } from '../src/data/balance';
 import { createPlayer, spawnBoss } from '../src/factory';
 import { Bullet, Enemy, Health, Transform, type EnemyRuntime } from '../src/components';
@@ -35,6 +35,17 @@ function freshEquip(): EquipmentState {
   };
 }
 
+function freshSkills(): SkillState {
+  return {
+    owned: new Set(),
+    cooldowns: new Map(),
+    barrierUntil: 0,
+    barrierLayers: 0,
+    slowUntil: 0,
+    dashUntil: 0,
+  };
+}
+
 function makeCtx(fx: FX = new FX()): GameContext {
   const world = new World(makeRng(9));
   const ctx: GameContext = {
@@ -44,6 +55,7 @@ function makeCtx(fx: FX = new FX()): GameContext {
     rng: world.rng, camera: { x: 0, y: 0 }, screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
+    skills: freshSkills(),
   };
   ctx.player = createPlayer(ctx);
   return ctx;

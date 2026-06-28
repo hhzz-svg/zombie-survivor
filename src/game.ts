@@ -11,16 +11,19 @@ import { AssetStore } from './render/assets';
 import { playerWeaponSpriteKey } from './render/playerWeaponSprite';
 import { Input } from './input/input';
 import { DomInput } from './input/provider';
-import type { GameContext, PlayerStats, EquipmentState } from './ctx';
+import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx';
 import { PLAYER_BASE, xpToNext } from './data/balance';
 import { EQUIPMENT } from './data/equipment';
+import { SKILLS } from './data/skills';
 import { createPlayer } from './factory';
 import { runSystems } from './systems/pipeline';
 import { useItem, startBuff } from './systems/equipment';
+import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
 import { Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity } from './components';
 import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI } from './ui/ui';
 import { currentRunStage } from './data/balance';
+import { currentShopOffers, type ShopOffer } from './shop';
 
 type State = 'title' | 'playing' | 'levelup' | 'shop' | 'gameover' | 'victory';
 
@@ -92,6 +95,17 @@ export class Game {
     };
   }
 
+  private freshSkills(): SkillState {
+    return {
+      owned: new Set<string>(),
+      cooldowns: new Map<string, number>(),
+      barrierUntil: 0,
+      barrierLayers: 0,
+      slowUntil: 0,
+      dashUntil: 0,
+    };
+  }
+
   start(): void {
     this.audio.resume();
     this.fx.clear();
@@ -109,6 +123,7 @@ export class Game {
       director: { budget: 0, bossSpawned: false, bossDead: false },
       stats: this.freshStats(),
       equip: this.freshEquip(),
+      skills: this.freshSkills(),
       input: new DomInput(this.keys, this.renderer),
       rng: world.rng,
       camera: { x: 0, y: 0 },
@@ -149,6 +164,7 @@ export class Game {
 
     // Handle just-pressed keys for items (during playing state)
     this.handleItemKeys();
+    this.handleSkillKeys();
     this.keys.flush();
 
     if (this.state === 'playing' && this.pendingLevels > 0) this.enterLevelUp();
@@ -167,6 +183,15 @@ export class Game {
           this.ctx.audio.pickup();
           this.ctx.screen.shake = Math.max(this.ctx.screen.shake, 4);
         }
+      }
+    }
+  }
+
+  private handleSkillKeys(): void {
+    if (!this.ctx || this.state !== 'playing') return;
+    for (const skill of SKILLS) {
+      if (this.keys.justPressed(skill.key) && useSkill(this.ctx, skill.key)) {
+        this.ctx.screen.shake = Math.max(this.ctx.screen.shake, 3);
       }
     }
   }
@@ -203,6 +228,7 @@ export class Game {
   private renderShop(): void {
     if (!this.ctx) return;
     const eq = this.ctx.equip;
+    const offers = currentShopOffers(this.ctx);
     // Per-item "currently held" status line for the shop cards.
     const status = (id: string): string => {
       const def = EQUIPMENT.find((e) => e.id === id)!;
@@ -217,19 +243,35 @@ export class Game {
       if (until !== undefined && this.ctx!.time.elapsed < until) {
         return `生效中 ${Math.ceil(until - this.ctx!.time.elapsed)}s`;
       }
+      const skill = SKILLS.find((s) => s.id === id);
+      if (skill && this.ctx!.skills.owned.has(id)) {
+        const remain = skillCooldownRemaining(this.ctx!, id);
+        return remain > 0 ? `冷却 ${Math.ceil(remain)}s` : '已解锁';
+      }
       return '';
     };
     this.ui.showShop(
       eq.gold,
+      offers,
       status,
-      (id: string) => this.buyItem(id),
+      (offer: ShopOffer) => this.buyOffer(offer),
       () => this.closeShop(),
     );
   }
 
-  private buyItem(id: string): boolean {
+  private buyOffer(offer: ShopOffer): boolean {
     if (!this.ctx) return false;
     const eq = this.ctx.equip;
+    if (offer.type === 'skill') {
+      const ok = buySkill(this.ctx, offer.id);
+      if (!ok) return false;
+      this.audio.levelUp();
+      this.ctx.screen.shake = Math.max(this.ctx.screen.shake, 4);
+      this.renderShop();
+      return true;
+    }
+
+    const id = offer.id;
     const def = EQUIPMENT.find((e) => e.id === id);
     if (!def || eq.gold < def.cost) return false;
 
@@ -463,6 +505,14 @@ export class Game {
         const pulse = 0.6 + 0.4 * Math.sin(now / 300);
         r.drawRing(pt.x, pt.y, R + 10, `rgba(95,184,255,${pulse * 0.7})`, 2.5);
       }
+      if (ctx.skills.barrierLayers > 0 && ctx.skills.barrierUntil > ctx.time.elapsed) {
+        const pulse = 0.6 + 0.4 * Math.sin(now / 240);
+        r.drawRing(pt.x, pt.y, R + 16, `rgba(116,199,255,${pulse * 0.78})`, 3);
+      }
+      if (ctx.skills.slowUntil > ctx.time.elapsed) {
+        const pulse = 0.45 + 0.35 * Math.sin(now / 180);
+        r.drawRing(pt.x, pt.y, R + 22, `rgba(168,144,255,${pulse})`, 2);
+      }
       // Draw berserk aura while the rage buff is active.
       if ((ctx.equip.buffs.get('berserk') ?? -1) > ctx.time.elapsed) {
         const pulse = 0.5 + 0.5 * Math.sin(now / 100);
@@ -531,6 +581,19 @@ export class Game {
       bossHp,
       gold: ctx.equip.gold,
       items,
+      skills: SKILLS
+        .filter((skill) => ctx.skills.owned.has(skill.id))
+        .map((skill) => ({
+          def: skill,
+          remain: skillCooldownRemaining(ctx, skill.id),
+          active: skill.id === 'barrier'
+            ? ctx.skills.barrierLayers > 0 && ctx.skills.barrierUntil > ctx.time.elapsed
+            : skill.id === 'slow'
+              ? ctx.skills.slowUntil > ctx.time.elapsed
+              : skill.id === 'dash'
+                ? ctx.skills.dashUntil > ctx.time.elapsed
+                : false,
+        })),
       shield: ctx.equip.shield,
     });
   }
