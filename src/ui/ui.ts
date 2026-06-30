@@ -106,6 +106,14 @@ const STYLE = `
 #ui-overlay .gold-display{font-size:16px;color:var(--fire);margin-bottom:14px}.gold-display b{color:#ffe66a}
 #ui-overlay .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0;text-align:left}
 #ui-overlay .summary div{padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px}.summary span{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}.summary b{color:var(--text)}
+#ui-overlay .shop-panel{width:min(1120px,96%);padding:24px 26px;overflow:hidden}
+#ui-overlay .shop-panel .cards{grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px}
+#ui-overlay .shop-panel .card{min-height:0;padding:10px 10px}
+#ui-overlay .shop-panel .card .icon{min-height:44px;margin-bottom:5px}
+#ui-overlay .shop-panel .card .icon img{width:42px;height:42px}
+#ui-overlay .shop-panel .card .n{font-size:14px}
+#ui-overlay .shop-panel .card .d{font-size:11px;line-height:1.35}
+#ui-overlay .shop-panel .cost{margin-top:6px}
 @media (max-width:900px){#ui-mission{min-width:0;width:calc(100vw - 32px);grid-template-columns:1fr auto;gap:10px;top:14px}#ui-threat{display:none}#ui-economy{top:64px;right:12px}#ui-weapons{display:none}#ui-hpwrap,#ui-weapon-primary{left:12px;width:280px}#ui-items{bottom:84px}#ui-tutorial{display:none}}
 `
 
@@ -333,7 +341,7 @@ export class UI {
       .join('');
 
     this.overlay.innerHTML = `
-      <div class="panel">
+      <div class="panel shop-panel">
         <h1>装备商店</h1>
         <div class="gold-display">金币: <b>${gold}</b></div>
         <div class="cards">${cards}</div>
