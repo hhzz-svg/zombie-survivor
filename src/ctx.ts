@@ -33,6 +33,8 @@ export interface Director {
   bossSpawned: boolean;
   bossDead: boolean;
   bossWarningAt?: number;
+  stageIndex?: number;
+  stageBannerUntil?: number;
 }
 
 export interface GameEvents {

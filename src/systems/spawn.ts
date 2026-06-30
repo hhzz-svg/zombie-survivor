@@ -4,6 +4,7 @@ import { Enemy, Transform } from '../components';
 import { hordeCapAt, spawnRateMulAt, WAVE } from '../data/balance';
 import { ENEMIES, SPAWN_TABLE } from '../data/enemies';
 import { spawnEnemyRing, spawnBoss } from '../factory';
+import { introSpawnMultiplier } from '../runFlow';
 
 /**
  * Wave Director: an intensity-aware spawn budget. Budget accrues over time; affordable enemies
@@ -14,7 +15,10 @@ export function directorSystem(ctx: GameContext, dt: number): void {
   const d = ctx.director;
   let alive = ctx.world.query(Enemy).length;
   const cap = hordeCapAt(ctx.time.elapsed);
-  d.budget += (WAVE.baseRate + ctx.time.elapsed * WAVE.ratePerSec) * spawnRateMulAt(ctx.time.elapsed) * dt;
+  d.budget += (WAVE.baseRate + ctx.time.elapsed * WAVE.ratePerSec)
+    * spawnRateMulAt(ctx.time.elapsed)
+    * introSpawnMultiplier(ctx.time.elapsed)
+    * dt;
 
   while (d.budget >= 1 && alive < cap) {
     const def = pickEnemy(ctx);

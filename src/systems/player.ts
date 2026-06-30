@@ -3,6 +3,7 @@ import { Transform, Collider, Health, Enemy, XPGem, GoldCoin, Medkit } from '../
 import { PLAYER_BASE, xpToNext } from '../data/balance';
 import { damagePlayer, killEnemy } from './combat';
 import { buffActive } from './equipment';
+import { pickupRangeMultiplier } from '../runFlow';
 
 /** Player ↔ enemy body contact (with i-frames) and the exploder's contact detonation. */
 export function contactSystem(ctx: GameContext, dt: number): void {
@@ -32,7 +33,7 @@ export function contactSystem(ctx: GameContext, dt: number): void {
 export function pickupSystem(ctx: GameContext, dt: number): void {
   const w = ctx.world;
   const pt = w.get(ctx.player, Transform)!;
-  const range = PLAYER_BASE.pickupRange * (1 + ctx.stats.magnet);
+  const range = PLAYER_BASE.pickupRange * pickupRangeMultiplier(ctx.time.elapsed, ctx.stats.magnet);
   const r2 = range * range;
   for (const e of w.query(XPGem, Transform)) {
     const t = w.get(e, Transform)!;
