@@ -4,12 +4,12 @@ import { SpatialHash } from './ecs/spatialHash';
 import { FX } from './fx/fx';
 import { CorpseFX } from './fx/corpseFX';
 import { BloodDecals } from './fx/bloodDecals';
-import { enemySpriteSize, playerSpriteSize } from './render/spriteScale';
+import { enemySpriteSize } from './render/spriteScale';
 import { actorDepth, recoilAmount, walkMotion } from './render/motion';
+import { combatActorPose } from './render/combatActor';
 import { AudioBus } from './audio/audio';
 import type { Renderer } from './render/renderer';
 import { AssetStore } from './render/assets';
-import { playerWeaponSpriteKey } from './render/playerWeaponSprite';
 import { Input } from './input/input';
 import { DomInput } from './input/provider';
 import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx';
@@ -533,16 +533,39 @@ export class Game {
           r.drawEllipse(pt.x, pt.y + R * 0.75, R * (0.95 - anim.squash * 0.5), R * 0.4, 'rgba(0,0,0,0.32)');
           const flick = ph.invuln > 0 && Math.floor(ctx.time.elapsed * 20) % 2 === 0;
           if (!flick) {
-            const img = this.assets.get(playerWeaponSpriteKey(lo?.activeWeapon)) ?? this.assets.get('player');
+            const activeWeapon = lo ? this.primaryWeapon(lo) : undefined;
+            const recoil = activeWeapon ? recoilAmount(activeWeapon.cd, activeWeapon.def.cooldown) : 0;
+            const pose = combatActorPose({
+              weaponSprite: activeWeapon?.def.sprite,
+              aimX: aim?.x ?? (facingLeft ? -1 : 1),
+              aimY: aim?.y ?? 0,
+              radius: R,
+              recoil,
+              bob: anim.bob,
+            });
+            const img = this.assets.get(pose.key) ?? this.assets.get('player');
             if (img) {
-              const size = playerSpriteSize(R);
-              const sw = size * (1 + anim.squash);
-              const sh = size * (1 - anim.squash);
+              const sw = pose.size * (1 + anim.squash);
+              const sh = pose.size * (1 - anim.squash);
               const baseLean = ((pv ? (pv.x / 200) * 0.14 : 0) + anim.rock) * (facingLeft ? -1 : 1);
-              const activeWeapon = lo?.weapons.find((wi) => wi.def.id === lo.activeWeapon);
-              const recoil = activeWeapon ? recoilAmount(activeWeapon.cd, activeWeapon.def.cooldown) : 0;
-              const lean = baseLean - recoil * 0.055 * (facingLeft ? -1 : 1);
-              r.drawSpriteRot(img, pt.x, pt.y + R - sh / 2 - anim.bob, sw, sh, lean, facingLeft, 1, sh / 2);
+              const lean = baseLean + pose.rotation - recoil * 0.035 * (facingLeft ? -1 : 1);
+              r.drawSpriteRot(
+                img,
+                pt.x + pose.x,
+                pt.y + R - sh / 2 + pose.y,
+                sw,
+                sh,
+                lean,
+                pose.flipX,
+                1,
+                sh / 2,
+              );
+              if (recoil > 0.12 && aim) {
+                const mx = pt.x + pose.muzzleX;
+                const my = pt.y + pose.muzzleY;
+                r.drawGlowCircle(mx, my, 3.2 + recoil * 3, '#fff9d2', '#ff9b35');
+                r.drawLine(mx, my, mx + aim.x * R * 1.35, my + aim.y * R * 1.35, '#ffd782', 2.4, recoil * 0.82);
+              }
             } else {
               r.drawCircle(pt.x, pt.y, R, '#7fe6c0');
               r.drawCircle(pt.x, pt.y, R - 4, '#cffaea');
