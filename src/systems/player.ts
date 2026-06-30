@@ -24,7 +24,7 @@ export function contactSystem(ctx: GameContext, dt: number): void {
     const rr = pc.r + oc.r;
     if ((ot.x - pt.x) ** 2 + (ot.y - pt.y) ** 2 <= rr * rr) {
       if (en.def.behavior === 'exploder') killEnemy(ctx, o);
-      else damagePlayer(ctx, en.def.contactDmg);
+      else damagePlayer(ctx, en.def.contactDmg, `${en.def.name}近身攻击`);
     }
   }
 }
@@ -40,14 +40,15 @@ export function pickupSystem(ctx: GameContext, dt: number): void {
     const dx = pt.x - t.x;
     const dy = pt.y - t.y;
     const d2 = dx * dx + dy * dy;
-    if (d2 <= r2) {
-      const d = Math.sqrt(d2) || 1;
-      t.x += (dx / d) * 260 * dt;
-      t.y += (dy / d) * 260 * dt;
-      if (d2 <= 18 * 18) {
-        collectXp(ctx, w.get(e, XPGem)!.value);
-        ctx.audio.pickup();
-        w.destroy(e);
+      if (d2 <= r2) {
+        const d = Math.sqrt(d2) || 1;
+        t.x += (dx / d) * 260 * dt;
+        t.y += (dy / d) * 260 * dt;
+        if (d2 <= 18 * 18) {
+          ctx.fx.streak(t.x, t.y, pt.x, pt.y, '#7fdcff');
+          collectXp(ctx, w.get(e, XPGem)!.value);
+          ctx.audio.pickup();
+          w.destroy(e);
       }
     }
   }
@@ -76,12 +77,13 @@ export function pickupSystem(ctx: GameContext, dt: number): void {
     const dx = pt.x - t.x;
     const dy = pt.y - t.y;
     const d2 = dx * dx + dy * dy;
-    if (d2 <= r2) {
-      const d = Math.sqrt(d2) || 1;
-      t.x += (dx / d) * 300 * dt;
-      t.y += (dy / d) * 300 * dt;
-      if (d2 <= 20 * 20) {
-        ctx.equip.gold += w.get(e, GoldCoin)!.value;
+      if (d2 <= r2) {
+        const d = Math.sqrt(d2) || 1;
+        t.x += (dx / d) * 300 * dt;
+        t.y += (dy / d) * 300 * dt;
+        if (d2 <= 20 * 20) {
+          ctx.fx.streak(t.x, t.y, pt.x, pt.y, '#ffd66a');
+          ctx.equip.gold += w.get(e, GoldCoin)!.value;
         ctx.audio.pickup();
         w.destroy(e);
       }

@@ -41,7 +41,7 @@ export function bulletSystem(ctx: GameContext, _dt: number): void {
     } else {
       const rr = c.r + pc.r;
       if ((pt.x - t.x) ** 2 + (pt.y - t.y) ** 2 <= rr * rr) {
-        damagePlayer(ctx, b.dmg);
+        damagePlayer(ctx, b.dmg, '远程感染弹命中');
         w.destroy(e);
       }
     }

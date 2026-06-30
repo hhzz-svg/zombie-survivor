@@ -44,6 +44,7 @@ export class Game {
   private choices: Choice[] = [];
   private best: number;
   private lastFootstep = 0; // player footfall index, to fire step dust exactly on contact
+  private lastDamageCause = '尚未受到致命伤害';
 
   constructor(private readonly renderer: Renderer) {
     this.best = Number(localStorage.getItem('zs-best') || '0') || 0;
@@ -89,6 +90,7 @@ export class Game {
     this.corpses.clear();
     this.blood.clear();
     this.hash.clear();
+    this.lastDamageCause = '尚未受到致命伤害';
     const world = new World(makeRng((performance.now() * 1000) >>> 0));
     const ctx: GameContext = {
       world,
@@ -116,6 +118,9 @@ export class Game {
         onEnemyKilled: (x, y, key, r, isBoss, flipX) => this.corpses.spawnCorpse(x, y, key, r, isBoss, flipX),
         onEnemyKnocked: (x, y, key, r, isBoss, flipX) => this.corpses.spawnAfter(x, y, key, r, isBoss, flipX),
         onBloodSplat: (x, y, r) => this.blood.spawn(x, y, r),
+        onPlayerHit: (cause) => {
+          this.lastDamageCause = cause;
+        },
       },
     };
     ctx.player = createPlayer(ctx);
@@ -310,7 +315,7 @@ export class Game {
       stage,
       primaryWeapon: primary.def.name,
       gold: ctx.equip.gold,
-      cause: victory ? '击败母巢暴君' : '被丧尸潮击倒',
+      cause: victory ? '击败母巢暴君' : this.lastDamageCause,
       nextGoal: this.nextGoal(stage, primary.level),
     };
   }
@@ -389,6 +394,11 @@ export class Game {
       this.corpses.draw(r, this.assets); // corpses/afterimages sit under the living
       this.drawWorld(ctx, r);
       ctx.fx.draw(r);
+      const pt = ctx.world.get(ctx.player, Transform);
+      if (pt) {
+        const pressure = Math.min(1, ctx.world.query(Enemy).length / 180 + currentRunStage(ctx.time.elapsed).index * 0.08);
+        r.drawAtmosphere(pt.x, pt.y, pressure);
+      }
     }
     // low-health vignette drawn in screen space (not world)
     if (ctx) {

@@ -16,6 +16,10 @@ interface Shockwave {
   x: number; y: number; r: number; color: string;
   life: number; max: number; active: boolean;
 }
+interface Streak {
+  x1: number; y1: number; x2: number; y2: number; color: string;
+  life: number; max: number; active: boolean;
+}
 
 /**
  * Pooled particles + floating combat text + impact flashes. Kept as plain arrays (not ECS
@@ -27,6 +31,7 @@ export class FX {
   private texts: FloatText[] = [];
   private flashes: Flash[] = [];
   private waves: Shockwave[] = [];
+  private streaks: Streak[] = [];
 
   burst(x: number, y: number, count: number, color: string, speed = 120, rng: () => number = Math.random): void {
     for (let i = 0; i < count; i++) {
@@ -66,6 +71,15 @@ export class FX {
       this.waves.push(w);
     }
     w.x = x; w.y = y; w.r = r; w.color = color; w.life = life; w.max = life; w.active = true;
+  }
+
+  streak(x1: number, y1: number, x2: number, y2: number, color: string): void {
+    let s = this.streaks.find((q) => !q.active);
+    if (!s) {
+      s = { x1: 0, y1: 0, x2: 0, y2: 0, color: '', life: 0, max: 0, active: false };
+      this.streaks.push(s);
+    }
+    s.x1 = x1; s.y1 = y1; s.x2 = x2; s.y2 = y2; s.color = color; s.life = 0.18; s.max = 0.18; s.active = true;
   }
 
   private spawnPart(x: number, y: number, vx: number, vy: number, color: string, life: number, size: number): void {
@@ -108,9 +122,20 @@ export class FX {
       w.life -= dt;
       if (w.life <= 0) w.active = false;
     }
+    for (const s of this.streaks) {
+      if (!s.active) continue;
+      s.life -= dt;
+      if (s.life <= 0) s.active = false;
+    }
   }
 
   draw(r: Renderer): void {
+    for (const s of this.streaks) {
+      if (!s.active) continue;
+      const k = Math.max(0, s.life / s.max);
+      r.drawLine(s.x1, s.y1, s.x2, s.y2, s.color, 3, 0.72 * k);
+      r.drawLine(s.x1, s.y1, s.x2, s.y2, '#ffffff', 1, 0.42 * k);
+    }
     for (const w of this.waves) {
       if (!w.active) continue;
       const k = 1 - w.life / w.max;
@@ -137,5 +162,6 @@ export class FX {
     for (const t of this.texts) t.active = false;
     for (const f of this.flashes) f.active = false;
     for (const w of this.waves) w.active = false;
+    for (const s of this.streaks) s.active = false;
   }
 }

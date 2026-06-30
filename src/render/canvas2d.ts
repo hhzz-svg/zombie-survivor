@@ -3,6 +3,8 @@ import type { Camera, Renderer } from './renderer';
 /** Canvas 2D implementation: DPR-aware, centered camera. Placeholder shapes until sprites land in M5. */
 export class Canvas2DRenderer implements Renderer {
   private ctx: CanvasRenderingContext2D;
+  private dpr = 1;
+  private cam: Camera = { x: 0, y: 0 };
   width = 0;
   height = 0;
 
@@ -16,6 +18,7 @@ export class Canvas2DRenderer implements Renderer {
 
   private resize(): void {
     const dpr = window.devicePixelRatio || 1;
+    this.dpr = dpr;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.canvas.width = Math.floor(this.width * dpr);
@@ -26,6 +29,7 @@ export class Canvas2DRenderer implements Renderer {
   }
 
   begin(cam: Camera): void {
+    this.cam = cam;
     this.ctx.clearRect(0, 0, this.width, this.height);
     this.ctx.save();
     this.ctx.translate(Math.round(this.width / 2 - cam.x), Math.round(this.height / 2 - cam.y));
@@ -55,6 +59,19 @@ export class Canvas2DRenderer implements Renderer {
     this.ctx.arc(x, y, r, 0, Math.PI * 2);
     this.ctx.stroke();
     this.ctx.globalAlpha = 1;
+  }
+
+  drawLine(x1: number, y1: number, x2: number, y2: number, color: string, width = 2, alpha = 1): void {
+    this.ctx.save();
+    this.ctx.globalAlpha = alpha;
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = width;
+    this.ctx.lineCap = 'round';
+    this.ctx.beginPath();
+    this.ctx.moveTo(x1, y1);
+    this.ctx.lineTo(x2, y2);
+    this.ctx.stroke();
+    this.ctx.restore();
   }
 
   drawSprite(
@@ -181,10 +198,31 @@ export class Canvas2DRenderer implements Renderer {
   }
 
   /** Low-health danger vignette: radial red fade from edges, drawn in screen space. */
+  drawAtmosphere(playerX: number, playerY: number, intensity = 0.45): void {
+    this.ctx.save();
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const sx = this.width / 2 + playerX - this.cam.x;
+    const sy = this.height / 2 + playerY - this.cam.y;
+    const warm = this.ctx.createRadialGradient(sx, sy, 10, sx, sy, Math.max(this.width, this.height) * 0.62);
+    warm.addColorStop(0, `rgba(255, 180, 82, ${0.10 + intensity * 0.08})`);
+    warm.addColorStop(0.45, `rgba(28, 58, 50, ${0.10 + intensity * 0.08})`);
+    warm.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    this.ctx.fillStyle = warm;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    const edge = this.ctx.createRadialGradient(this.width / 2, this.height / 2, Math.min(this.width, this.height) * 0.25, this.width / 2, this.height / 2, Math.max(this.width, this.height) * 0.74);
+    edge.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    edge.addColorStop(0.75, `rgba(4, 18, 24, ${0.18 + intensity * 0.10})`);
+    edge.addColorStop(1, `rgba(0, 5, 9, ${0.34 + intensity * 0.16})`);
+    this.ctx.fillStyle = edge;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+    this.ctx.restore();
+  }
+
   drawVignette(intensity: number): void {
     if (intensity <= 0) return;
     this.ctx.save();
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0); // reset to screen coords
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); // reset to screen coords
     const cx = this.width / 2;
     const cy = this.height / 2;
     const r = Math.max(this.width, this.height) * 0.8;
