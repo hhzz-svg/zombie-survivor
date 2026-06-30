@@ -12,17 +12,17 @@ import { playerWeaponSpriteKey } from './render/playerWeaponSprite';
 import { Input } from './input/input';
 import { DomInput } from './input/provider';
 import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx';
-import { PLAYER_BASE, xpToNext } from './data/balance';
+import { PLAYER_BASE, RUN_STAGES, currentRunStage, xpToNext } from './data/balance';
+import { MAX_WEAPON_LEVEL } from './data/weapons';
 import { EQUIPMENT } from './data/equipment';
 import { SKILLS } from './data/skills';
 import { createPlayer } from './factory';
 import { runSystems } from './systems/pipeline';
 import { useItem, startBuff } from './systems/equipment';
 import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
-import { Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity } from './components';
+import { Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity, type WeaponInst } from './components';
 import { makeChoices, applyChoice, type Choice } from './progression';
-import { UI } from './ui/ui';
-import { currentRunStage } from './data/balance';
+import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, type ShopOffer } from './shop';
 
 type State = 'title' | 'playing' | 'levelup' | 'shop' | 'gameover' | 'victory';
@@ -310,14 +310,52 @@ export class Game {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'gameover';
     this.saveBest();
-    this.ui.showEnd(false, this.ctx.time.elapsed, this.ctx.stats.kills, this.best, () => this.start());
+    this.ui.showEnd(this.buildRunSummary(false), () => this.start());
   }
 
   private win(): void {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'victory';
     this.saveBest();
-    this.ui.showEnd(true, this.ctx.time.elapsed, this.ctx.stats.kills, this.best, () => this.start());
+    this.ui.showEnd(this.buildRunSummary(true), () => this.start());
+  }
+
+  private buildRunSummary(victory: boolean): RunSummary {
+    const ctx = this.ctx!;
+    const lo = ctx.world.get(ctx.player, Loadout);
+    const primary = this.primaryWeapon(lo);
+    const stage = currentRunStage(ctx.time.elapsed).index;
+    return {
+      victory,
+      time: ctx.time.elapsed,
+      kills: ctx.stats.kills,
+      best: this.best,
+      stage,
+      primaryWeapon: primary.def.name,
+      gold: ctx.equip.gold,
+      cause: victory ? '击败母巢暴君' : '被丧尸潮击倒',
+      nextGoal: this.nextGoal(stage, primary.level),
+    };
+  }
+
+  private nextGoal(stage: number, weaponLevel: number): string {
+    if (stage < 2) return '下一目标：抵达第 2 阶段';
+    if (weaponLevel < 3) return '下一目标：将主武器升到 Lv.3';
+    return '下一目标：击败母巢暴君';
+  }
+
+  private threatLabel(stage: number, elapsed: number): string {
+    if (stage >= 5) return '威胁：母巢逼近';
+    if (elapsed < 30) return '威胁：低';
+    if (stage >= 4) return '威胁：极高';
+    if (stage >= 3) return '威胁：高';
+    return '威胁：中';
+  }
+
+  private primaryWeapon(lo?: { weapons: WeaponInst[]; activeWeapon?: string }): WeaponInst {
+    return lo?.weapons.find((wi) => wi.def.id === lo.activeWeapon)
+      ?? lo?.weapons.find((wi) => wi.def.kind === 'aim')
+      ?? lo!.weapons[0]!;
   }
 
   private saveBest(): void {
@@ -544,6 +582,21 @@ export class Game {
     const ph = w.get(ctx.player, Health)!;
     const lo = w.get(ctx.player, Loadout)!;
     const stage = currentRunStage(ctx.time.elapsed);
+    const stagePos = RUN_STAGES.findIndex((s) => s.index === stage.index);
+    const nextStage = RUN_STAGES[stagePos + 1];
+    const stageEnd = nextStage?.from ?? stage.from + 60;
+    const stageSpan = Math.max(1, stageEnd - stage.from);
+    const stageProgress = Math.min(1, Math.max(0, (ctx.time.elapsed - stage.from) / stageSpan));
+    const nextStageIn = nextStage ? Math.max(0, nextStage.from - ctx.time.elapsed) : null;
+    const primary = this.primaryWeapon(lo);
+    const stageBanner = (ctx.director.stageBannerUntil ?? 0) > ctx.time.elapsed
+      ? `阶段 ${stage.index} · ${stage.name}`
+      : '';
+    const tutorialTip = ctx.time.elapsed < 12
+      ? '优先绕圈移动并拾取经验；前 30 秒拾取范围更大'
+      : ctx.time.elapsed < 35
+        ? '按 B 打开商店，用金币购买装备补足生存能力'
+        : '';
     let bossHp: number | null = null;
     for (const e of w.query(Enemy)) {
       const en = w.get(e, Enemy)!;
@@ -553,6 +606,7 @@ export class Game {
         break;
       }
     }
+    const threatLabel = bossHp !== null ? 'Boss 接战' : this.threatLabel(stage.index, ctx.time.elapsed);
 
     // Build the inventory bar: only currently-held consumables / active buffs.
     const items: Array<{ def: import('./data/equipment').EquipDef; count: number; remain: number }> = [];
@@ -573,6 +627,16 @@ export class Game {
     this.ui.updateHud({
       stage: stage.index,
       stageName: stage.name,
+      stageProgress,
+      nextStageIn,
+      threatLabel,
+      primaryWeapon: {
+        name: primary.def.name,
+        level: primary.level,
+        progress: Math.min(1, primary.level / MAX_WEAPON_LEVEL),
+      },
+      tutorialTip,
+      stageBanner,
       hp: ph.hp,
       maxHp: ctx.stats.maxHp,
       xp: ctx.stats.xp,
