@@ -1,5 +1,9 @@
 {
   "player": "player.png",
+  "player_pistol": "player_pistol.png",
+  "player_shotgun": "player_shotgun.png",
+  "player_smg": "player_smg.png",
+  "player_magnum": "player_magnum.png",
   "walker": "walker.png",
   "runner": "runner.png",
   "spitter": "spitter.png",

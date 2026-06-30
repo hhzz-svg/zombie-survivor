@@ -2,13 +2,13 @@ import type { GameContext } from '../ctx';
 import type { WeaponInst } from '../components';
 import { Transform, Aim, Loadout, Health, Collider } from '../components';
 import { spawnBullet } from '../factory';
+import { combatMuzzleOffset } from '../render/combatActor';
 import { damageEnemy } from './combat';
-
-export const MUZZLE_DISTANCE = 22;
 
 /** Fires each owned weapon on its cooldown toward the aim vector (manual aim + auto fire). */
 export function weaponSystem(ctx: GameContext, dt: number): void {
   const pt = ctx.world.get(ctx.player, Transform)!;
+  const pc = ctx.world.get(ctx.player, Collider)!;
   const aim = ctx.world.get(ctx.player, Aim)!;
   const lo = ctx.world.get(ctx.player, Loadout)!;
 
@@ -20,7 +20,7 @@ export function weaponSystem(ctx: GameContext, dt: number): void {
     wi.cd -= dt * ctx.stats.fireRateMul;
     if (wi.cd > 0) continue;
     wi.cd += wi.def.cooldown;
-    fire(ctx, wi, pt.x, pt.y, aim.x, aim.y);
+    fire(ctx, wi, pt.x, pt.y, aim.x, aim.y, pc.r);
   }
 }
 
@@ -60,7 +60,7 @@ function updateOrbit(ctx: GameContext, wi: WeaponInst, px: number, py: number, d
   }
 }
 
-function fire(ctx: GameContext, wi: WeaponInst, px: number, py: number, ax: number, ay: number): void {
+function fire(ctx: GameContext, wi: WeaponInst, px: number, py: number, ax: number, ay: number, playerRadius: number): void {
   const def = wi.def;
   const base = def.damage * (1 + 0.25 * (wi.level - 1));
 
@@ -88,8 +88,9 @@ function fire(ctx: GameContext, wi: WeaponInst, px: number, py: number, ax: numb
 
   const count = def.projectiles + ctx.stats.projectileBonus;
   const baseA = Math.atan2(ay, ax);
-  const mx = px + ax * MUZZLE_DISTANCE;
-  const my = py + ay * MUZZLE_DISTANCE;
+  const muzzle = combatMuzzleOffset({ aimX: ax, aimY: ay, radius: playerRadius, recoil: 1, bob: 0 });
+  const mx = px + muzzle.x;
+  const my = py + muzzle.y;
   for (let i = 0; i < count; i++) {
     const off = count > 1 ? (i / (count - 1) - 0.5) * def.spread : 0;
     const jitter = def.spread > 0 ? (ctx.rng() - 0.5) * 0.05 : 0;

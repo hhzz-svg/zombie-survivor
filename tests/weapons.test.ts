@@ -78,7 +78,7 @@ describe('weapon handling', () => {
     expect(bullets).toHaveLength(1);
     const bt = ctx.world.get(bullets[0]!, Transform)!;
     expect(bt.x).toBeGreaterThan(PLAYER_BASE.radius);
-    expect(Math.abs(bt.y)).toBeLessThan(0.001);
+    expect(bt.y).toBeLessThan(-PLAYER_BASE.radius * 3);
   });
 
   it('background fire does not pull the held weapon back to a faster starter gun', () => {

@@ -4,11 +4,15 @@
 
 ## 角色图片（必要）
 
-放到 `public/assets/`，要求是**透明背景 PNG**。主角只保留 `player.png`，不要再混入不同人物变体。
+放到 `public/assets/`，要求是**透明背景 PNG**。`player.png` 是加载失败时的基础回退；四张 `player_<weapon>.png` 是双手与枪械已经合成的战斗姿态，人物身份、画布尺寸和脚底锚点必须一致。
 
 | 文件名 | 角色 |
 |---|---|
 | `player.png` | 主角（清道夫） |
+| `player_pistol.png` | 双手持手枪战斗姿态 |
+| `player_shotgun.png` | 双手持霰弹枪战斗姿态 |
+| `player_smg.png` | 双手持冲锋枪战斗姿态 |
+| `player_magnum.png` | 双手持马格南战斗姿态 |
 | `walker.png` | 行尸 |
 | `runner.png` | 疾跑者 |
 | `spitter.png` | 喷吐者 |
