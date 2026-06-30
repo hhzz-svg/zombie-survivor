@@ -41,3 +41,22 @@
 - `docs/superpowers/specs/2026-06-30-zombie-survivor-tactical-redesign-design.md`：新增完整改造设计规范。
 - `progress.md`：追加本轮设计记录。
 - 回滚方式：回退本任务对应提交，或删除上述两个新增文件并将 `progress.md` 恢复到上一提交。
+
+## 2026-06-30 - Task: 制定战术伪 3D 实施计划
+
+### What was done
+
+- 将已批准设计拆成 7 个可独立验证和提交的实施任务，覆盖玩法节奏、装备图片、HUD、人物动作、伪 3D、战斗反馈、浏览器验收和 GitHub 同步。
+- 为每个任务明确修改范围、失败测试、最小实现、验证命令、预期结果和提交点。
+
+### Testing
+
+- 完成计划自检：覆盖设计规范的全部成功标准，函数名与类型签名在各任务间一致。
+- 计划包含 7 个任务、41 个可勾选步骤，无 `TBD`、`TODO`、`implement later` 或未决实现描述。
+- `git diff --check` 通过。
+
+### Notes
+
+- `docs/superpowers/plans/2026-06-30-zombie-survivor-tactical-redesign.md`：新增完整实施计划与完成证据矩阵。
+- `progress.md`：追加本轮计划记录。
+- 回滚方式：回退本任务对应提交，或删除计划文件并将 `progress.md` 恢复到上一提交。
