@@ -5,6 +5,7 @@ import { FX } from './fx/fx';
 import { CorpseFX } from './fx/corpseFX';
 import { BloodDecals } from './fx/bloodDecals';
 import { enemySpriteSize, playerSpriteSize } from './render/spriteScale';
+import { actorDepth, recoilAmount, walkMotion } from './render/motion';
 import { AudioBus } from './audio/audio';
 import type { Renderer } from './render/renderer';
 import { AssetStore } from './render/assets';
@@ -26,30 +27,6 @@ import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, type ShopOffer } from './shop';
 
 type State = 'title' | 'playing' | 'levelup' | 'shop' | 'gameover' | 'victory';
-
-/**
- * Procedural run cycle from a still sprite: while moving, bounce up/down (two bounces per
- * stride), squash-stretch on footfall, and rock the body left/right as legs alternate. Purely
- * visual (render-time), so it never touches sim determinism. `phase` offsets each entity so a
- * crowd doesn't move in lockstep; `rate` tunes the step cadence. `step` is the footfall index
- * (increments once per footstep) so callers can fire footstep FX exactly on contact.
- */
-function walkAnim(
-  nowMs: number, speed: number, phase: number, rate = 1,
-): { bob: number; squash: number; rock: number; step: number } {
-  if (speed < 6) return { bob: 0, squash: 0, rock: 0, step: 0 };
-  const moving = Math.min(1, speed / 120);
-  const w = nowMs / 1000 * 9 * rate + phase * 0.05;
-  return {
-    // bounce peaks mid-stride, dips to 0 on each footfall (sin → 0)
-    bob: Math.abs(Math.sin(w)) * 3.6 * moving,
-    // compress on footfall (when the bounce bottoms out)
-    squash: -Math.cos(w * 2) * 0.06 * moving,
-    // body rocks side to side, one full sway per two footfalls
-    rock: Math.sin(w) * 0.07 * moving,
-    step: Math.floor(w / Math.PI),
-  };
-}
 
 /** Orchestrates the run: state machine, system pipeline, world rendering, and the UI screens. */
 export class Game {
@@ -449,31 +426,48 @@ export class Game {
     const w = ctx.world;
     const pt = w.get(ctx.player, Transform);
     const px = pt ? pt.x : 0;
+    const py = pt ? pt.y : 0;
     const now = performance.now();
+    const actors: Array<{ depth: number; draw: () => void }> = [];
+    const bullets: Array<() => void> = [];
 
     for (const e of w.query(Renderable, Transform)) {
       const t = w.get(e, Transform)!;
       const rd = w.get(e, Renderable)!;
       const en = w.get(e, Enemy);
       if (en) {
-        const v = w.get(e, Velocity);
-        const sp = v ? Math.hypot(v.x, v.y) : 0;
-        const anim = walkAnim(now, sp, t.x + t.y, en.def.isBoss ? 0.6 : 1);
-        r.drawEllipse(t.x, t.y + rd.r * 0.75, rd.r * (0.9 - anim.squash * 0.5), rd.r * 0.38, 'rgba(0,0,0,0.3)');
-        const img = this.assets.get(en.def.id);
-        if (img) {
-          const size = enemySpriteSize(rd.r, en.def.isBoss);
-          const sw = size * (1 + anim.squash);
-          const sh = size * (1 - anim.squash);
-          r.drawSprite(img, t.x, t.y + rd.r - sh / 2 - anim.bob, sw, sh, px - t.x < 0);
-        } else {
-          r.drawCircle(t.x, t.y, rd.r, rd.color);
-          if (en.def.isBoss) r.drawRing(t.x, t.y, rd.r + 6, '#ffd0e6', 3);
-        }
-        const h = w.get(e, Health);
-        if (h && h.flash > 0) r.drawCircle(t.x, t.y, rd.r, '#ffffff', 0.45);
+        actors.push({
+          depth: actorDepth(t.y, rd.r),
+          draw: () => {
+            const v = w.get(e, Velocity);
+            const sp = v ? Math.hypot(v.x, v.y) : 0;
+            const anim = walkMotion(now, sp, t.x + t.y, en.def.isBoss ? 0.6 : 1);
+            const dx = px - t.x;
+            const dy = py - t.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const attackRange = rd.r + PLAYER_BASE.radius + 24;
+            const lunge = dist < attackRange ? (1 - dist / attackRange) * 5 : 0;
+            const ox = (dx / dist) * lunge;
+            const oy = (dy / dist) * lunge;
+            const squash = anim.squash + Math.min(0.04, (lunge / 5) * 0.04);
+            const x = t.x + ox;
+            const y = t.y + oy;
+            r.drawEllipse(x, y + rd.r * 0.75, rd.r * (0.9 - squash * 0.5), rd.r * 0.38, 'rgba(0,0,0,0.3)');
+            const img = this.assets.get(en.def.id);
+            if (img) {
+              const size = enemySpriteSize(rd.r, en.def.isBoss);
+              const sw = size * (1 + squash);
+              const sh = size * (1 - squash);
+              r.drawSprite(img, x, y + rd.r - sh / 2 - anim.bob, sw, sh, px - t.x < 0);
+            } else {
+              r.drawCircle(x, y, rd.r, rd.color);
+              if (en.def.isBoss) r.drawRing(x, y, rd.r + 6, '#ffd0e6', 3);
+            }
+            const h = w.get(e, Health);
+            if (h && h.flash > 0) r.drawCircle(x, y, rd.r, '#ffffff', 0.45);
+          },
+        });
       } else if (w.has(e, GoldCoin)) {
-        // Gold coin: use sprite if loaded, otherwise procedural glow
         const img = this.assets.get('coin');
         if (img) {
           const size = rd.r * 3;
@@ -489,20 +483,21 @@ export class Game {
         r.drawRect(t.x, t.y, rd.r * 2, rd.r * 2, '#c0352f');
         r.drawRect(t.x, t.y, rd.r * 1.2, rd.r * 0.44, '#ffffff');
         r.drawRect(t.x, t.y, rd.r * 0.44, rd.r * 1.2, '#ffffff');
-      } else if (w.has(e, Bullet)) {
-        const v = w.get(e, Velocity)!;
-        const enemyShot = w.get(e, Bullet)!.team === 'enemy';
-        if (enemyShot) {
-          r.drawTracer(t.x, t.y, v.x, v.y, 16, rd.r * 2, '#eaffd0', '#7be23a');
-        } else {
-          r.drawTracer(t.x, t.y, v.x, v.y, 22, rd.r * 2.1, '#fffdf0', '#ffb43c');
-        }
       } else if (w.has(e, XPGem)) {
-        // cheap layered glow (no shadowBlur) — gems can number in the hundreds
         const pulse = 0.5 + 0.5 * Math.sin(now / 220 + t.x);
         r.drawCircle(t.x, t.y, rd.r + 3, '#39b9ff', 0.28);
         r.drawCircle(t.x, t.y, rd.r, '#7fdcff');
         r.drawCircle(t.x, t.y, rd.r * 0.5, '#eaffff', 0.7 + pulse * 0.3);
+      } else if (w.has(e, Bullet)) {
+        bullets.push(() => {
+          const v = w.get(e, Velocity)!;
+          const enemyShot = w.get(e, Bullet)!.team === 'enemy';
+          if (enemyShot) {
+            r.drawTracer(t.x, t.y, v.x, v.y, 16, rd.r * 2, '#eaffd0', '#7be23a');
+          } else {
+            r.drawTracer(t.x, t.y, v.x, v.y, 22, rd.r * 2.1, '#fffdf0', '#ffb43c');
+          }
+        });
       } else {
         r.drawCircle(t.x, t.y, rd.r, rd.color);
       }
@@ -513,54 +508,59 @@ export class Game {
     const pv = w.get(ctx.player, Velocity);
     const lo = w.get(ctx.player, Loadout);
     if (pt && ph) {
-      const R = PLAYER_BASE.radius;
-      const psp = pv ? Math.hypot(pv.x, pv.y) : 0;
-      const anim = walkAnim(now, psp, pt.x + pt.y, 1.1);
-      const facingLeft = aim ? aim.x < 0 : false;
-      // Kick up a little dust on each footfall while actually running.
-      if (anim.step !== this.lastFootstep && psp > 30) {
-        this.lastFootstep = anim.step;
-        // Spray dust backward (opposite travel) from the feet.
-        const back = pv && psp > 0 ? -pv.x / psp : 0;
-        this.fx.spark(pt.x + back * R * 0.5, pt.y + R * 0.85, back, -0.35, 4, '#9a8f72', 70);
-      }
-      r.drawEllipse(pt.x, pt.y + R * 0.75, R * (0.95 - anim.squash * 0.5), R * 0.4, 'rgba(0,0,0,0.32)');
-      const flick = ph.invuln > 0 && Math.floor(ctx.time.elapsed * 20) % 2 === 0;
-      if (!flick) {
-        const img = this.assets.get(playerWeaponSpriteKey(lo?.activeWeapon)) ?? this.assets.get('player');
-        if (img) {
-          const size = playerSpriteSize(R);
-          const sw = size * (1 + anim.squash);
-          const sh = size * (1 - anim.squash);
-          // Lean into the run: forward tilt toward movement + alternating stride rock.
-          // drawSpriteRot mirrors rotation when flipped, so negate to keep lean true to velocity.
-          const lean = ((pv ? (pv.x / 200) * 0.14 : 0) + anim.rock) * (facingLeft ? -1 : 1);
-          r.drawSpriteRot(img, pt.x, pt.y + R - sh / 2 - anim.bob, sw, sh, lean, facingLeft, 1, sh / 2);
-        } else {
-          r.drawCircle(pt.x, pt.y, R, '#7fe6c0');
-          r.drawCircle(pt.x, pt.y, R - 4, '#cffaea');
-        }
-      }
-      // Draw shield ring around player while any shield layer remains.
-      if (ctx.equip.shield > 0) {
-        const pulse = 0.6 + 0.4 * Math.sin(now / 300);
-        r.drawRing(pt.x, pt.y, R + 10, `rgba(95,184,255,${pulse * 0.7})`, 2.5);
-      }
-      if (ctx.skills.barrierLayers > 0 && ctx.skills.barrierUntil > ctx.time.elapsed) {
-        const pulse = 0.6 + 0.4 * Math.sin(now / 240);
-        r.drawRing(pt.x, pt.y, R + 16, `rgba(116,199,255,${pulse * 0.78})`, 3);
-      }
-      if (ctx.skills.slowUntil > ctx.time.elapsed) {
-        const pulse = 0.45 + 0.35 * Math.sin(now / 180);
-        r.drawRing(pt.x, pt.y, R + 22, `rgba(168,144,255,${pulse})`, 2);
-      }
-      // Draw berserk aura while the rage buff is active.
-      if ((ctx.equip.buffs.get('berserk') ?? -1) > ctx.time.elapsed) {
-        const pulse = 0.5 + 0.5 * Math.sin(now / 100);
-        r.drawRing(pt.x, pt.y, R + 14, `rgba(255,60,60,${pulse * 0.5})`, 3);
-      }
-      if (aim) r.drawCircle(pt.x + aim.x * (R + 8), pt.y + aim.y * (R + 8), 3, '#ffffff');
+      actors.push({
+        depth: actorDepth(pt.y, PLAYER_BASE.radius),
+        draw: () => {
+          const R = PLAYER_BASE.radius;
+          const psp = pv ? Math.hypot(pv.x, pv.y) : 0;
+          const anim = walkMotion(now, psp, pt.x + pt.y, 1.1);
+          const facingLeft = aim ? aim.x < 0 : false;
+          if (anim.step !== this.lastFootstep && psp > 30) {
+            this.lastFootstep = anim.step;
+            const back = pv && psp > 0 ? -pv.x / psp : 0;
+            this.fx.spark(pt.x + back * R * 0.5, pt.y + R * 0.85, back, -0.35, 4, '#9a8f72', 70);
+          }
+          r.drawEllipse(pt.x, pt.y + R * 0.75, R * (0.95 - anim.squash * 0.5), R * 0.4, 'rgba(0,0,0,0.32)');
+          const flick = ph.invuln > 0 && Math.floor(ctx.time.elapsed * 20) % 2 === 0;
+          if (!flick) {
+            const img = this.assets.get(playerWeaponSpriteKey(lo?.activeWeapon)) ?? this.assets.get('player');
+            if (img) {
+              const size = playerSpriteSize(R);
+              const sw = size * (1 + anim.squash);
+              const sh = size * (1 - anim.squash);
+              const baseLean = ((pv ? (pv.x / 200) * 0.14 : 0) + anim.rock) * (facingLeft ? -1 : 1);
+              const activeWeapon = lo?.weapons.find((wi) => wi.def.id === lo.activeWeapon);
+              const recoil = activeWeapon ? recoilAmount(activeWeapon.cd, activeWeapon.def.cooldown) : 0;
+              const lean = baseLean - recoil * 0.055 * (facingLeft ? -1 : 1);
+              r.drawSpriteRot(img, pt.x, pt.y + R - sh / 2 - anim.bob, sw, sh, lean, facingLeft, 1, sh / 2);
+            } else {
+              r.drawCircle(pt.x, pt.y, R, '#7fe6c0');
+              r.drawCircle(pt.x, pt.y, R - 4, '#cffaea');
+            }
+          }
+          if (ctx.equip.shield > 0) {
+            const pulse = 0.6 + 0.4 * Math.sin(now / 300);
+            r.drawRing(pt.x, pt.y, R + 10, `rgba(95,184,255,${pulse * 0.7})`, 2.5);
+          }
+          if (ctx.skills.barrierLayers > 0 && ctx.skills.barrierUntil > ctx.time.elapsed) {
+            const pulse = 0.6 + 0.4 * Math.sin(now / 240);
+            r.drawRing(pt.x, pt.y, R + 16, `rgba(116,199,255,${pulse * 0.78})`, 3);
+          }
+          if (ctx.skills.slowUntil > ctx.time.elapsed) {
+            const pulse = 0.45 + 0.35 * Math.sin(now / 180);
+            r.drawRing(pt.x, pt.y, R + 22, `rgba(168,144,255,${pulse})`, 2);
+          }
+          if ((ctx.equip.buffs.get('berserk') ?? -1) > ctx.time.elapsed) {
+            const pulse = 0.5 + 0.5 * Math.sin(now / 100);
+            r.drawRing(pt.x, pt.y, R + 14, `rgba(255,60,60,${pulse * 0.5})`, 3);
+          }
+          if (aim) r.drawCircle(pt.x + aim.x * (R + 8), pt.y + aim.y * (R + 8), 3, '#ffffff');
+        },
+      });
     }
+
+    actors.sort((a, b) => a.depth - b.depth).forEach((actor) => actor.draw());
+    bullets.forEach((draw) => draw());
 
     if (pt && lo) {
       for (const wi of lo.weapons) {
