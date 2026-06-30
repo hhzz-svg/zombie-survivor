@@ -169,7 +169,7 @@ export class UI {
       const keyHint = item.def.kind === 'charge' && item.def.key
         ? `<span class="slot-key">${keyLabel(item.def.key)}</span>`
         : '';
-      barHtml += `<div class="${cls}" title="${item.def.tip}">${item.def.icon}${overlay}${countBadge}${keyHint}</div>`;
+      barHtml += `<div class="${cls}" title="${item.def.tip}"><img class="slot-img" src="/assets/${item.def.iconKey}.png" alt="">${overlay}${countBadge}${keyHint}</div>`;
     }
     for (const skill of d.skills) {
       const ready = skill.remain <= 0;
@@ -249,9 +249,8 @@ export class UI {
         if (!canAfford) cls += ' cantafford';
         const heldLine = held ? `<div class="held-label">${held}</div>` : '';
         const kindLabel = isSkill ? '主动技能' : equipmentKindLabel(offer.equipment.kind);
-        const icon = isSkill
-          ? `<img src="/assets/${offer.skill.iconKey}.png" alt="">`
-          : offer.equipment.icon;
+        const iconKey = isSkill ? offer.skill.iconKey : offer.equipment.iconKey;
+        const icon = `<img src="/assets/${iconKey}.png" alt="">`;
         const keyHint = isSkill
           ? `<div class="key">技能键 ${keyLabel(offer.skill.key)}</div>`
           : offer.equipment.kind === 'charge' && offer.equipment.key
