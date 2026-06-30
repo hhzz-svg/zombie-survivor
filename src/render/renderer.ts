@@ -15,6 +15,7 @@ export interface Renderer {
   drawRect(x: number, y: number, w: number, h: number, color: string, alpha?: number): void;
   drawCircle(x: number, y: number, r: number, color: string, alpha?: number): void;
   drawRing(x: number, y: number, r: number, color: string, lineWidth?: number, alpha?: number): void;
+  drawLine(x1: number, y1: number, x2: number, y2: number, color: string, width?: number, alpha?: number): void;
   /** Draw an image centered at (x, y), optionally mirrored horizontally. */
   drawSprite(
     img: CanvasImageSource,
@@ -57,5 +58,7 @@ export interface Renderer {
   ): void;
   /** Red screen-edge vignette for low health (intensity 0..1). */
   drawVignette(intensity: number): void;
+  /** Screen-space tactical color grading centered around the player. */
+  drawAtmosphere(playerX: number, playerY: number, intensity?: number): void;
   end(): void;
 }

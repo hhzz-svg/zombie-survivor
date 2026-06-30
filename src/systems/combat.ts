@@ -8,7 +8,7 @@ import { barrierAbsorb } from './skills';
 
 /** Shared damage resolution — used by bullets, nova, and explosions so the rules live in one place. */
 
-export function damagePlayer(ctx: GameContext, dmg: number): void {
+export function damagePlayer(ctx: GameContext, dmg: number, cause = '感染者近身攻击'): void {
   const h = ctx.world.get(ctx.player, Health)!;
   if (h.invuln > 0 || h.hp <= 0) return;
   if (barrierAbsorb(ctx)) return;
@@ -29,6 +29,7 @@ export function damagePlayer(ctx: GameContext, dmg: number): void {
   ctx.time.hitStop = Math.max(ctx.time.hitStop, 55);
   ctx.screen.shake = Math.max(ctx.screen.shake, 9);
   ctx.audio.hurt();
+  ctx.vfx?.onPlayerHit?.(cause);
   if (h.hp <= 0) {
     h.hp = 0;
     ctx.events.onDeath();
@@ -122,7 +123,7 @@ export function explode(ctx: GameContext, x: number, y: number, radius: number, 
     if (d <= radius) damageEnemy(ctx, o, dmg, (ot.x - x) / (d || 1), (ot.y - y) / (d || 1), 80);
   }
   const pt = ctx.world.get(ctx.player, Transform)!;
-  if (Math.hypot(pt.x - x, pt.y - y) <= radius + 14) damagePlayer(ctx, dmg);
+  if (Math.hypot(pt.x - x, pt.y - y) <= radius + 14) damagePlayer(ctx, dmg, '爆裂感染者自爆');
   ctx.fx.burst(x, y, 16, '#ffb060', 240, ctx.rng);
   ctx.screen.shake = Math.max(ctx.screen.shake, 6);
   ctx.audio.explode();

@@ -21,8 +21,8 @@ export interface EquipDef {
   key?: string;
   /** Buff duration in seconds (kind === 'buff' only). */
   duration?: number;
-  /** Emoji icon shown in the shop UI. */
-  icon: string;
+  /** Image asset key shown in the shop and HUD UI. */
+  iconKey: string;
   /** Short tooltip shown on the inventory bar. */
   tip: string;
 }
@@ -35,7 +35,7 @@ export const EQUIPMENT: EquipDef[] = [
     cost: 20,
     kind: 'buff',
     duration: 60,
-    icon: '🧲',
+    iconKey: 'equip_magnet',
     tip: '60s 拾取+60% 经验+15%',
   },
   {
@@ -45,7 +45,7 @@ export const EQUIPMENT: EquipDef[] = [
     cost: 12,
     kind: 'charge',
     key: 'KeyQ',
-    icon: '💣',
+    iconKey: 'equip_grenade',
     tip: '范围爆破 120伤',
   },
   {
@@ -55,7 +55,7 @@ export const EQUIPMENT: EquipDef[] = [
     cost: 8,
     kind: 'charge',
     key: 'KeyE',
-    icon: '💊',
+    iconKey: 'equip_medkit',
     tip: '回复40HP',
   },
   {
@@ -64,7 +64,7 @@ export const EQUIPMENT: EquipDef[] = [
     desc: '生成一面护盾抵挡一次伤害（每次购买 +1 层，可叠加）',
     cost: 18,
     kind: 'shield',
-    icon: '🛡️',
+    iconKey: 'equip_shield',
     tip: '免伤一次',
   },
   {
@@ -74,7 +74,7 @@ export const EQUIPMENT: EquipDef[] = [
     cost: 22,
     kind: 'buff',
     duration: 45,
-    icon: '👢',
+    iconKey: 'equip_boots',
     tip: '45s 移速+18% 伤害+20%',
   },
   {
@@ -84,7 +84,7 @@ export const EQUIPMENT: EquipDef[] = [
     cost: 14,
     kind: 'charge',
     key: 'KeyR',
-    icon: '⚗️',
+    iconKey: 'equip_berserk',
     tip: '5s狂暴',
   },
   {
@@ -94,7 +94,7 @@ export const EQUIPMENT: EquipDef[] = [
     cost: 25,
     kind: 'buff',
     duration: 60,
-    icon: '🪙',
+    iconKey: 'equip_coin_double',
     tip: '60s 金币×2',
   },
   {
@@ -104,7 +104,7 @@ export const EQUIPMENT: EquipDef[] = [
     cost: 28,
     kind: 'buff',
     duration: 30,
-    icon: '💀',
+    iconKey: 'equip_death_dance',
     tip: '30s 击杀叠伤 +5%',
   },
 ];

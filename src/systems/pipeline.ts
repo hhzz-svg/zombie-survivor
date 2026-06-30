@@ -10,6 +10,7 @@ import { contactSystem, pickupSystem } from './player';
 import { lifetimeSystem } from './lifetime';
 import { equipmentSystem } from './equipment';
 import { skillSystem } from './skills';
+import { runFlowSystem } from '../runFlow';
 
 /** Rebuild the enemy spatial hash from current positions. */
 export function rebuildEnemyHash(ctx: GameContext): void {
@@ -27,6 +28,7 @@ export function rebuildEnemyHash(ctx: GameContext): void {
  */
 export function runSystems(ctx: GameContext, dt: number): void {
   ctx.time.elapsed += dt;
+  runFlowSystem(ctx);
   directorSystem(ctx, dt);
   rebuildEnemyHash(ctx);
   inputSystem(ctx);

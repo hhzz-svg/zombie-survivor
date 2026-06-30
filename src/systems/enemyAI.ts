@@ -99,7 +99,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         const push = en.enraged ? 260 : 180;
         const px = (pt.x - t.x) / ptDist;
         const py = (pt.y - t.y) / ptDist;
-        if (ptDist <= radius + 14) damagePlayer(ctx, en.enraged ? 24 : 16);
+        if (ptDist <= radius + 14) damagePlayer(ctx, en.enraged ? 24 : 16, '母巢暴君震地猛击');
         pt.x += px * push * 0.02;
         pt.y += py * push * 0.02;
         ctx.time.hitStop = Math.max(ctx.time.hitStop, en.enraged ? 45 : 28);

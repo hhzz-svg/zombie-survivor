@@ -33,6 +33,8 @@ export interface Director {
   bossSpawned: boolean;
   bossDead: boolean;
   bossWarningAt?: number;
+  stageIndex?: number;
+  stageBannerUntil?: number;
 }
 
 export interface GameEvents {
@@ -76,6 +78,7 @@ export interface VfxHooks {
   onEnemyKilled: (x: number, y: number, key: string, r: number, isBoss: boolean, flipX: boolean) => void;
   onEnemyKnocked: (x: number, y: number, key: string, r: number, isBoss: boolean, flipX: boolean) => void;
   onBloodSplat: (x: number, y: number, r: number) => void;
+  onPlayerHit?: (cause: string) => void;
 }
 
 /** Everything a system needs, passed explicitly (no globals) so the sim can construct its own. */

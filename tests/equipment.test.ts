@@ -8,6 +8,7 @@ import type { GameContext, PlayerStats, EquipmentState, SkillState } from '../sr
 import { PLAYER_BASE, xpToNext } from '../src/data/balance';
 import { createPlayer } from '../src/factory';
 import { startBuff, buffActive, useItem, equipmentSystem } from '../src/systems/equipment';
+import { EQUIPMENT } from '../src/data/equipment';
 
 function freshStats(): PlayerStats {
   return {
@@ -96,5 +97,13 @@ describe('equipment buffs', () => {
     ctx.equip.charges.set('berserk', 2);
     expect(useItem(ctx, 'KeyR')).toBe(true);
     expect(ctx.equip.charges.get('berserk')).toBe(1);
+  });
+});
+
+describe('equipment presentation', () => {
+  it('uses a unique image asset for every shop item', () => {
+    const keys = EQUIPMENT.map((item) => item.iconKey);
+    expect(keys.every((key) => key.startsWith('equip_'))).toBe(true);
+    expect(new Set(keys).size).toBe(EQUIPMENT.length);
   });
 });

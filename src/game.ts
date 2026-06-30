@@ -5,6 +5,7 @@ import { FX } from './fx/fx';
 import { CorpseFX } from './fx/corpseFX';
 import { BloodDecals } from './fx/bloodDecals';
 import { enemySpriteSize, playerSpriteSize } from './render/spriteScale';
+import { actorDepth, recoilAmount, walkMotion } from './render/motion';
 import { AudioBus } from './audio/audio';
 import type { Renderer } from './render/renderer';
 import { AssetStore } from './render/assets';
@@ -12,44 +13,20 @@ import { playerWeaponSpriteKey } from './render/playerWeaponSprite';
 import { Input } from './input/input';
 import { DomInput } from './input/provider';
 import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx';
-import { PLAYER_BASE, xpToNext } from './data/balance';
+import { PLAYER_BASE, RUN_STAGES, currentRunStage, xpToNext } from './data/balance';
+import { MAX_WEAPON_LEVEL } from './data/weapons';
 import { EQUIPMENT } from './data/equipment';
 import { SKILLS } from './data/skills';
 import { createPlayer } from './factory';
 import { runSystems } from './systems/pipeline';
 import { useItem, startBuff } from './systems/equipment';
 import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
-import { Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity } from './components';
+import { Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity, type WeaponInst } from './components';
 import { makeChoices, applyChoice, type Choice } from './progression';
-import { UI } from './ui/ui';
-import { currentRunStage } from './data/balance';
+import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, type ShopOffer } from './shop';
 
 type State = 'title' | 'playing' | 'levelup' | 'shop' | 'gameover' | 'victory';
-
-/**
- * Procedural run cycle from a still sprite: while moving, bounce up/down (two bounces per
- * stride), squash-stretch on footfall, and rock the body left/right as legs alternate. Purely
- * visual (render-time), so it never touches sim determinism. `phase` offsets each entity so a
- * crowd doesn't move in lockstep; `rate` tunes the step cadence. `step` is the footfall index
- * (increments once per footstep) so callers can fire footstep FX exactly on contact.
- */
-function walkAnim(
-  nowMs: number, speed: number, phase: number, rate = 1,
-): { bob: number; squash: number; rock: number; step: number } {
-  if (speed < 6) return { bob: 0, squash: 0, rock: 0, step: 0 };
-  const moving = Math.min(1, speed / 120);
-  const w = nowMs / 1000 * 9 * rate + phase * 0.05;
-  return {
-    // bounce peaks mid-stride, dips to 0 on each footfall (sin → 0)
-    bob: Math.abs(Math.sin(w)) * 3.6 * moving,
-    // compress on footfall (when the bounce bottoms out)
-    squash: -Math.cos(w * 2) * 0.06 * moving,
-    // body rocks side to side, one full sway per two footfalls
-    rock: Math.sin(w) * 0.07 * moving,
-    step: Math.floor(w / Math.PI),
-  };
-}
 
 /** Orchestrates the run: state machine, system pipeline, world rendering, and the UI screens. */
 export class Game {
@@ -67,6 +44,7 @@ export class Game {
   private choices: Choice[] = [];
   private best: number;
   private lastFootstep = 0; // player footfall index, to fire step dust exactly on contact
+  private lastDamageCause = '尚未受到致命伤害';
 
   constructor(private readonly renderer: Renderer) {
     this.best = Number(localStorage.getItem('zs-best') || '0') || 0;
@@ -112,6 +90,7 @@ export class Game {
     this.corpses.clear();
     this.blood.clear();
     this.hash.clear();
+    this.lastDamageCause = '尚未受到致命伤害';
     const world = new World(makeRng((performance.now() * 1000) >>> 0));
     const ctx: GameContext = {
       world,
@@ -139,6 +118,9 @@ export class Game {
         onEnemyKilled: (x, y, key, r, isBoss, flipX) => this.corpses.spawnCorpse(x, y, key, r, isBoss, flipX),
         onEnemyKnocked: (x, y, key, r, isBoss, flipX) => this.corpses.spawnAfter(x, y, key, r, isBoss, flipX),
         onBloodSplat: (x, y, r) => this.blood.spawn(x, y, r),
+        onPlayerHit: (cause) => {
+          this.lastDamageCause = cause;
+        },
       },
     };
     ctx.player = createPlayer(ctx);
@@ -310,14 +292,52 @@ export class Game {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'gameover';
     this.saveBest();
-    this.ui.showEnd(false, this.ctx.time.elapsed, this.ctx.stats.kills, this.best, () => this.start());
+    this.ui.showEnd(this.buildRunSummary(false), () => this.start());
   }
 
   private win(): void {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'victory';
     this.saveBest();
-    this.ui.showEnd(true, this.ctx.time.elapsed, this.ctx.stats.kills, this.best, () => this.start());
+    this.ui.showEnd(this.buildRunSummary(true), () => this.start());
+  }
+
+  private buildRunSummary(victory: boolean): RunSummary {
+    const ctx = this.ctx!;
+    const lo = ctx.world.get(ctx.player, Loadout);
+    const primary = this.primaryWeapon(lo);
+    const stage = currentRunStage(ctx.time.elapsed).index;
+    return {
+      victory,
+      time: ctx.time.elapsed,
+      kills: ctx.stats.kills,
+      best: this.best,
+      stage,
+      primaryWeapon: primary.def.name,
+      gold: ctx.equip.gold,
+      cause: victory ? '击败母巢暴君' : this.lastDamageCause,
+      nextGoal: this.nextGoal(stage, primary.level),
+    };
+  }
+
+  private nextGoal(stage: number, weaponLevel: number): string {
+    if (stage < 2) return '下一目标：抵达第 2 阶段';
+    if (weaponLevel < 3) return '下一目标：将主武器升到 Lv.3';
+    return '下一目标：击败母巢暴君';
+  }
+
+  private threatLabel(stage: number, elapsed: number): string {
+    if (stage >= 5) return '威胁：母巢逼近';
+    if (elapsed < 30) return '威胁：低';
+    if (stage >= 4) return '威胁：极高';
+    if (stage >= 3) return '威胁：高';
+    return '威胁：中';
+  }
+
+  private primaryWeapon(lo?: { weapons: WeaponInst[]; activeWeapon?: string }): WeaponInst {
+    return lo?.weapons.find((wi) => wi.def.id === lo.activeWeapon)
+      ?? lo?.weapons.find((wi) => wi.def.kind === 'aim')
+      ?? lo!.weapons[0]!;
   }
 
   private saveBest(): void {
@@ -374,6 +394,11 @@ export class Game {
       this.corpses.draw(r, this.assets); // corpses/afterimages sit under the living
       this.drawWorld(ctx, r);
       ctx.fx.draw(r);
+      const pt = ctx.world.get(ctx.player, Transform);
+      if (pt) {
+        const pressure = Math.min(1, ctx.world.query(Enemy).length / 180 + currentRunStage(ctx.time.elapsed).index * 0.08);
+        r.drawAtmosphere(pt.x, pt.y, pressure);
+      }
     }
     // low-health vignette drawn in screen space (not world)
     if (ctx) {
@@ -411,31 +436,48 @@ export class Game {
     const w = ctx.world;
     const pt = w.get(ctx.player, Transform);
     const px = pt ? pt.x : 0;
+    const py = pt ? pt.y : 0;
     const now = performance.now();
+    const actors: Array<{ depth: number; draw: () => void }> = [];
+    const bullets: Array<() => void> = [];
 
     for (const e of w.query(Renderable, Transform)) {
       const t = w.get(e, Transform)!;
       const rd = w.get(e, Renderable)!;
       const en = w.get(e, Enemy);
       if (en) {
-        const v = w.get(e, Velocity);
-        const sp = v ? Math.hypot(v.x, v.y) : 0;
-        const anim = walkAnim(now, sp, t.x + t.y, en.def.isBoss ? 0.6 : 1);
-        r.drawEllipse(t.x, t.y + rd.r * 0.75, rd.r * (0.9 - anim.squash * 0.5), rd.r * 0.38, 'rgba(0,0,0,0.3)');
-        const img = this.assets.get(en.def.id);
-        if (img) {
-          const size = enemySpriteSize(rd.r, en.def.isBoss);
-          const sw = size * (1 + anim.squash);
-          const sh = size * (1 - anim.squash);
-          r.drawSprite(img, t.x, t.y + rd.r - sh / 2 - anim.bob, sw, sh, px - t.x < 0);
-        } else {
-          r.drawCircle(t.x, t.y, rd.r, rd.color);
-          if (en.def.isBoss) r.drawRing(t.x, t.y, rd.r + 6, '#ffd0e6', 3);
-        }
-        const h = w.get(e, Health);
-        if (h && h.flash > 0) r.drawCircle(t.x, t.y, rd.r, '#ffffff', 0.45);
+        actors.push({
+          depth: actorDepth(t.y, rd.r),
+          draw: () => {
+            const v = w.get(e, Velocity);
+            const sp = v ? Math.hypot(v.x, v.y) : 0;
+            const anim = walkMotion(now, sp, t.x + t.y, en.def.isBoss ? 0.6 : 1);
+            const dx = px - t.x;
+            const dy = py - t.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const attackRange = rd.r + PLAYER_BASE.radius + 24;
+            const lunge = dist < attackRange ? (1 - dist / attackRange) * 5 : 0;
+            const ox = (dx / dist) * lunge;
+            const oy = (dy / dist) * lunge;
+            const squash = anim.squash + Math.min(0.04, (lunge / 5) * 0.04);
+            const x = t.x + ox;
+            const y = t.y + oy;
+            r.drawEllipse(x, y + rd.r * 0.75, rd.r * (0.9 - squash * 0.5), rd.r * 0.38, 'rgba(0,0,0,0.3)');
+            const img = this.assets.get(en.def.id);
+            if (img) {
+              const size = enemySpriteSize(rd.r, en.def.isBoss);
+              const sw = size * (1 + squash);
+              const sh = size * (1 - squash);
+              r.drawSprite(img, x, y + rd.r - sh / 2 - anim.bob, sw, sh, px - t.x < 0);
+            } else {
+              r.drawCircle(x, y, rd.r, rd.color);
+              if (en.def.isBoss) r.drawRing(x, y, rd.r + 6, '#ffd0e6', 3);
+            }
+            const h = w.get(e, Health);
+            if (h && h.flash > 0) r.drawCircle(x, y, rd.r, '#ffffff', 0.45);
+          },
+        });
       } else if (w.has(e, GoldCoin)) {
-        // Gold coin: use sprite if loaded, otherwise procedural glow
         const img = this.assets.get('coin');
         if (img) {
           const size = rd.r * 3;
@@ -451,20 +493,21 @@ export class Game {
         r.drawRect(t.x, t.y, rd.r * 2, rd.r * 2, '#c0352f');
         r.drawRect(t.x, t.y, rd.r * 1.2, rd.r * 0.44, '#ffffff');
         r.drawRect(t.x, t.y, rd.r * 0.44, rd.r * 1.2, '#ffffff');
-      } else if (w.has(e, Bullet)) {
-        const v = w.get(e, Velocity)!;
-        const enemyShot = w.get(e, Bullet)!.team === 'enemy';
-        if (enemyShot) {
-          r.drawTracer(t.x, t.y, v.x, v.y, 16, rd.r * 2, '#eaffd0', '#7be23a');
-        } else {
-          r.drawTracer(t.x, t.y, v.x, v.y, 22, rd.r * 2.1, '#fffdf0', '#ffb43c');
-        }
       } else if (w.has(e, XPGem)) {
-        // cheap layered glow (no shadowBlur) — gems can number in the hundreds
         const pulse = 0.5 + 0.5 * Math.sin(now / 220 + t.x);
         r.drawCircle(t.x, t.y, rd.r + 3, '#39b9ff', 0.28);
         r.drawCircle(t.x, t.y, rd.r, '#7fdcff');
         r.drawCircle(t.x, t.y, rd.r * 0.5, '#eaffff', 0.7 + pulse * 0.3);
+      } else if (w.has(e, Bullet)) {
+        bullets.push(() => {
+          const v = w.get(e, Velocity)!;
+          const enemyShot = w.get(e, Bullet)!.team === 'enemy';
+          if (enemyShot) {
+            r.drawTracer(t.x, t.y, v.x, v.y, 16, rd.r * 2, '#eaffd0', '#7be23a');
+          } else {
+            r.drawTracer(t.x, t.y, v.x, v.y, 22, rd.r * 2.1, '#fffdf0', '#ffb43c');
+          }
+        });
       } else {
         r.drawCircle(t.x, t.y, rd.r, rd.color);
       }
@@ -475,54 +518,59 @@ export class Game {
     const pv = w.get(ctx.player, Velocity);
     const lo = w.get(ctx.player, Loadout);
     if (pt && ph) {
-      const R = PLAYER_BASE.radius;
-      const psp = pv ? Math.hypot(pv.x, pv.y) : 0;
-      const anim = walkAnim(now, psp, pt.x + pt.y, 1.1);
-      const facingLeft = aim ? aim.x < 0 : false;
-      // Kick up a little dust on each footfall while actually running.
-      if (anim.step !== this.lastFootstep && psp > 30) {
-        this.lastFootstep = anim.step;
-        // Spray dust backward (opposite travel) from the feet.
-        const back = pv && psp > 0 ? -pv.x / psp : 0;
-        this.fx.spark(pt.x + back * R * 0.5, pt.y + R * 0.85, back, -0.35, 4, '#9a8f72', 70);
-      }
-      r.drawEllipse(pt.x, pt.y + R * 0.75, R * (0.95 - anim.squash * 0.5), R * 0.4, 'rgba(0,0,0,0.32)');
-      const flick = ph.invuln > 0 && Math.floor(ctx.time.elapsed * 20) % 2 === 0;
-      if (!flick) {
-        const img = this.assets.get(playerWeaponSpriteKey(lo?.activeWeapon)) ?? this.assets.get('player');
-        if (img) {
-          const size = playerSpriteSize(R);
-          const sw = size * (1 + anim.squash);
-          const sh = size * (1 - anim.squash);
-          // Lean into the run: forward tilt toward movement + alternating stride rock.
-          // drawSpriteRot mirrors rotation when flipped, so negate to keep lean true to velocity.
-          const lean = ((pv ? (pv.x / 200) * 0.14 : 0) + anim.rock) * (facingLeft ? -1 : 1);
-          r.drawSpriteRot(img, pt.x, pt.y + R - sh / 2 - anim.bob, sw, sh, lean, facingLeft, 1, sh / 2);
-        } else {
-          r.drawCircle(pt.x, pt.y, R, '#7fe6c0');
-          r.drawCircle(pt.x, pt.y, R - 4, '#cffaea');
-        }
-      }
-      // Draw shield ring around player while any shield layer remains.
-      if (ctx.equip.shield > 0) {
-        const pulse = 0.6 + 0.4 * Math.sin(now / 300);
-        r.drawRing(pt.x, pt.y, R + 10, `rgba(95,184,255,${pulse * 0.7})`, 2.5);
-      }
-      if (ctx.skills.barrierLayers > 0 && ctx.skills.barrierUntil > ctx.time.elapsed) {
-        const pulse = 0.6 + 0.4 * Math.sin(now / 240);
-        r.drawRing(pt.x, pt.y, R + 16, `rgba(116,199,255,${pulse * 0.78})`, 3);
-      }
-      if (ctx.skills.slowUntil > ctx.time.elapsed) {
-        const pulse = 0.45 + 0.35 * Math.sin(now / 180);
-        r.drawRing(pt.x, pt.y, R + 22, `rgba(168,144,255,${pulse})`, 2);
-      }
-      // Draw berserk aura while the rage buff is active.
-      if ((ctx.equip.buffs.get('berserk') ?? -1) > ctx.time.elapsed) {
-        const pulse = 0.5 + 0.5 * Math.sin(now / 100);
-        r.drawRing(pt.x, pt.y, R + 14, `rgba(255,60,60,${pulse * 0.5})`, 3);
-      }
-      if (aim) r.drawCircle(pt.x + aim.x * (R + 8), pt.y + aim.y * (R + 8), 3, '#ffffff');
+      actors.push({
+        depth: actorDepth(pt.y, PLAYER_BASE.radius),
+        draw: () => {
+          const R = PLAYER_BASE.radius;
+          const psp = pv ? Math.hypot(pv.x, pv.y) : 0;
+          const anim = walkMotion(now, psp, pt.x + pt.y, 1.1);
+          const facingLeft = aim ? aim.x < 0 : false;
+          if (anim.step !== this.lastFootstep && psp > 30) {
+            this.lastFootstep = anim.step;
+            const back = pv && psp > 0 ? -pv.x / psp : 0;
+            this.fx.spark(pt.x + back * R * 0.5, pt.y + R * 0.85, back, -0.35, 4, '#9a8f72', 70);
+          }
+          r.drawEllipse(pt.x, pt.y + R * 0.75, R * (0.95 - anim.squash * 0.5), R * 0.4, 'rgba(0,0,0,0.32)');
+          const flick = ph.invuln > 0 && Math.floor(ctx.time.elapsed * 20) % 2 === 0;
+          if (!flick) {
+            const img = this.assets.get(playerWeaponSpriteKey(lo?.activeWeapon)) ?? this.assets.get('player');
+            if (img) {
+              const size = playerSpriteSize(R);
+              const sw = size * (1 + anim.squash);
+              const sh = size * (1 - anim.squash);
+              const baseLean = ((pv ? (pv.x / 200) * 0.14 : 0) + anim.rock) * (facingLeft ? -1 : 1);
+              const activeWeapon = lo?.weapons.find((wi) => wi.def.id === lo.activeWeapon);
+              const recoil = activeWeapon ? recoilAmount(activeWeapon.cd, activeWeapon.def.cooldown) : 0;
+              const lean = baseLean - recoil * 0.055 * (facingLeft ? -1 : 1);
+              r.drawSpriteRot(img, pt.x, pt.y + R - sh / 2 - anim.bob, sw, sh, lean, facingLeft, 1, sh / 2);
+            } else {
+              r.drawCircle(pt.x, pt.y, R, '#7fe6c0');
+              r.drawCircle(pt.x, pt.y, R - 4, '#cffaea');
+            }
+          }
+          if (ctx.equip.shield > 0) {
+            const pulse = 0.6 + 0.4 * Math.sin(now / 300);
+            r.drawRing(pt.x, pt.y, R + 10, `rgba(95,184,255,${pulse * 0.7})`, 2.5);
+          }
+          if (ctx.skills.barrierLayers > 0 && ctx.skills.barrierUntil > ctx.time.elapsed) {
+            const pulse = 0.6 + 0.4 * Math.sin(now / 240);
+            r.drawRing(pt.x, pt.y, R + 16, `rgba(116,199,255,${pulse * 0.78})`, 3);
+          }
+          if (ctx.skills.slowUntil > ctx.time.elapsed) {
+            const pulse = 0.45 + 0.35 * Math.sin(now / 180);
+            r.drawRing(pt.x, pt.y, R + 22, `rgba(168,144,255,${pulse})`, 2);
+          }
+          if ((ctx.equip.buffs.get('berserk') ?? -1) > ctx.time.elapsed) {
+            const pulse = 0.5 + 0.5 * Math.sin(now / 100);
+            r.drawRing(pt.x, pt.y, R + 14, `rgba(255,60,60,${pulse * 0.5})`, 3);
+          }
+          if (aim) r.drawCircle(pt.x + aim.x * (R + 8), pt.y + aim.y * (R + 8), 3, '#ffffff');
+        },
+      });
     }
+
+    actors.sort((a, b) => a.depth - b.depth).forEach((actor) => actor.draw());
+    bullets.forEach((draw) => draw());
 
     if (pt && lo) {
       for (const wi of lo.weapons) {
@@ -544,6 +592,21 @@ export class Game {
     const ph = w.get(ctx.player, Health)!;
     const lo = w.get(ctx.player, Loadout)!;
     const stage = currentRunStage(ctx.time.elapsed);
+    const stagePos = RUN_STAGES.findIndex((s) => s.index === stage.index);
+    const nextStage = RUN_STAGES[stagePos + 1];
+    const stageEnd = nextStage?.from ?? stage.from + 60;
+    const stageSpan = Math.max(1, stageEnd - stage.from);
+    const stageProgress = Math.min(1, Math.max(0, (ctx.time.elapsed - stage.from) / stageSpan));
+    const nextStageIn = nextStage ? Math.max(0, nextStage.from - ctx.time.elapsed) : null;
+    const primary = this.primaryWeapon(lo);
+    const stageBanner = (ctx.director.stageBannerUntil ?? 0) > ctx.time.elapsed
+      ? `阶段 ${stage.index} · ${stage.name}`
+      : '';
+    const tutorialTip = ctx.time.elapsed < 12
+      ? '优先绕圈移动并拾取经验；前 30 秒拾取范围更大'
+      : ctx.time.elapsed < 35
+        ? '按 B 打开商店，用金币购买装备补足生存能力'
+        : '';
     let bossHp: number | null = null;
     for (const e of w.query(Enemy)) {
       const en = w.get(e, Enemy)!;
@@ -553,6 +616,7 @@ export class Game {
         break;
       }
     }
+    const threatLabel = bossHp !== null ? 'Boss 接战' : this.threatLabel(stage.index, ctx.time.elapsed);
 
     // Build the inventory bar: only currently-held consumables / active buffs.
     const items: Array<{ def: import('./data/equipment').EquipDef; count: number; remain: number }> = [];
@@ -573,6 +637,16 @@ export class Game {
     this.ui.updateHud({
       stage: stage.index,
       stageName: stage.name,
+      stageProgress,
+      nextStageIn,
+      threatLabel,
+      primaryWeapon: {
+        name: primary.def.name,
+        level: primary.level,
+        progress: Math.min(1, primary.level / MAX_WEAPON_LEVEL),
+      },
+      tutorialTip,
+      stageBanner,
       hp: ph.hp,
       maxHp: ctx.stats.maxHp,
       xp: ctx.stats.xp,

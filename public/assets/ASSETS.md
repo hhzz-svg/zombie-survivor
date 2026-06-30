@@ -30,6 +30,21 @@
 | `skill_barrier.png` | 能量屏障 |
 | `skill_slow.png` | 时间迟滞 |
 
+## 装备图标
+
+装备图标为 96×96 透明 PNG，用于商店卡片和底部物品栏，风格统一为战术废土 2.5D 道具。
+
+| 文件名 | 用途 |
+|---|---|
+| `equip_magnet.png` | 磁能吸附 |
+| `equip_grenade.png` | 高爆手雷 |
+| `equip_medkit.png` | 急救包 |
+| `equip_shield.png` | 护盾发生器 |
+| `equip_boots.png` | 疾风战靴 |
+| `equip_berserk.png` | 狂暴药剂 |
+| `equip_coin_double.png` | 金币倍增 |
+| `equip_death_dance.png` | 死亡之舞 |
+
 ### 技能图标规范
 
 - 透明 PNG

@@ -17,5 +17,13 @@
   "skill_dash": "skill_dash.png",
   "skill_burst": "skill_burst.png",
   "skill_barrier": "skill_barrier.png",
-  "skill_slow": "skill_slow.png"
+  "skill_slow": "skill_slow.png",
+  "equip_magnet": "equip_magnet.png",
+  "equip_grenade": "equip_grenade.png",
+  "equip_medkit": "equip_medkit.png",
+  "equip_shield": "equip_shield.png",
+  "equip_boots": "equip_boots.png",
+  "equip_berserk": "equip_berserk.png",
+  "equip_coin_double": "equip_coin_double.png",
+  "equip_death_dance": "equip_death_dance.png"
 }
