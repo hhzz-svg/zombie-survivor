@@ -21,3 +21,23 @@
 - `docs/research/2026-06-30-product-audit/04-defeat.png`：新增阵亡结算审查截图。
 - `progress.md`：新增本轮调研记录。
 - 回滚方式：执行 `git restore -- progress.md` 并删除 `docs/research/2026-06-30-product-audit/`；若尚未提交且 `progress.md` 为本轮新建，可一并删除该文件。
+
+## 2026-06-30 - Task: 锁定战术伪 3D 设计方向
+
+### What was done
+
+- 基于用户选定的第 1 套视觉方案，明确 UI、玩法节奏、人物动作、特效、图片资产和伪 3D 渲染边界。
+- 将成功标准、代码边界、数据流、错误处理、验证范围和非目标整理为可实施设计规范。
+
+### Testing
+
+- 完成设计规范自检：无 `TBD`、`TODO`、占位符或未决项，章节与成功标准一致。
+- 已确认规范引用的选定视觉目标文件存在并可打开，尺寸为 1664×936。
+- `git diff --check` 通过。
+
+### Notes
+
+- `docs/design/2026-06-30-tactical-redesign/selected-direction.png`：保存用户选定的第 1 套战术清晰视觉目标。
+- `docs/superpowers/specs/2026-06-30-zombie-survivor-tactical-redesign-design.md`：新增完整改造设计规范。
+- `progress.md`：追加本轮设计记录。
+- 回滚方式：回退本任务对应提交，或删除上述两个新增文件并将 `progress.md` 恢复到上一提交。
