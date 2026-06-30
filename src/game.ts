@@ -6,10 +6,10 @@ import { CorpseFX } from './fx/corpseFX';
 import { BloodDecals } from './fx/bloodDecals';
 import { enemySpriteSize, playerSpriteSize } from './render/spriteScale';
 import { actorDepth, recoilAmount, walkMotion } from './render/motion';
+import { carriedEquipmentPose, heldWeaponPose, selectedEquipmentIconKeys } from './render/heldGear';
 import { AudioBus } from './audio/audio';
 import type { Renderer } from './render/renderer';
 import { AssetStore } from './render/assets';
-import { playerWeaponSpriteKey } from './render/playerWeaponSprite';
 import { Input } from './input/input';
 import { DomInput } from './input/provider';
 import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx';
@@ -533,16 +533,50 @@ export class Game {
           r.drawEllipse(pt.x, pt.y + R * 0.75, R * (0.95 - anim.squash * 0.5), R * 0.4, 'rgba(0,0,0,0.32)');
           const flick = ph.invuln > 0 && Math.floor(ctx.time.elapsed * 20) % 2 === 0;
           if (!flick) {
-            const img = this.assets.get(playerWeaponSpriteKey(lo?.activeWeapon)) ?? this.assets.get('player');
+            const img = this.assets.get('player');
             if (img) {
               const size = playerSpriteSize(R);
               const sw = size * (1 + anim.squash);
               const sh = size * (1 - anim.squash);
               const baseLean = ((pv ? (pv.x / 200) * 0.14 : 0) + anim.rock) * (facingLeft ? -1 : 1);
-              const activeWeapon = lo?.weapons.find((wi) => wi.def.id === lo.activeWeapon);
+              const activeWeapon = lo ? this.primaryWeapon(lo) : undefined;
               const recoil = activeWeapon ? recoilAmount(activeWeapon.cd, activeWeapon.def.cooldown) : 0;
               const lean = baseLean - recoil * 0.055 * (facingLeft ? -1 : 1);
               r.drawSpriteRot(img, pt.x, pt.y + R - sh / 2 - anim.bob, sw, sh, lean, facingLeft, 1, sh / 2);
+              const gearKeys = selectedEquipmentIconKeys({
+                shield: ctx.equip.shield,
+                charges: ctx.equip.charges,
+                buffs: ctx.equip.buffs,
+                elapsed: ctx.time.elapsed,
+              });
+              gearKeys.forEach((key, i) => {
+                const pose = carriedEquipmentPose(key, { facingLeft, radius: R, bob: anim.bob });
+                const gear = this.assets.get(pose.key);
+                if (!gear) return;
+                const side = facingLeft ? 1 : -1;
+                const gx = pt.x + pose.x + side * i * R * 0.36;
+                const gy = pt.y + pose.y + i * R * 0.28;
+                const size = pose.size * (1 - i * 0.12);
+                r.drawEllipse(gx, gy + size * 0.33, size * 0.36, size * 0.15, 'rgba(0,0,0,0.24)');
+                r.drawSpriteRot(gear, gx, gy, size, size, pose.rotation + lean * 0.35, pose.flipX, pose.alpha);
+              });
+              const weaponPose = heldWeaponPose({
+                spriteKey: activeWeapon?.def.sprite,
+                aimX: aim?.x ?? (facingLeft ? -1 : 1),
+                aimY: aim?.y ?? 0,
+                radius: R,
+                recoil,
+                bob: anim.bob,
+              });
+              if (weaponPose) {
+                const weapon = this.assets.get(weaponPose.key);
+                if (weapon) {
+                  const wx = pt.x + weaponPose.x;
+                  const wy = pt.y + weaponPose.y;
+                  r.drawLine(pt.x + (facingLeft ? -R * 0.32 : R * 0.32), pt.y - anim.bob * 0.45, wx, wy, 'rgba(220,190,150,0.62)', 3, 0.74);
+                  r.drawSpriteRot(weapon, wx, wy, weaponPose.size, weaponPose.size, weaponPose.rotation + lean * 0.2, weaponPose.flipX, weaponPose.alpha);
+                }
+              }
             } else {
               r.drawCircle(pt.x, pt.y, R, '#7fe6c0');
               r.drawCircle(pt.x, pt.y, R - 4, '#cffaea');

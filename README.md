@@ -26,7 +26,7 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 - **A tactical HUD that reads at a glance.** Stage, timer, threat, gold, HP, primary weapon and inventory slots now sit in clear combat-priority zones instead of competing for attention.
 - **A kinder opening minute.** Early spawn pressure ramps up gradually, pickup range is boosted during onboarding, and later stage transitions grant readable gold/health rewards.
 - **Real equipment art.** Shop consumables and buffs now use a unified set of 96x96 transparent tactical item icons instead of emoji placeholders.
-- **Stronger depth and motion.** The player is larger, actors sort by their feet, enemies lunge visually when close, weapon recoil reads on the hero, and pickup streaks/atmosphere grading make combat feel more physical.
+- **Stronger depth and motion.** The player is larger, actors sort by their feet, weapons and carried equipment render as hand-held layers, recoil reads on the hero, and pickup streaks/atmosphere grading make combat feel more physical.
 - **Five escalating stages.** The run ramps in visible steps, from a handful of walkers to wall-to-wall hordes. You can *feel* each stage tighten.
 - **A boss with a kit.** The Hive Tyrant telegraphs its entrance, sprays radial bullet volleys, slams the ground for a shockwave, and calls in reinforcements. It's a fight, not a damage sponge.
 - **Build variety.** Six weapons (each with a Lv.6 evolution), a deck of stat passives, shop consumables, and run-only active skills — every run reaches for a different combo.
