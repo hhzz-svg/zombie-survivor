@@ -10,8 +10,6 @@ A fast, browser-based top-down zombie survivor. Outrun the horde, auto-fire into
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-<img src="docs/screenshots/tactical-gameplay.png" alt="Zombie Survivor tactical gameplay" width="80%" />
-
 ---
 
 ## What it is

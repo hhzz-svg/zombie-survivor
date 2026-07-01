@@ -10,8 +10,6 @@
 
 [English](README.md) · 简体中文
 
-<img src="docs/screenshots/tactical-gameplay.png" alt="末日清道夫战术实机截图" width="80%" />
-
 ---
 
 ## 这是什么
