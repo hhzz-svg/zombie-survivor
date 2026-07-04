@@ -10,7 +10,7 @@
   <img src="docs/images/zombie-survivor-poster.png" alt="末日清道夫 Zombie Survivor 海报" width="720">
 </p>
 
-### ▶ [立即游玩](https://zombie-survivor.huz43462.workers.dev/)
+### ▶ [立即游玩](https://zombie-survivor.pages.dev/)
 
 [English](README.md) · 简体中文
 
