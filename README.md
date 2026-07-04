@@ -6,11 +6,13 @@ A fast, browser-based top-down zombie survivor. Outrun the horde, auto-fire into
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6.x-646cff.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 
+<p align="center">
+  <img src="docs/images/zombie-survivor-poster.png" alt="Zombie Survivor poster" width="720">
+</p>
+
 ### ▶ [Play Now](https://zombie-survivor.huz43462.workers.dev/)
 
 [English](README.md) · [简体中文](README.zh-CN.md)
-
-<img src="docs/screenshots/tactical-gameplay.png" alt="Zombie Survivor tactical gameplay" width="80%" />
 
 ---
 

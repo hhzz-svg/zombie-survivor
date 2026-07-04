@@ -6,11 +6,13 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6.x-646cff.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 
+<p align="center">
+  <img src="docs/images/zombie-survivor-poster.png" alt="末日清道夫 Zombie Survivor 海报" width="720">
+</p>
+
 ### ▶ [立即游玩](https://zombie-survivor.huz43462.workers.dev/)
 
 [English](README.md) · 简体中文
-
-<img src="docs/screenshots/tactical-gameplay.png" alt="末日清道夫战术实机截图" width="80%" />
 
 ---
 
