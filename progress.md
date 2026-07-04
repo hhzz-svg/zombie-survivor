@@ -258,3 +258,19 @@
 - `dev-server.log`?`dev-server.err.log`?????????????
 - `progress.md`?????????????????????????
 - ???? `d4a2186`??????????????? `git diff --binary d4a2186 HEAD | git apply -R`???? `npm test` ? `npm run build` ???????
+
+## 2026-07-05 - Task: Add generated poster to GitHub repository introduction
+### What was done
+- Added the generated Zombie Survivor poster as the repository introduction hero artwork.
+- Embedded the poster near the top of both English and Simplified Chinese README files so GitHub visitors see the visual identity before the play link.
+
+### Testing
+- Ran a Python validation that opened `docs/images/zombie-survivor-poster.png` with PIL, confirmed it is a PNG at `941x1672`, confirmed both README files reference `docs/images/zombie-survivor-poster.png`, and confirmed each referenced image path exists.
+- Confirmed the Simplified Chinese README image alt text remains valid UTF-8 text after fixing a command-line encoding issue.
+
+### Notes
+- `docs/images/zombie-survivor-poster.png`: Added the generated poster image for README/GitHub display.
+- `README.md`: Embedded the poster as a centered hero image above the play link.
+- `README.zh-CN.md`: Embedded the same poster with Chinese alt text above the play link.
+- `progress.md`: Appended this task record, validation evidence, and rollback guidance.
+- Rollback: remove `docs/images/zombie-survivor-poster.png`, delete the inserted `<p align="center">...poster...</p>` block from both README files, and remove this appended progress entry; alternatively run `git checkout -- README.md README.zh-CN.md progress.md` and delete `docs/images/zombie-survivor-poster.png` before committing.
