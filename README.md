@@ -10,7 +10,7 @@ A fast, browser-based top-down zombie survivor. Outrun the horde, auto-fire into
   <img src="docs/images/zombie-survivor-poster.png" alt="Zombie Survivor poster" width="720">
 </p>
 
-### ▶ [Play Now](https://zombie-survivor.huz43462.workers.dev/)
+### ▶ [Play Now](https://zombie-survivor.pages.dev/)
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 

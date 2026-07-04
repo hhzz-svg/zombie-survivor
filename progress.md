@@ -274,3 +274,22 @@
 - `README.zh-CN.md`: Embedded the same poster with Chinese alt text above the play link.
 - `progress.md`: Appended this task record, validation evidence, and rollback guidance.
 - Rollback: remove `docs/images/zombie-survivor-poster.png`, delete the inserted `<p align="center">...poster...</p>` block from both README files, and remove this appended progress entry; alternatively run `git checkout -- README.md README.zh-CN.md progress.md` and delete `docs/images/zombie-survivor-poster.png` before committing.
+
+## 2026-07-05 - Task: Point GitHub play link to Cloudflare Pages
+### What was done
+- Recreated the game on Cloudflare Pages under the `zombie-survivor` project and verified the production URL `https://zombie-survivor.pages.dev/` returns the game HTML.
+- Updated the English and Simplified Chinese README play links from the failing Workers URL to the verified Pages URL.
+- Changed the Wrangler config from Workers static assets to Cloudflare Pages output configuration to avoid future deployment confusion.
+
+### Testing
+- Ran `npm run build` successfully.
+- Verified `https://zombie-survivor.pages.dev/` returns `HTTP/1.1 200 OK` and the HTML title `末日清道夫 · Zombie Survivor`.
+- Verified `README.md` and `README.zh-CN.md` contain `https://zombie-survivor.pages.dev/` and no longer contain `workers.dev`.
+- Verified `wrangler.jsonc` contains `pages_build_output_dir` and no longer contains the Workers `assets` config.
+
+### Notes
+- `README.md`: Changed the `Play Now` link to the Cloudflare Pages production URL.
+- `README.zh-CN.md`: Changed the `立即游玩` link to the Cloudflare Pages production URL.
+- `wrangler.jsonc`: Replaced the Workers static-assets deployment config with Cloudflare Pages output config.
+- `progress.md`: Appended this task record, validation evidence, and rollback guidance.
+- Rollback: restore the previous README links and Wrangler config from Git, then optionally remove the Cloudflare Pages project or deploy a corrected target; for local rollback before commit, run `git checkout -- README.md README.zh-CN.md wrangler.jsonc progress.md`.
