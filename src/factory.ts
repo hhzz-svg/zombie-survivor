@@ -3,11 +3,12 @@ import type { Entity } from './ecs/world';
 import type { EnemyDef, WeaponDef } from './data/schemas';
 import type { EliteAffix } from './data/elites';
 import {
-  Transform, Velocity, Health, Collider, Renderable, Enemy, Bullet, Lifetime, XPGem, GoldCoin, Medkit, PlayerTag, Aim, Loadout, SupplyCrate,
+  Transform, Velocity, Health, Collider, Renderable, Enemy, Bullet, Lifetime, XPGem, GoldCoin, Medkit, PlayerTag, Aim, Loadout, SupplyCrate, Survivor, Wingman,
 } from './components';
 import { PLAYER_BASE, hpScale, WAVE, SUPPLY_FALL_SECONDS } from './data/balance';
 import { WEAPONS, STARTER_WEAPON } from './data/weapons';
 import { ENEMIES } from './data/enemies';
+import { SURVIVOR_WAIT, type WingmanDef } from './data/wingmen';
 
 /** Entity construction lives here so spawning is consistent across game, sim, and tests. */
 
@@ -101,6 +102,31 @@ export function spawnCrate(ctx: GameContext, x: number, y: number): Entity {
   w.add(e, Transform, { x, y, rot: 0 });
   w.add(e, SupplyCrate, { landAt: ctx.time.elapsed + SUPPLY_FALL_SECONDS });
   w.add(e, Renderable, { shape: 'rect', r: 14, color: '#c8b273' });
+  return e;
+}
+
+/** A stranded survivor at a readable distance from the player, on a rescue timer. */
+export function spawnSurvivor(ctx: GameContext, def: WingmanDef): Entity {
+  const w = ctx.world;
+  const pt = w.get(ctx.player, Transform);
+  const a = ctx.rng() * Math.PI * 2;
+  const r = 300 + ctx.rng() * 150;
+  const e = w.create();
+  w.add(e, Transform, { x: (pt?.x ?? 0) + Math.cos(a) * r, y: (pt?.y ?? 0) + Math.sin(a) * r, rot: 0 });
+  w.add(e, Survivor, { def, until: ctx.time.elapsed + SURVIVOR_WAIT });
+  w.add(e, Renderable, { shape: 'circle', r: 11, color: def.color });
+  return e;
+}
+
+/** Convert a rescue into a fighting squadmate occupying `slot`. */
+export function spawnWingman(ctx: GameContext, def: WingmanDef, x: number, y: number, slot: number): Entity {
+  const w = ctx.world;
+  const e = w.create();
+  w.add(e, Transform, { x, y, rot: 0 });
+  w.add(e, Velocity, { x: 0, y: 0 });
+  w.add(e, Health, { hp: def.hp, max: def.hp, invuln: 0, flash: 0 });
+  w.add(e, Wingman, { def, slot, cd: def.cooldown, invuln: 0 });
+  w.add(e, Renderable, { shape: 'circle', r: 10, color: def.color });
   return e;
 }
 

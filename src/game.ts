@@ -20,7 +20,10 @@ import {
 import { MAX_WEAPON_LEVEL } from './data/weapons';
 import { EQUIPMENT } from './data/equipment';
 import { SKILLS } from './data/skills';
-import { OPERATIVES, DEFAULT_OPERATIVE, operativeById, applyOperative } from './data/operatives';
+import {
+  OPERATIVES, DEFAULT_OPERATIVE, operativeById, applyOperative,
+  applyOperativeLevel, opLevelFromXp, opXpGain, opLevelBonusText,
+} from './data/operatives';
 import { ACHIEVEMENTS, evaluateAchievements, type AchieveSnapshot, type AchievementDef } from './data/achievements';
 import { createPlayer } from './factory';
 import { runSystems } from './systems/pipeline';
@@ -29,8 +32,9 @@ import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
 import { comboTier, freshRunState } from './systems/combo';
 import {
   Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity,
-  Lifetime, SupplyCrate, CurseAltar, type WeaponInst,
+  Lifetime, SupplyCrate, CurseAltar, Survivor, Wingman, type WeaponInst,
 } from './components';
+import { SURVIVOR_WAIT } from './data/wingmen';
 import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, type ShopOffer } from './shop';
@@ -69,6 +73,9 @@ export class Game {
   private lastOperative: string;
   private unlockedAch: Set<string>;
   private lifetime: LifetimeStats;
+  private opXp: Record<string, number>; // per-operative accumulated veterancy XP
+  private opXpCommitted = 0; // XP already banked for the current run
+  private lastOpProgress: { name: string; level: number; gained: number; leveledUp: boolean } | null = null;
   private runAchievements: AchievementDef[] = []; // unlocked during the current run
   private nextAchCheck = 0; // throttle for live achievement evaluation
   // A run can "end" twice (victory screen → endless → death), so lifetime
@@ -82,6 +89,7 @@ export class Game {
     this.lastOperative = localStorage.getItem('zs-operative') || DEFAULT_OPERATIVE;
     this.unlockedAch = new Set(this.loadJson<string[]>('zs-ach', []));
     this.lifetime = this.loadJson<LifetimeStats>('zs-life', { kills: 0, runs: 0, wins: 0 });
+    this.opXp = this.loadJson<Record<string, number>>('zs-ops', {});
     void this.assets.load();
     this.showTitle();
     this.ui.setShopHandler(() => this.openShop());
@@ -98,6 +106,11 @@ export class Game {
   }
 
   private showTitle(): void {
+    const progress: Record<string, { level: number; into: number; next: number; bonus: string }> = {};
+    for (const op of OPERATIVES) {
+      const lv = opLevelFromXp(this.opXp[op.id] ?? 0);
+      progress[op.id] = { ...lv, bonus: opLevelBonusText(op, lv.level) };
+    }
     this.ui.showTitle(
       this.best,
       OPERATIVES,
@@ -105,6 +118,7 @@ export class Game {
       (id) => this.start(id),
       { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
       () => this.ui.showAchievements(ACHIEVEMENTS, this.unlockedAch, () => this.showTitle()),
+      progress,
     );
   }
 
@@ -157,7 +171,11 @@ export class Game {
       audio: this.audio,
       time: { elapsed: 0, hitStop: 0 },
       director: { budget: 0, bossSpawned: false, bossDead: false },
-      stats: applyOperative(this.freshStats(), op),
+      stats: applyOperativeLevel(
+        applyOperative(this.freshStats(), op),
+        op,
+        opLevelFromXp(this.opXp[op.id] ?? 0).level,
+      ),
       equip: this.freshEquip(),
       skills: this.freshSkills(),
       run: freshRunState(),
@@ -191,6 +209,8 @@ export class Game {
     this.killsCommitted = 0;
     this.runCounted = false;
     this.winCounted = false;
+    this.opXpCommitted = 0;
+    this.lastOpProgress = null;
     this.state = 'playing';
     this.ui.hideTitle();
     this.ui.hideEnd();
@@ -239,6 +259,8 @@ export class Game {
       evolved: ctx.run.evolved,
       curse: ctx.run.curse,
       firstHpHitAt: ctx.run.firstHpHitAt,
+      rescued: ctx.run.rescued,
+      squadNow: ctx.world.query(Wingman).length,
       // live totals include the run in progress so lifetime goals can pop mid-run
       totalKills: this.lifetime.kills + (ctx.stats.kills - this.killsCommitted),
       totalRuns: this.lifetime.runs + (this.runCounted ? 0 : 1),
@@ -277,6 +299,23 @@ export class Game {
     }
     localStorage.setItem('zs-life', JSON.stringify(this.lifetime));
     this.checkAchievements(victory); // lifetime goals with the committed totals
+
+    // Operative veterancy: bank the run's XP as a delta (endless can end twice).
+    const op = operativeById(this.lastOperative);
+    const before = opLevelFromXp(this.opXp[op.id] ?? 0).level;
+    const gainTotal = opXpGain({
+      kills: this.ctx.stats.kills,
+      time: this.ctx.time.elapsed,
+      victory: this.winCounted,
+      elites: this.ctx.run.elitesKilled,
+      tyrants: this.ctx.run.tyrantsSlain,
+    });
+    const delta = Math.max(0, gainTotal - this.opXpCommitted);
+    this.opXpCommitted = gainTotal;
+    this.opXp[op.id] = (this.opXp[op.id] ?? 0) + delta;
+    localStorage.setItem('zs-ops', JSON.stringify(this.opXp));
+    const after = opLevelFromXp(this.opXp[op.id]!).level;
+    this.lastOpProgress = { name: op.name, level: after, gained: gainTotal, leveledUp: after > before };
   }
 
   private handleItemKeys(): void {
@@ -478,6 +517,8 @@ export class Game {
       endless: !!ctx.director.endless,
       newAchievements: this.runAchievements.map((a) => ({ name: a.name, desc: a.desc })),
       achProgress: { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
+      rescued: ctx.run.rescued,
+      operative: this.lastOpProgress ?? { name: operativeById(this.lastOperative).name, level: 1, gained: 0, leveledUp: false },
     };
   }
 
@@ -684,6 +725,61 @@ export class Game {
             }
             const h = w.get(e, Health);
             if (h && h.flash > 0) r.drawCircle(x, y, rd.r, '#ffffff', 0.45);
+          },
+        });
+      } else if (w.has(e, Survivor)) {
+        const sv = w.get(e, Survivor)!;
+        actors.push({
+          depth: actorDepth(t.y, 11),
+          draw: () => {
+            const remain = Math.max(0, sv.until - ctx.time.elapsed);
+            const frac = remain / SURVIVOR_WAIT;
+            const pulse = 0.5 + 0.5 * Math.sin(now / 220);
+            r.drawEllipse(t.x, t.y + 9, 10, 4.2, 'rgba(0,0,0,0.32)');
+            const img = this.assets.get('player');
+            if (img) {
+              // cowering figure: same survivor art, slightly shrunken and rocking
+              const size = 52;
+              r.drawSpriteRot(img, t.x, t.y + 11 - size / 2, size, size, Math.sin(now / 300) * 0.06, false, 1, size / 2);
+            } else {
+              r.drawCircle(t.x, t.y, 10, sv.def.color);
+            }
+            // distress beacon + shrinking patience ring
+            r.drawRing(t.x, t.y + 4, 26, `rgba(234,255,247,${0.35 + pulse * 0.3})`, 2);
+            r.drawRing(t.x, t.y + 4, 14 + 18 * frac, sv.def.color, 2, 0.75);
+            r.drawGlowCircle(t.x, t.y - 34 + Math.sin(now / 260) * 2.5, 3.2, '#ffffff', sv.def.color);
+            r.drawText(t.x, t.y - 44, `救援 ${sv.def.name} ${Math.ceil(remain)}s`, '#eafff7', 11, 'center', 0.95);
+          },
+        });
+      } else if (w.has(e, Wingman)) {
+        const wm = w.get(e, Wingman)!;
+        actors.push({
+          depth: actorDepth(t.y, 10),
+          draw: () => {
+            const v = w.get(e, Velocity);
+            const sp = v ? Math.hypot(v.x, v.y) : 0;
+            const anim = walkMotion(now, sp, t.x + t.y, 1.05);
+            const h = w.get(e, Health)!;
+            const flick = wm.invuln > 0 && Math.floor(ctx.time.elapsed * 18) % 2 === 0;
+            r.drawEllipse(t.x, t.y + 8, 9 * (0.95 - anim.squash * 0.5), 3.8, 'rgba(0,0,0,0.32)');
+            r.drawEllipse(t.x, t.y + 8, 15, 6, wm.def.color, 0.16); // squad ground tint
+            if (!flick) {
+              const img = this.assets.get('player');
+              if (img) {
+                const size = 54;
+                const sw = size * (1 + anim.squash);
+                const sh = size * (1 - anim.squash);
+                r.drawSprite(img, t.x, t.y + 10 - sh / 2 - anim.bob, sw, sh, (v?.x ?? 0) < 0);
+              } else {
+                r.drawCircle(t.x, t.y, 10, wm.def.color);
+              }
+              if (h.flash > 0) r.drawCircle(t.x, t.y, 11, '#ffffff', 0.4);
+            }
+            // role marker + slim HP sliver above the head
+            r.drawGlowCircle(t.x, t.y - 34, 2.6, '#ffffff', wm.def.color);
+            const hpFrac = Math.max(0, h.hp / h.max);
+            r.drawRect(t.x, t.y - 27, 24, 3, 'rgba(0,0,0,0.55)');
+            r.drawRect(t.x - 12 + 12 * hpFrac, t.y - 27, 24 * hpFrac, 3, wm.def.color);
           },
         });
       } else if (w.has(e, SupplyCrate)) {
@@ -913,6 +1009,12 @@ export class Game {
         ? { label: `血月将至 ${Math.ceil(inc.at - ctx.time.elapsed)}s`, active: false }
         : null;
 
+    const squad = w.query(Wingman).map((e) => {
+      const wm = w.get(e, Wingman)!;
+      const wh = w.get(e, Health)!;
+      return { name: wm.def.name, color: wm.def.color, hpFrac: Math.max(0, wh.hp / wh.max) };
+    });
+
     // Build the inventory bar: only currently-held consumables / active buffs.
     const items: Array<{ def: import('./data/equipment').EquipDef; count: number; remain: number }> = [];
     for (const eqDef of EQUIPMENT) {
@@ -969,6 +1071,7 @@ export class Game {
       shield: ctx.equip.shield,
       combo,
       surge,
+      squad,
     });
   }
 }

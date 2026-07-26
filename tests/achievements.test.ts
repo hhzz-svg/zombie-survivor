@@ -5,6 +5,7 @@ function snap(over: Partial<AchieveSnapshot> = {}): AchieveSnapshot {
   return {
     time: 0, kills: 0, maxCombo: 0, elites: 0, crates: 0, golden: 0, tyrants: 0,
     stage: 1, gold: 0, victory: false, evolved: false, curse: 0, firstHpHitAt: null,
+    rescued: 0, squadNow: 0,
     totalKills: 0, totalRuns: 0, totalWins: 0,
     ...over,
   };

@@ -365,3 +365,31 @@
 - `tests/achievements.test.ts`、`tests/curse.test.ts`、`tests/adrenaline.test.ts`：新增。
 - `README.md`、`README.zh-CN.md`：特性与操作表更新。
 - 回滚方式：回退本任务对应提交；本地存档键 zs-ach/zs-life 可手动清除。
+
+## 2026-07-26 - Task: 干员升级(老兵系统)与救援幸存者僚机系统
+
+### What was done
+
+- 干员升级(跨局元进程)：每局按 击杀×0.5 + 生存秒×0.25 + 精英×2 + 无尽暴君×40 + 胜利120 结算经验(zs-ops 持久化,无尽二次结算按增量入账)；等级上限 Lv.10,每级强化各干员招牌属性(游侠 +2% 攻速/级、重装 +6 生命/级、猎手 +1.2% 暴击/级)；开局自动套用老兵加成;标题卡显示等级徽章、经验条与当前加成,结算页显示"经验 +X · Lv.Y (▲升级)"。
+- 救援幸存者僚机系统：55s 起每 75s 在小队未满(上限 2)时出现被困幸存者(白色求救光标+耐心倒计时环,15s 未达则离开)；近身 42px 救援入队,三种僚机随机——机枪手(380px 速射)、火焰兵(近距三股火舌)、军医(4.5s 一跳 +3 治疗)；僚机沿玩家身后双槽位漂移跟随(48px),伤害随局时缓增,承受尸潮接触伤害(减半+0.7s 无敌帧)并可阵亡(红色播报),阵亡后新幸存者继续刷新。
+- HUD 左侧小队栏(彩点+名称+实时血条)、场上僚机头顶职业光标与血条、幸存者救援倒计时标签;结算页新增"救援幸存者"统计。
+- 新增成就 2 项(不抛弃/完整编队),成就总数 22;快照加入 rescued 与 squadNow 字段。
+
+### Testing
+
+- `npm test`：24 个测试文件 111 个测试全部通过(新增 opLevel 6 项、wingman 8 项)。
+- `npm run build`：TypeScript 与 Vite 构建通过(131 模块)。
+- 浏览器实测(Vite dev + JS 驱动)：标题卡三张 Lv.1 徽章与"距下级 100 XP"正确;55s 军医出现→近身入队(toast+小队栏芯片+rescued=1);军医无干扰治疗 +3/4.5s;跟随距离恰为槽位 48px;130s 第二名(机枪手)入队→"不抛弃""完整编队"两成就解锁落库;阵亡结算"游侠 经验 +47 · Lv.1"且 zs-ops={"ranger":47};将 ranger XP 拉到 500(Lv.4)重开→fireRateMul=1.18(=1+0.12+0.02×3)精确生效;全程 console 零报错。
+- Canvas 截图验收小队在尸潮中的渲染(军医血条/阵型/彩色标识可见)。
+
+### Notes
+
+- `src/data/operatives.ts`：levelPerk 数据 + OP_LEVEL_CAP/opXpToNext/opLevelFromXp/opXpGain/applyOperativeLevel/opLevelBonusText;`schemas.ts` OperativeDefSchema 增加 levelPerk。
+- `src/data/wingmen.ts`：三种僚机定义与节奏常量;`components` 新增 Survivor/Wingman;`factory` spawnSurvivor/spawnWingman。
+- `src/systems/wingman.ts`：幸存者刷新/超时/救援、槽位跟随、接触损血与阵亡、机枪/火焰/治疗行为;`pipeline` 注册于 enemyAI 之后。
+- `src/game.ts`：干员经验增量结算(commitLifetime)、开局套用等级、标题进度注入、快照 rescued/squadNow、幸存者与僚机世界渲染、HUD squad 数据。
+- `src/ui/ui.ts`：标题卡等级块、#ui-squad 小队栏、结算 op-line 与救援统计;`ctx.ts` RunState.rescued + Director.nextSurvivorAt。
+- `src/data/achievements.ts`：rescue-1/squad-2 成就与快照字段。
+- `tests/opLevel.test.ts`、`tests/wingman.test.ts`：新增;`tests/achievements.test.ts` 快照补字段。
+- `README.md`、`README.zh-CN.md`：新特性说明。
+- 回滚方式：回退本任务对应提交;本地存档键 zs-ops 可手动清除。

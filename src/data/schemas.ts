@@ -55,6 +55,12 @@ export const OperativeDefSchema = z.object({
     crit: z.number().optional(),
     damageMul: z.number().optional(),
   }),
+  // Meta progression: the stat this operative grows per veterancy level.
+  levelPerk: z.object({
+    stat: z.enum(['fireRateMul', 'maxHp', 'crit']),
+    amount: z.number(),
+    label: z.string(), // human-readable "+X per level" line
+  }),
 });
 export type OperativeDef = z.infer<typeof OperativeDefSchema>;
 

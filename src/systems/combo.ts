@@ -20,6 +20,7 @@ export function freshRunState(): RunState {
     firstHpHitAt: null,
     adrenalineUsed: false,
     curse: 0,
+    rescued: 0,
   };
 }
 

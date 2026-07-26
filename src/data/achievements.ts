@@ -20,6 +20,8 @@ export interface AchieveSnapshot {
   evolved: boolean;
   curse: number;
   firstHpHitAt: number | null;
+  rescued: number; // survivors rescued this run
+  squadNow: number; // wingmen alive right now
   // lifetime totals (updated at run end; 0 during a run)
   totalKills: number;
   totalRuns: number;
@@ -49,6 +51,8 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'evolved', name: '终极形态', desc: '完成一次武器进化', check: (s) => s.evolved },
   { id: 'untouched-60', name: '零接触', desc: '开局 60 秒未受真实伤害', check: (s) => s.time >= 60 && (s.firstHpHitAt === null || s.firstHpHitAt >= 60) },
   { id: 'curse-3', name: '逆天而行', desc: '单局接受 3 层血怨诅咒', check: (s) => s.curse >= 3 },
+  { id: 'rescue-1', name: '不抛弃', desc: '救援 1 名幸存者入队', check: (s) => s.rescued >= 1 },
+  { id: 'squad-2', name: '完整编队', desc: '同时拥有 2 名活着的僚机', check: (s) => s.squadNow >= 2 },
   { id: 'victory', name: '清道夫', desc: '击败母巢暴君', check: (s) => s.victory },
   { id: 'tyrant-3', name: '弑君者', desc: '无尽尸潮中单局斩杀 3 尊回归暴君', check: (s) => s.tyrants >= 3 },
   { id: 'life-kills-5000', name: '万骨枯', desc: '累计击杀 5000 只感染体', check: (s) => s.totalKills >= 5000 },

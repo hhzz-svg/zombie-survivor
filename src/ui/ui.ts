@@ -28,6 +28,7 @@ export interface HudData {
   shield: number;
   combo: { count: number; name: string; color: string; frac: number };
   surge: { label: string; active: boolean } | null;
+  squad: Array<{ name: string; color: string; hpFrac: number }>;
 }
 
 export interface RunSummary {
@@ -47,6 +48,16 @@ export interface RunSummary {
   endless: boolean; // this summary comes from an endless run
   newAchievements: Array<{ name: string; desc: string }>;
   achProgress: { unlocked: number; total: number };
+  rescued: number;
+  operative: { name: string; level: number; gained: number; leveledUp: boolean };
+}
+
+/** Per-operative veterancy shown on the title cards. */
+export interface OperativeProgress {
+  level: number;
+  into: number;
+  next: number; // 0 at cap
+  bonus: string;
 }
 
 const STYLE = `
@@ -129,6 +140,20 @@ const STYLE = `
 #ui-overlay .ach.locked{opacity:.5}
 #ui-overlay .new-ach-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0 4px}
 #ui-overlay .new-ach{padding:6px 14px;border-radius:999px;border:1px solid rgba(97,229,222,.5);background:rgba(13,42,39,.9);color:#7ff0e9;font-size:12px;font-weight:800;letter-spacing:1px}
+#ui-squad{position:fixed;left:16px;bottom:176px;display:flex;flex-direction:column;gap:6px}
+#ui-squad .sq{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:140px;box-shadow:0 8px 18px rgba(0,0,0,.22)}
+#ui-squad .sq .dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+#ui-squad .sq .nm{font-size:12px;color:#d8eee8;font-weight:700;letter-spacing:1px;flex:none}
+#ui-squad .sq .bar{flex:1;height:5px;background:rgba(255,255,255,.1);border-radius:999px;overflow:hidden}
+#ui-squad .sq .bar i{display:block;height:100%}
+#ui-overlay .op .o-lv{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:7px}
+#ui-overlay .op .o-lv .lvb{font-size:11px;font-weight:900;color:#0d1f1c;background:linear-gradient(90deg,#61e5de,#a9fff3);border-radius:6px;padding:1px 7px;letter-spacing:1px}
+#ui-overlay .op .o-xpbar{flex:1;max-width:86px;height:4px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden}
+#ui-overlay .op .o-xpbar i{display:block;height:100%;background:linear-gradient(90deg,var(--growth),#e8fff6)}
+#ui-overlay .op .o-bonus{font-size:10px;color:#8fd8c2;margin-top:4px;letter-spacing:.5px}
+#ui-overlay .op-line{margin:6px 0 12px;font-size:13px;color:#b9d9cf}
+#ui-overlay .op-line b{color:#7ff0e9}
+#ui-overlay .op-line .lvup{color:#ffe66a;font-weight:900;margin-left:6px}
 #ui-overlay .ops{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px;margin:18px 0 8px}
 #ui-overlay .op{cursor:pointer;padding:16px 10px 13px;background:linear-gradient(180deg,rgba(22,48,43,.8),rgba(9,18,17,.92));border:1px solid var(--line);border-radius:16px;transition:.15s;text-align:center}
 #ui-overlay .op img{width:74px;height:74px;object-fit:contain;filter:drop-shadow(0 5px 12px rgba(0,0,0,.55))}
@@ -195,6 +220,8 @@ export class UI {
   private surgeEl: HTMLElement;
   private toastEl: HTMLElement;
   private revealEl: HTMLElement;
+  private squadEl: HTMLElement;
+  private lastSquadKey = '';
   private onShopOpen: (() => void) | null = null;
   private lastComboCount = 0;
   private toastTimer: number | undefined;
@@ -216,6 +243,7 @@ export class UI {
       <div id="ui-surge"></div>
       <div id="ui-tutorial"></div>
       <div id="ui-hpwrap"><div id="ui-hp"><i></i></div><div id="ui-hplabel"></div></div>
+      <div id="ui-squad"></div>
       <div id="ui-items"></div>
       <div id="ui-weapon-primary"></div>
       <div id="ui-weapons"></div>
@@ -250,6 +278,7 @@ export class UI {
     this.surgeEl = hud.querySelector('#ui-surge') as HTMLElement;
     this.toastEl = hud.querySelector('#ui-toast') as HTMLElement;
     this.revealEl = hud.querySelector('#ui-reveal') as HTMLElement;
+    this.squadEl = hud.querySelector('#ui-squad') as HTMLElement;
 
     this.shopBtn.addEventListener('click', () => {
       if (this.onShopOpen) this.onShopOpen();
@@ -317,6 +346,17 @@ export class UI {
       this.surgeEl.classList.remove('show');
     }
 
+    // Squad chips: name + live HP sliver per wingman. DOM rebuilt only on change.
+    const squadKey = d.squad.map((s) => `${s.name}:${Math.round(s.hpFrac * 20)}`).join('|');
+    if (squadKey !== this.lastSquadKey) {
+      this.lastSquadKey = squadKey;
+      this.squadEl.innerHTML = d.squad
+        .map(
+          (s) => `<div class="sq" style="color:${s.color}"><span class="dot" style="background:${s.color}"></span><span class="nm">${s.name}</span><span class="bar"><i style="width:${Math.round(s.hpFrac * 100)}%;background:${s.color}"></i></span></div>`,
+        )
+        .join('');
+    }
+
     let barHtml = '';
     for (const item of d.items) {
       const isBuff = item.def.kind === 'buff';
@@ -352,20 +392,30 @@ export class UI {
     onStart: (operativeId: string) => void,
     ach?: { unlocked: number; total: number },
     onShowAchievements?: () => void,
+    progress?: Record<string, OperativeProgress>,
   ): void {
     this.titleSelection = operatives.some((o) => o.id === selectedId)
       ? selectedId
       : operatives[0]?.id ?? '';
     const cards = operatives
       .map(
-        (op) => `
+        (op) => {
+          const p = progress?.[op.id];
+          const xpPct = p ? (p.next > 0 ? Math.round((p.into / p.next) * 100) : 100) : 0;
+          const lvBlock = p
+            ? `<div class="o-lv"><span class="lvb">Lv.${p.level}</span><span class="o-xpbar"><i style="width:${xpPct}%"></i></span></div>
+               <div class="o-bonus">${p.next > 0 ? `${p.bonus} · 距下级 ${p.next - p.into} XP` : `${p.bonus} · 已满级`}</div>`
+            : '';
+          return `
         <div class="op${op.id === this.titleSelection ? ' sel' : ''}" data-op="${op.id}" role="button" tabindex="0">
           <img src="/assets/${op.spriteKey}.png" alt="">
           <div class="o-name">${op.name}</div>
           <div class="o-title">${op.title}</div>
           <div class="o-perk">${op.perk}</div>
           <div class="o-desc">${op.desc}</div>
-        </div>`,
+          ${lvBlock}
+        </div>`;
+        },
       )
       .join('');
     const achBtn = ach && onShowAchievements
@@ -592,11 +642,13 @@ export class UI {
           .join('')}</div>
          <p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">本局解锁 ${summary.newAchievements.length} 项成就 · 总进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`
       : `<p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">成就进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`;
+    const opLine = `<div class="op-line">${summary.operative.name} 经验 <b>+${summary.operative.gained}</b> · Lv.${summary.operative.level}${summary.operative.leveledUp ? '<span class="lvup">▲ 升级！</span>' : ''}</div>`;
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>${headline}</h1>
         <p>${sub}</p>
         ${achRow}
+        ${opLine}
         <div class="summary">
           <div><span>生存时间</span><b>${UI.fmt(summary.time)}</b></div>
           <div><span>击杀</span><b>${summary.kills}</b></div>
@@ -607,6 +659,7 @@ export class UI {
           <div><span>主武器</span><b>${summary.primaryWeapon}</b></div>
           <div><span>金币</span><b>${summary.gold}</b></div>
           <div><span>最佳</span><b>${UI.fmt(summary.best)}</b></div>
+          ${summary.rescued > 0 ? `<div><span>救援幸存者</span><b>${summary.rescued}</b></div>` : ''}
           ${summary.tyrants > 0 ? `<div><span>额外暴君</span><b>${summary.tyrants}</b></div>` : ''}
         </div>
         <p>原因：${summary.cause}<br>${summary.nextGoal}</p>

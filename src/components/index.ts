@@ -2,6 +2,7 @@ import { defineComponent } from '../ecs/world';
 import type { Entity } from '../ecs/world';
 import type { EnemyDef, WeaponDef } from '../data/schemas';
 import type { EliteAffix } from '../data/elites';
+import type { WingmanDef } from '../data/wingmen';
 
 /** A weapon the player owns, with its current level and cooldown timer. */
 export interface WeaponInst {
@@ -56,3 +57,7 @@ export const Medkit = defineComponent<{ heal: number }>('Medkit');
 export const SupplyCrate = defineComponent<{ landAt: number }>('SupplyCrate');
 /** A blood-curse altar: touch it to accept a harder-but-richer pact. */
 export const CurseAltar = defineComponent<true>('CurseAltar');
+/** A stranded survivor waiting for rescue; gives up at `until`. */
+export const Survivor = defineComponent<{ def: WingmanDef; until: number }>('Survivor');
+/** A rescued squadmate: follows a slot around the player and fights. */
+export const Wingman = defineComponent<{ def: WingmanDef; slot: number; cd: number; invuln: number }>('Wingman');

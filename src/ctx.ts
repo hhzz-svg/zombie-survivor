@@ -46,6 +46,7 @@ export interface RunState {
   firstHpHitAt: number | null; // elapsed time of the first real HP hit (null = untouched)
   adrenalineUsed: boolean; // the once-per-run low-HP save has fired
   curse: number; // blood-curse altar stacks accepted this run
+  rescued: number; // survivors rescued into the squad this run
 }
 
 export interface Director {
@@ -57,6 +58,7 @@ export interface Director {
   stageBannerUntil?: number;
   nextDropAt?: number; // next supply-drop time (lazily initialised by the supply system)
   nextGoldenAt?: number; // next golden-runner spawn time
+  nextSurvivorAt?: number; // next stranded-survivor spawn time
   endless?: boolean; // post-victory endless mode
   bossCycle?: number; // endless: how many tyrants have spawned so far
   nextBossAt?: number; // endless: next tyrant respawn time

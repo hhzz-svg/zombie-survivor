@@ -24,7 +24,8 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 
 ## Why it's fun
 
-- **Three playable operatives.** Ranger (fire rate), Juggernaut (HP over speed), Hunter (crit glass cannon) — different starting weapons and stats, different openings.
+- **Three playable operatives that grow.** Ranger (fire rate), Juggernaut (HP over speed), Hunter (crit glass cannon) — different starting weapons and stats. Every run banks veterancy XP (kills, survival, elites, victories), permanently leveling each operative's signature stat up to Lv.10, with live level and XP bars on the title cards.
+- **Rescue survivors, build a squad.** Stranded survivors appear on the field — reach them before they give up and they join (up to 2): a gunner with rapid covering fire, a burner hosing flame, or a medic who patches you up. Wingmen follow your movement, soak horde contact, and can fall for good — and then new survivors turn up.
 - **Kill chains are multipliers.** Kills within a 4-second window stack into tiers — 连击 → 杀戮 → 狂热 → 灭世 — multiplying XP and gold as you climb. One real hit breaks the chain. The riskier your kiting, the faster you snowball.
 - **Elite mutations.** Swift / Mighty / Toxic affix elites roll in over time with auras, name tags, and multiplied rewards; Toxic ones burst into a ring of acid on death. See a glow, plan before you dive.
 - **Supply drops and blood moons bend the run.** A crate parachutes in every 42 seconds (gold / field-wide vacuum / weapon upgrade / shield cell… six rewards, revealed on open); blood moons hit on a schedule — ×2.3 spawns, +12% enemy speed, +60% gold. The screen turns red, and those seconds are both the danger and the payday.
