@@ -293,3 +293,42 @@
 - `wrangler.jsonc`: Replaced the Workers static-assets deployment config with Cloudflare Pages output config.
 - `progress.md`: Appended this task record, validation evidence, and rollback guidance.
 - Rollback: restore the previous README links and Wrangler config from Git, then optionally remove the Cloudflare Pages project or deploy a corrected target; for local rollback before commit, run `git checkout -- README.md README.zh-CN.md wrangler.jsonc progress.md`.
+
+## 2026-07-26 - Task: 可玩性大版本——连击、精英、空投、血月、新武器、干员与无尽模式
+
+### What was done
+
+- 调研 Vampire Survivors / Brotato / 20 Minutes Till Dawn / Halls of Torment / DRG:S 等同类游戏的留存与爽感机制，按"实现成本 vs 收益"排序后落地本轮改造。
+- 新增击杀连击系统：4 秒窗口内连杀升档（连击/杀戮/狂热/灭世），放大经验与金币；受到真实伤害断链，护盾挡下不断链；HUD 右侧连击计数器 + 高档位屏幕狂热光效。
+- 新增精英词缀怪：迅捷/巨力/剧毒三系，50 秒后按递增概率出场，属性成倍、奖励数倍，剧毒死亡释放环形酸液；渲染带彩色地面光环与近距名牌。
+- 新增空投补给：42 秒节奏伞降补给箱（降落伞动画+落地光柱），近身开箱六选一加权奖励（金币/全场磁吸/医疗/弹药 buff/武器升级/护盾电池），带 HUD 播报 toast。
+- 新增血月尸潮事件：95s/165s 两场脚本风暴 + 300s 起每 150s 循环（覆盖无尽模式），预警横幅→红幕边缘光→刷怪 ×2.3、敌速 +12%、金币 +60%。
+- 新增黄金逃亡者：70s 起每 65s 一只金色目标全速逃逸（带蛇形走位与消失前闪烁），限时击杀掉落金币喷泉。
+- 新增两把武器及进化：火焰喷射器/地狱吐息（近距火舌、火焰粒子弹道、静默伤害数字防刷屏）与火箭筒/集束火箭（命中溅射爆炸，对玩家无伤）。
+- 新增干员选择：游侠(+攻速/手枪)、重装(+40HP/-8%移速/霰弹)、猎手(+15%暴击/+8%移速/-20HP/马格南)，标题界面卡片选人并记忆上次选择。
+- 新增无尽模式：胜利结算可一键续战，暴君每 110 秒回归且血量按 1.45^n 递增，击杀奖励金币与治疗；威胁栏、结算统计（最高连击/精英击破/空投回收/额外暴君）同步扩展。
+- 伤害数字按伤害量分级缩放，暴击更大带感叹号；升级/商店卡片沿用统一视觉；两枚新武器图标（火焰/火箭）用 pngjs 程序化生成 96×96 扁平风格。
+
+### Testing
+
+- `npm test`：19 个测试文件 85 个测试全部通过（新增 combo/elites/supply/surge/operatives/newWeapons/endless 七个测试文件与共享 helpers）。
+- `npm run build`：TypeScript `tsc --noEmit` 通过，Vite 产线构建成功（127 模块）。
+- 浏览器实测（Vite dev + JS 驱动逐帧模拟）：干员属性与起手武器正确；35s 空投伞降→落地→拾取→"军费储备 获得44金币"toast 全链路；70s 金色逃亡者出场；95s "血月将至"预警→"血月尸潮"横幅→14 秒内连击冲至 112(灭世档)、金币 461→914；精英光环/名牌渲染正确且已加"仅玩家 340px 内显示名牌"防噪；240s Boss 登场→胜利结算含全部新统计与"无尽尸潮 (E)"按钮→进入无尽后 110s 暴君二号准时回归且血量 7540=5200×1.45；全程 console 零报错。
+- Canvas 截图验收两张（火焰喷射+精英群战、血月红幕+暴君弹幕），确认特效可读性后做了名牌距离裁剪与血月红光增强两处视觉修正。
+
+### Notes
+
+- `src/data/balance.ts`：连击档位、血月窗口(含无尽循环)、空投节奏、精英概率、无尽 Boss 参数。
+- `src/data/elites.ts`、`src/data/operatives.ts`：新增词缀表与干员表。
+- `src/data/weapons.ts`、`src/data/enemies.ts`、`src/data/schemas.ts`：新武器/金色逃亡者/schema 扩展（bulletStyle、explodeRadius、OperativeDef、golden 行为）。
+- `src/systems/combo.ts`、`src/systems/supply.ts`：新增系统；`pipeline.ts` 接入。
+- `src/systems/combat.ts`：连击挂钩、精英与金色奖励、血月金币、可选不伤玩家的爆炸、无尽 Boss 击杀分支。
+- `src/systems/spawn.ts`：精英掷骰、血月刷怪倍率、金色节奏（计入怪物上限）、无尽暴君循环。
+- `src/systems/enemyAI.ts`、`bullets.ts`、`player.ts`、`equipment.ts`：精英/血月速度、金色逃逸 AI、火箭溅射、火焰静默数字、连击经验倍率、supplyAmmo buff。
+- `src/game.ts`、`src/ui/ui.ts`、`src/render/canvas2d.ts`、`renderer.ts`、`src/fx/fx.ts`：干员选人标题界面、连击部件、血月横幅、空投 toast、结算新统计与无尽按钮、精英光环名牌、空投伞降/光柱渲染、火焰/火箭弹道渲染、drawEdgeGlow、伤害数字缩放。
+- `src/factory.ts`、`src/components/index.ts`、`src/ctx.ts`、`src/sim/headless.ts`：SupplyCrate 组件、精英生成、RunState(连击/统计) 等基建。
+- `public/assets/flamer.png`、`public/assets/rocket.png`、`manifest.json`、`ASSETS.md`：新图标与注册。
+- `src/main.ts`：新增 DEV-only `window.__zs` QA 钩子与 `Game.debugSkip`。
+- `tests/`：helpers.ts + 7 个新测试文件；6 个既有测试的 ctx 构造补 `run` 字段。
+- `README.md`、`README.zh-CN.md`：特性、敌人表、操作表、目录结构更新。
+- 回滚方式：回退本任务对应提交（git revert 或 reset 到前一提交），无数据迁移。

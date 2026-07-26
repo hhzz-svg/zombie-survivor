@@ -18,22 +18,22 @@ A fast, browser-based top-down zombie survivor. Outrun the horde, auto-fire into
 
 ## What it is
 
-You're dropped into an open arena with a pistol and a rising tide of the dead. Your gun fires on its own toward the cursor, so the whole game lives in your feet: kite the swarm, carve openings, scoop up the gold and XP your kills drop. Every few levels you pick one of three upgrades, and the build you stitch together is what decides whether you make it to the boss.
+Pick an operative and get dropped into an open arena with a starting gun and a rising tide of the dead. Your gun fires on its own toward the cursor, so the whole game lives in your feet: kite the swarm, keep the kill chain alive, race for supply drops, chase the golden runner. Every few levels you pick one of three upgrades, and the build you stitch together decides whether you make it to the boss — and how far you get in the endless horde after it.
 
 It starts as a cleanup job. It ends with hundreds of zombies on screen and a boss that summons its own.
 
 ## Why it's fun
 
+- **Three playable operatives.** Ranger (fire rate), Juggernaut (HP over speed), Hunter (crit glass cannon) — different starting weapons and stats, different openings.
+- **Kill chains are multipliers.** Kills within a 4-second window stack into tiers — 连击 → 杀戮 → 狂热 → 灭世 — multiplying XP and gold as you climb. One real hit breaks the chain. The riskier your kiting, the faster you snowball.
+- **Elite mutations.** Swift / Mighty / Toxic affix elites roll in over time with auras, name tags, and multiplied rewards; Toxic ones burst into a ring of acid on death. See a glow, plan before you dive.
+- **Supply drops and blood moons bend the run.** A crate parachutes in every 42 seconds (gold / field-wide vacuum / weapon upgrade / shield cell… six rewards, revealed on open); blood moons hit on a schedule — ×2.3 spawns, +12% enemy speed, +60% gold. The screen turns red, and those seconds are both the danger and the payday.
+- **The golden runner.** A glowing target that flees at full sprint. Catch it for a fountain of coins; miss it and it's gone — a chase scene about once a minute.
+- **Eight weapons, each with an evolution.** Pistol, shotgun, SMG, magnum, nova, orbit blades — plus the flamethrower (close-range fire hose) and the rocket launcher (splash damage). Max a weapon to unlock its ultimate form.
 - **Auto-fire, all movement.** No reloading, no aiming clicks — your attention goes entirely into positioning and crowd control. Easy to start, hard to master.
-- **A tactical HUD that reads at a glance.** Stage, timer, threat, gold, HP, primary weapon and inventory slots now sit in clear combat-priority zones instead of competing for attention.
-- **A kinder opening minute.** Early spawn pressure ramps up gradually, pickup range is boosted during onboarding, and later stage transitions grant readable gold/health rewards.
-- **Real equipment art.** Shop consumables and buffs now use a unified set of 96x96 transparent tactical item icons instead of emoji placeholders.
-- **Stronger depth and motion.** Actors sort by their feet, each firearm is composited into a complete two-handed character stance, and feet-anchored recoil, muzzle light, pickup streaks, and atmosphere grading make combat feel more physical.
-- **Five escalating stages.** The run ramps in visible steps, from a handful of walkers to wall-to-wall hordes. You can *feel* each stage tighten.
-- **A boss with a kit.** The Hive Tyrant telegraphs its entrance, sprays radial bullet volleys, slams the ground for a shockwave, and calls in reinforcements. It's a fight, not a damage sponge.
-- **Build variety.** Six weapons (each with a Lv.6 evolution), a deck of stat passives, shop consumables, and run-only active skills — every run reaches for a different combo.
+- **A boss with a kit — and it doesn't end there.** The Hive Tyrant volleys, slams, and summons. Beat it and you can enter the **endless horde**: the Tyrant returns every 110 seconds, tougher each cycle, with blood moons on rotation. See how far you get.
 - **Active skills you actually pilot.** Dash through a pack, burst the room, pop a barrier, or slow time. Bought from the shop mid-run, mapped to `Z` `X` `C` `V` with live cooldown slots.
-- **It feels good to play.** Screen shake, hit flashes, muzzle sparks, shockwaves, a procedural run cycle, lingering corpses and blood decals — all on plain Canvas 2D, all running smooth with a crowded screen.
+- **It feels good to play.** Scaled damage numbers, a combo counter with fever-glow screen edges, parachuting crates with reward toasts, blood-moon tint, screen shake, hit flashes, corpses and blood decals — all on plain Canvas 2D, all running smooth with a crowded screen.
 
 ## Enemies
 
@@ -44,7 +44,9 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | **Spitter** | Ranged acid; forces you to keep moving. |
 | **Exploder** | Rushes in and detonates. Pop it early or pay for it. |
 | **Brute** | A wall of HP that shrugs off knockback. |
-| **Hive Tyrant** | The boss. Volleys, slams, and summons — survive it to win. |
+| **Elite mutations** | Swift / Mighty / Toxic affixes with auras and name tags. Multiplied rewards; Toxic bursts acid on death. |
+| **Golden runner** | Never attacks, only flees. Kill it before it escapes for a coin fountain. |
+| **Hive Tyrant** | The boss. Volleys, slams, and summons — survive it to win, then dare the endless horde. |
 
 ## Controls
 
@@ -56,7 +58,8 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | Active skills | `Z` Dash · `X` Burst · `C` Barrier · `V` Time Slow |
 | Open shop | `B` |
 | Pick a level-up | `1` / `2` / `3` |
-| Start / restart | `Space` |
+| Pick operative / start / restart | Click + `Space` |
+| Enter endless mode after victory | `E` or the on-screen button |
 
 ## The shop
 
@@ -85,9 +88,9 @@ TypeScript and Vite, rendered on Canvas 2D, with a small custom ECS at its core.
 ```
 src/
 ├── ecs/        entity/component storage + seeded deterministic RNG
-├── systems/    movement, spawning, combat, weapons, pickups, equipment, skills
+├── systems/    movement, spawning, combat, weapons, pickups, equipment, skills, combo, supply drops
 ├── render/     Canvas renderer, asset loading, sprite sizing
-├── data/       balance, enemies, weapons, passives, equipment, skills
+├── data/       balance, enemies, weapons, passives, equipment, skills, elites, operatives
 ├── fx/         particles, corpses, blood decals
 ├── sim/        headless simulation (shares the live systems)
 ├── ui/         DOM overlay (title, HUD, level-up, shop, results)
