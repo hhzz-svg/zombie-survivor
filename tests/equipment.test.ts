@@ -8,6 +8,7 @@ import type { GameContext, PlayerStats, EquipmentState, SkillState } from '../sr
 import { PLAYER_BASE, xpToNext } from '../src/data/balance';
 import { createPlayer } from '../src/factory';
 import { startBuff, buffActive, useItem, equipmentSystem } from '../src/systems/equipment';
+import { freshRunState } from '../src/systems/combo';
 import { EQUIPMENT } from '../src/data/equipment';
 
 function freshStats(): PlayerStats {
@@ -46,6 +47,7 @@ function makeCtx(): GameContext {
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
     skills: freshSkills(),
+    run: freshRunState(),
   };
   ctx.player = createPlayer(ctx);
   return ctx;

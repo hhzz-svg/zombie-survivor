@@ -8,6 +8,7 @@ const raw = [
   { id: 'spitter',  name: '喷吐者',   behavior: 'spitter',  hp: 22,   speed: 38,  contactDmg: 6,  radius: 12, color: '#6fc36f', xp: 5,   cost: 6,   isBoss: false },
   { id: 'exploder', name: '自爆体',   behavior: 'exploder', hp: 16,   speed: 74,  contactDmg: 30, radius: 13, color: '#d46a9f', xp: 4,   cost: 5,   isBoss: false },
   { id: 'brute',    name: '壮汉',     behavior: 'brute',    hp: 150,  speed: 32,  contactDmg: 24, radius: 20, color: '#b5552f', xp: 8,   cost: 10,  isBoss: false },
+  { id: 'golden',   name: '黄金逃亡者', behavior: 'golden', hp: 46,   speed: 148, contactDmg: 0,  radius: 10, color: '#ffd700', xp: 10,  cost: 999, isBoss: false },
   { id: 'boss',     name: '母巢暴君', behavior: 'boss',     hp: 5200, speed: 42,  contactDmg: 42, radius: 46, color: '#9b3b6a', xp: 250, cost: 999, isBoss: true },
 ];
 

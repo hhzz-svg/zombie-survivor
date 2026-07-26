@@ -10,6 +10,7 @@ import { createPlayer, spawnBoss } from '../src/factory';
 import { Bullet, Enemy, Health, Transform, type EnemyRuntime } from '../src/components';
 import { directorSystem } from '../src/systems/spawn';
 import { enemyAISystem } from '../src/systems/enemyAI';
+import { freshRunState } from '../src/systems/combo';
 
 class RecordingFX extends FX {
   shockwaves = 0;
@@ -56,6 +57,7 @@ function makeCtx(fx: FX = new FX()): GameContext {
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
     skills: freshSkills(),
+    run: freshRunState(),
   };
   ctx.player = createPlayer(ctx);
   return ctx;

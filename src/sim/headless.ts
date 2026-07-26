@@ -7,6 +7,7 @@ import type { GameContext, PlayerStats, Director, TimeState, EquipmentState, Ski
 import { PLAYER_BASE, xpToNext } from '../data/balance';
 import { createPlayer } from '../factory';
 import { runSystems } from '../systems/pipeline';
+import { freshRunState } from '../systems/combo';
 import { makeChoices, applyChoice } from '../progression';
 import { AiInput } from './aiInput';
 
@@ -82,6 +83,7 @@ export function runHeadless(seed: number, maxSeconds: number): SimResult {
     stats,
     equip: freshEquip(),
     skills: freshSkills(),
+    run: freshRunState(),
     input: ai,
     rng: world.rng,
     camera: { x: 0, y: 0 },

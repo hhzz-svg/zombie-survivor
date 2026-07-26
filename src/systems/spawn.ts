@@ -1,15 +1,24 @@
 import type { GameContext } from '../ctx';
 import type { EnemyDef } from '../data/schemas';
 import { Enemy, Transform } from '../components';
-import { hordeCapAt, spawnRateMulAt, WAVE } from '../data/balance';
+import {
+  hordeCapAt, spawnRateMulAt, WAVE,
+  activeSurge, SURGE_SPAWN_MUL, eliteChance,
+  ENDLESS_BOSS_HP_MUL,
+} from '../data/balance';
+import { rollEliteAffix } from '../data/elites';
 import { ENEMIES, SPAWN_TABLE } from '../data/enemies';
-import { spawnEnemyRing, spawnBoss } from '../factory';
+import { spawnEnemyRing, spawnBoss, spawnGoldenRunner } from '../factory';
 import { introSpawnMultiplier } from '../runFlow';
+
+const GOLDEN_FIRST_AT = 70;
+const GOLDEN_INTERVAL = 65;
 
 /**
  * Wave Director: an intensity-aware spawn budget. Budget accrues over time; affordable enemies
  * are rolled from the time-gated table until budget or the alive-cap runs out. The boss arrives
- * at WAVE.bossAt. Crowd cap provides the "breathing" relief valve.
+ * at WAVE.bossAt. Crowd cap provides the "breathing" relief valve. Blood-moon surges multiply
+ * the budget for a short window; elites roll per-spawn after their unlock time.
  */
 export function directorSystem(ctx: GameContext, dt: number): void {
   const d = ctx.director;
@@ -18,13 +27,29 @@ export function directorSystem(ctx: GameContext, dt: number): void {
   d.budget += (WAVE.baseRate + ctx.time.elapsed * WAVE.ratePerSec)
     * spawnRateMulAt(ctx.time.elapsed)
     * introSpawnMultiplier(ctx.time.elapsed)
+    * (activeSurge(ctx.time.elapsed) ? SURGE_SPAWN_MUL : 1)
     * dt;
+
+  // Golden runner: a periodic chase target that flees with a coin fountain at stake.
+  // Counts toward the horde cap so the cap invariant holds everywhere.
+  if (d.nextGoldenAt === undefined) d.nextGoldenAt = GOLDEN_FIRST_AT;
+  if (ctx.time.elapsed >= d.nextGoldenAt && alive < cap) {
+    d.nextGoldenAt += GOLDEN_INTERVAL;
+    spawnGoldenRunner(ctx);
+    alive++;
+    const pt = ctx.world.get(ctx.player, Transform);
+    if (pt) ctx.fx.text(pt.x, pt.y - 44, '黄金逃亡者出现！', '#ffd700', 16);
+    ctx.audio.pickup();
+  }
 
   while (d.budget >= 1 && alive < cap) {
     const def = pickEnemy(ctx);
     if (!def) break;
     d.budget -= def.cost;
-    spawnEnemyRing(ctx, def);
+    const elite = !def.isBoss && def.behavior !== 'exploder' && ctx.rng() < eliteChance(ctx.time.elapsed)
+      ? rollEliteAffix(ctx.rng)
+      : undefined;
+    spawnEnemyRing(ctx, def, elite);
     alive++;
   }
 
@@ -44,6 +69,13 @@ export function directorSystem(ctx: GameContext, dt: number): void {
     d.bossSpawned = true;
     d.bossWarningAt = undefined;
     spawnBoss(ctx);
+  }
+
+  // Endless mode: the tyrant keeps coming back, tougher every cycle.
+  if (d.endless && d.nextBossAt !== undefined && ctx.time.elapsed >= d.nextBossAt) {
+    d.nextBossAt = undefined; // re-armed by killEnemy when this tyrant dies
+    d.bossCycle = (d.bossCycle ?? 0) + 1;
+    spawnBoss(ctx, ENDLESS_BOSS_HP_MUL ** d.bossCycle);
   }
 }
 

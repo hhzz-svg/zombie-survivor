@@ -9,7 +9,7 @@ import { z } from 'zod';
 export const EnemyDefSchema = z.object({
   id: z.string(),
   name: z.string(),
-  behavior: z.enum(['walker', 'runner', 'brute', 'spitter', 'exploder', 'boss']),
+  behavior: z.enum(['walker', 'runner', 'brute', 'spitter', 'exploder', 'boss', 'golden']),
   hp: z.number().positive(),
   speed: z.number().nonnegative(),
   contactDmg: z.number().nonnegative(),
@@ -35,8 +35,28 @@ export const WeaponDefSchema = z.object({
   knockback: z.number().nonnegative(),
   life: z.number().positive(), // bullet lifetime seconds
   sprite: z.string().optional(), // manifest key for sprite image
+  bulletStyle: z.enum(['flame', 'rocket']).optional(), // non-default projectile rendering
+  explodeRadius: z.number().positive().optional(), // splash radius on hit (rockets)
 });
 export type WeaponDef = z.infer<typeof WeaponDefSchema>;
+
+export const OperativeDefSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  title: z.string(),
+  desc: z.string(),
+  weapon: z.string(), // starting weapon id
+  spriteKey: z.string(), // title-screen card art (manifest key)
+  perk: z.string(), // human-readable stat line
+  mods: z.object({
+    maxHp: z.number().optional(),
+    moveSpeedMul: z.number().optional(),
+    fireRateMul: z.number().optional(),
+    crit: z.number().optional(),
+    damageMul: z.number().optional(),
+  }),
+});
+export type OperativeDef = z.infer<typeof OperativeDefSchema>;
 
 export const PassiveDefSchema = z.object({
   id: z.string(),

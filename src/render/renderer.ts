@@ -60,5 +60,7 @@ export interface Renderer {
   drawVignette(intensity: number): void;
   /** Screen-space tactical color grading centered around the player. */
   drawAtmosphere(playerX: number, playerY: number, intensity?: number): void;
+  /** Screen-edge glow in an arbitrary color — combo fever, blood-moon tint. */
+  drawEdgeGlow(color: string, intensity: number): void;
   end(): void;
 }

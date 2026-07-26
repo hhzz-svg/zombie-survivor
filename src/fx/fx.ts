@@ -6,7 +6,7 @@ interface Particle {
 }
 interface FloatText {
   x: number; y: number; vy: number; text: string; color: string;
-  life: number; max: number; active: boolean;
+  life: number; max: number; active: boolean; size: number;
 }
 interface Flash {
   x: number; y: number; r: number; core: string; glow: string;
@@ -91,13 +91,13 @@ export class FX {
     p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.max = life; p.color = color; p.size = size; p.active = true;
   }
 
-  text(x: number, y: number, str: string, color = '#fff'): void {
+  text(x: number, y: number, str: string, color = '#fff', size = 13): void {
     let t = this.texts.find((q) => !q.active);
     if (!t) {
-      t = { x: 0, y: 0, vy: 0, text: '', color: '', life: 0, max: 0, active: false };
+      t = { x: 0, y: 0, vy: 0, text: '', color: '', life: 0, max: 0, active: false, size: 13 };
       this.texts.push(t);
     }
-    t.x = x; t.y = y; t.vy = -42; t.text = str; t.color = color; t.life = 0.7; t.max = 0.7; t.active = true;
+    t.x = x; t.y = y; t.vy = -42; t.text = str; t.color = color; t.life = 0.7; t.max = 0.7; t.active = true; t.size = size;
   }
 
   update(dt: number): void {
@@ -153,7 +153,10 @@ export class FX {
     }
     for (const t of this.texts) {
       if (!t.active) continue;
-      r.drawText(t.x, t.y, t.text, t.color, 13, 'center', Math.max(0, t.life / t.max));
+      // slight pop: text grows for the first 20% of its life, then settles
+      const age = 1 - t.life / t.max;
+      const pop = age < 0.2 ? 0.85 + (age / 0.2) * 0.15 : 1;
+      r.drawText(t.x, t.y, t.text, t.color, t.size * pop, 'center', Math.max(0, t.life / t.max));
     }
   }
 

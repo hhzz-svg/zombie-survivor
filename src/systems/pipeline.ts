@@ -10,6 +10,8 @@ import { contactSystem, pickupSystem } from './player';
 import { lifetimeSystem } from './lifetime';
 import { equipmentSystem } from './equipment';
 import { skillSystem } from './skills';
+import { comboSystem } from './combo';
+import { supplyDropSystem } from './supply';
 import { runFlowSystem } from '../runFlow';
 
 /** Rebuild the enemy spatial hash from current positions. */
@@ -40,6 +42,8 @@ export function runSystems(ctx: GameContext, dt: number): void {
   pickupSystem(ctx, dt);
   equipmentSystem(ctx, dt);
   skillSystem(ctx, dt);
+  comboSystem(ctx, dt);
+  supplyDropSystem(ctx, dt);
   lifetimeSystem(ctx, dt);
   ctx.fx.update(dt);
 }

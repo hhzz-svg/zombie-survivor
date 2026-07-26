@@ -10,6 +10,7 @@ import { WEAPONS } from '../src/data/weapons';
 import { createPlayer } from '../src/factory';
 import { Bullet, Loadout, Transform } from '../src/components';
 import { weaponSystem } from '../src/systems/weapons';
+import { freshRunState } from '../src/systems/combo';
 
 function freshStats(): PlayerStats {
   return {
@@ -47,6 +48,7 @@ function makeCtx(): GameContext {
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
     skills: freshSkills(),
+    run: freshRunState(),
   };
   ctx.player = createPlayer(ctx);
   return ctx;

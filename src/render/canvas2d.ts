@@ -219,6 +219,23 @@ export class Canvas2DRenderer implements Renderer {
     this.ctx.restore();
   }
 
+  /** Screen-edge glow in an arbitrary rgb color (e.g. '255,159,67'), alpha scaled by intensity. */
+  drawEdgeGlow(color: string, intensity: number): void {
+    if (intensity <= 0) return;
+    this.ctx.save();
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const cx = this.width / 2;
+    const cy = this.height / 2;
+    const r = Math.max(this.width, this.height) * 0.78;
+    const grad = this.ctx.createRadialGradient(cx, cy, r * 0.42, cx, cy, r);
+    grad.addColorStop(0, `rgba(${color}, 0)`);
+    grad.addColorStop(0.68, `rgba(${color}, ${intensity * 0.18})`);
+    grad.addColorStop(1, `rgba(${color}, ${intensity * 0.52})`);
+    this.ctx.fillStyle = grad;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+    this.ctx.restore();
+  }
+
   drawVignette(intensity: number): void {
     if (intensity <= 0) return;
     this.ctx.save();

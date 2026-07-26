@@ -116,6 +116,7 @@ export const COIN_DROP: Record<string, number> = {
   spitter: 5,
   exploder: 4,
   brute: 10,
+  golden: 6, // plus the on-death coin fountain
   boss: 50,
 };
 

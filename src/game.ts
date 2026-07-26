@@ -13,20 +13,34 @@ import { AssetStore } from './render/assets';
 import { Input } from './input/input';
 import { DomInput } from './input/provider';
 import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx';
-import { PLAYER_BASE, RUN_STAGES, currentRunStage, xpToNext } from './data/balance';
+import {
+  PLAYER_BASE, RUN_STAGES, currentRunStage, xpToNext,
+  activeSurge, incomingSurge, COMBO_WINDOW, ENDLESS_BOSS_INTERVAL, SUPPLY_FALL_SECONDS,
+} from './data/balance';
 import { MAX_WEAPON_LEVEL } from './data/weapons';
 import { EQUIPMENT } from './data/equipment';
 import { SKILLS } from './data/skills';
+import { OPERATIVES, DEFAULT_OPERATIVE, operativeById, applyOperative } from './data/operatives';
 import { createPlayer } from './factory';
 import { runSystems } from './systems/pipeline';
 import { useItem, startBuff } from './systems/equipment';
 import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
-import { Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity, type WeaponInst } from './components';
+import { comboTier, freshRunState } from './systems/combo';
+import {
+  Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity,
+  Lifetime, SupplyCrate, type WeaponInst,
+} from './components';
 import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, type ShopOffer } from './shop';
 
 type State = 'title' | 'playing' | 'levelup' | 'shop' | 'gameover' | 'victory';
+
+/** '#rrggbb' → 'r,g,b' for the renderer's edge-glow gradients. */
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
 
 /** Orchestrates the run: state machine, system pipeline, world rendering, and the UI screens. */
 export class Game {
@@ -45,11 +59,13 @@ export class Game {
   private best: number;
   private lastFootstep = 0; // player footfall index, to fire step dust exactly on contact
   private lastDamageCause = '尚未受到致命伤害';
+  private lastOperative: string;
 
   constructor(private readonly renderer: Renderer) {
     this.best = Number(localStorage.getItem('zs-best') || '0') || 0;
+    this.lastOperative = localStorage.getItem('zs-operative') || DEFAULT_OPERATIVE;
     void this.assets.load();
-    this.ui.showTitle(this.best, () => this.start());
+    this.ui.showTitle(this.best, OPERATIVES, this.lastOperative, (id) => this.start(id));
     this.ui.setShopHandler(() => this.openShop());
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
@@ -84,7 +100,10 @@ export class Game {
     };
   }
 
-  start(): void {
+  start(operativeId?: string): void {
+    const op = operativeById(operativeId ?? this.lastOperative);
+    this.lastOperative = op.id;
+    localStorage.setItem('zs-operative', op.id);
     this.audio.resume();
     this.fx.clear();
     this.corpses.clear();
@@ -100,9 +119,10 @@ export class Game {
       audio: this.audio,
       time: { elapsed: 0, hitStop: 0 },
       director: { budget: 0, bossSpawned: false, bossDead: false },
-      stats: this.freshStats(),
+      stats: applyOperative(this.freshStats(), op),
       equip: this.freshEquip(),
       skills: this.freshSkills(),
+      run: freshRunState(),
       input: new DomInput(this.keys, this.renderer),
       rng: world.rng,
       camera: { x: 0, y: 0 },
@@ -121,9 +141,10 @@ export class Game {
         onPlayerHit: (cause) => {
           this.lastDamageCause = cause;
         },
+        onSupplyReward: (name, desc) => this.ui.toast(name, desc),
       },
     };
-    ctx.player = createPlayer(ctx);
+    ctx.player = createPlayer(ctx, op.weapon);
     this.ctx = ctx;
     this.pendingLevels = 0;
     this.state = 'playing';
@@ -299,7 +320,20 @@ export class Game {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'victory';
     this.saveBest();
-    this.ui.showEnd(this.buildRunSummary(true), () => this.start());
+    this.ui.showEnd(this.buildRunSummary(true), () => this.start(), () => this.enterEndless());
+  }
+
+  /** Victory screen → keep the run going; tyrants respawn on a timer, tougher each cycle. */
+  private enterEndless(): void {
+    if (this.state !== 'victory' || !this.ctx) return;
+    const d = this.ctx.director;
+    d.endless = true;
+    d.bossCycle = 0;
+    d.nextBossAt = this.ctx.time.elapsed + ENDLESS_BOSS_INTERVAL;
+    this.state = 'playing';
+    this.ui.hideEnd();
+    this.ui.toast('无尽尸潮已开启', `母巢暴君将每 ${ENDLESS_BOSS_INTERVAL} 秒回归，且一次比一次强`);
+    this.ctx.audio.boss();
   }
 
   private buildRunSummary(victory: boolean): RunSummary {
@@ -316,17 +350,24 @@ export class Game {
       primaryWeapon: primary.def.name,
       gold: ctx.equip.gold,
       cause: victory ? '击败母巢暴君' : this.lastDamageCause,
-      nextGoal: this.nextGoal(stage, primary.level),
+      nextGoal: this.nextGoal(stage, primary.level, !!ctx.director.endless),
+      maxCombo: ctx.run.combo.best,
+      elites: ctx.run.elitesKilled,
+      crates: ctx.run.cratesOpened,
+      tyrants: ctx.run.tyrantsSlain,
+      endless: !!ctx.director.endless,
     };
   }
 
-  private nextGoal(stage: number, weaponLevel: number): string {
+  private nextGoal(stage: number, weaponLevel: number, endless: boolean): string {
+    if (endless) return '下一目标：在无尽尸潮中走得更远';
     if (stage < 2) return '下一目标：抵达第 2 阶段';
     if (weaponLevel < 3) return '下一目标：将主武器升到 Lv.3';
     return '下一目标：击败母巢暴君';
   }
 
   private threatLabel(stage: number, elapsed: number): string {
+    if (this.ctx?.director.endless) return '威胁：无尽尸潮';
     if (stage >= 5) return '威胁：母巢逼近';
     if (elapsed < 30) return '威胁：低';
     if (stage >= 4) return '威胁：极高';
@@ -349,15 +390,23 @@ export class Game {
     }
   }
 
+  /** Dev-only QA helper: jump the run clock forward to reach time-gated events. */
+  debugSkip(seconds: number): void {
+    if (this.ctx) this.ctx.time.elapsed += seconds;
+  }
+
   private onKey(e: KeyboardEvent): void {
-    if (this.state === 'title' && (e.code === 'Space' || e.code === 'Enter')) this.start();
-    else if (this.state === 'levelup') {
+    if (this.state === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
+      this.start(this.ui.selectedOperative() || this.lastOperative);
+    } else if (this.state === 'levelup') {
       const i = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code);
       if (i >= 0) this.pick(i);
     } else if (this.state === 'shop') {
       if (e.code === 'KeyB' || e.code === 'Escape') this.closeShop();
     } else if (this.state === 'playing') {
       if (e.code === 'KeyB') this.openShop();
+    } else if (this.state === 'victory' && e.code === 'KeyE') {
+      this.enterEndless();
     } else if ((this.state === 'gameover' || this.state === 'victory') && (e.code === 'Space' || e.code === 'Enter')) {
       this.start();
     }
@@ -398,6 +447,18 @@ export class Game {
       if (pt) {
         const pressure = Math.min(1, ctx.world.query(Enemy).length / 180 + currentRunStage(ctx.time.elapsed).index * 0.08);
         r.drawAtmosphere(pt.x, pt.y, pressure);
+      }
+      // blood-moon storm: pulsing red edges; combo fever: tier-colored glow
+      const surge = activeSurge(ctx.time.elapsed);
+      if (surge) {
+        const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 300);
+        r.drawEdgeGlow('255,60,60', 0.7 * pulse);
+      } else {
+        const tier = comboTier(ctx.run.combo.count);
+        if (tier.at >= 50) {
+          const pulse = 0.7 + 0.3 * Math.sin(performance.now() / 240);
+          r.drawEdgeGlow(hexToRgb(tier.color), 0.55 * pulse);
+        }
       }
     }
     // low-health vignette drawn in screen space (not world)
@@ -462,21 +523,71 @@ export class Game {
             const squash = anim.squash + Math.min(0.04, (lunge / 5) * 0.04);
             const x = t.x + ox;
             const y = t.y + oy;
+            if (en.elite) {
+              // affix-colored ground aura marks the threat before the sprite reads
+              const ep = 0.55 + 0.45 * Math.sin(now / 200 + t.x * 0.13);
+              r.drawEllipse(x, y + rd.r * 0.75, rd.r * 1.3, rd.r * 0.55, en.elite.color, 0.16 + ep * 0.1);
+              r.drawRing(x, y + rd.r * 0.4, rd.r + 5, en.elite.color, 2.2, 0.4 + ep * 0.35);
+            }
             r.drawEllipse(x, y + rd.r * 0.75, rd.r * (0.9 - squash * 0.5), rd.r * 0.38, 'rgba(0,0,0,0.3)');
+            if (en.def.behavior === 'golden') {
+              // no sprite on purpose: a glowing gold streaker with an escape blink
+              const lt = w.get(e, Lifetime);
+              const blink = lt && lt.t < 3 && Math.floor(now / 130) % 2 === 0;
+              if (!blink) {
+                const shimmer = 0.75 + 0.25 * Math.sin(now / 90);
+                r.drawGlowCircle(x, y - anim.bob, rd.r + 2 * shimmer, '#fff3c2', '#ffd700');
+                r.drawCircle(x, y - anim.bob, rd.r * 0.5, '#fff8dc', 0.95);
+              }
+              return;
+            }
+            // tags only near the player — full-horde tag spam reads as noise
+            const showTag = en.elite && dist < 340;
             const img = this.assets.get(en.def.id);
             if (img) {
               const size = enemySpriteSize(rd.r, en.def.isBoss);
               const sw = size * (1 + squash);
               const sh = size * (1 - squash);
               r.drawSprite(img, x, y + rd.r - sh / 2 - anim.bob, sw, sh, px - t.x < 0);
+              if (showTag) {
+                r.drawText(x, y + rd.r - sh - 9, `${en.elite!.name}·${en.def.name}`, en.elite!.color, 11, 'center', 0.92);
+              }
             } else {
               r.drawCircle(x, y, rd.r, rd.color);
               if (en.def.isBoss) r.drawRing(x, y, rd.r + 6, '#ffd0e6', 3);
+              if (showTag) r.drawText(x, y - rd.r - 10, `${en.elite!.name}·${en.def.name}`, en.elite!.color, 11, 'center', 0.92);
             }
             const h = w.get(e, Health);
             if (h && h.flash > 0) r.drawCircle(x, y, rd.r, '#ffffff', 0.45);
           },
         });
+      } else if (w.has(e, SupplyCrate)) {
+        const sc = w.get(e, SupplyCrate)!;
+        const falling = ctx.time.elapsed < sc.landAt;
+        if (falling) {
+          const k = Math.max(0, (sc.landAt - ctx.time.elapsed) / SUPPLY_FALL_SECONDS); // 1 → touchdown 0
+          const drop = k * 190;
+          const sway = Math.sin(now / 260) * 9 * k;
+          const cx = t.x + sway;
+          const cy = t.y - drop;
+          r.drawEllipse(t.x, t.y + 5, 15 * (1 - k * 0.5), 6 * (1 - k * 0.5), `rgba(0,0,0,${0.3 * (1 - k * 0.4)})`);
+          r.drawLine(cx - 13, cy - 22, cx - 5, cy - 5, '#cfd8c2', 1.4, 0.8);
+          r.drawLine(cx + 13, cy - 22, cx + 5, cy - 5, '#cfd8c2', 1.4, 0.8);
+          r.drawEllipse(cx, cy - 26, 20, 9, '#5f8f6a', 0.94);
+          r.drawEllipse(cx, cy - 28, 13, 5.5, '#7fb283', 0.9);
+          r.drawRect(cx, cy, 20, 16, '#8a6d3b');
+          r.drawRect(cx, cy, 20, 3.4, '#c9a55a');
+          r.drawRect(cx, cy, 3.4, 16, '#c9a55a');
+        } else {
+          const pulse = 0.5 + 0.5 * Math.sin(now / 220);
+          r.drawRect(t.x, t.y - 34, 3, 58, `rgba(255,209,102,${0.15 + pulse * 0.12})`);
+          r.drawEllipse(t.x, t.y + 8, 15, 6, 'rgba(0,0,0,0.3)');
+          r.drawRect(t.x, t.y, 22, 17, '#8a6d3b');
+          r.drawRect(t.x, t.y, 22, 4, '#c9a55a');
+          r.drawRect(t.x, t.y, 4, 17, '#c9a55a');
+          r.drawGlowCircle(t.x, t.y - 14, 3.4 + pulse * 2, '#fff6dd', '#ffd166');
+          r.drawRing(t.x, t.y + 4, 25 + pulse * 5, `rgba(255,209,102,${0.5 - pulse * 0.22})`, 2);
+        }
       } else if (w.has(e, GoldCoin)) {
         const img = this.assets.get('coin');
         if (img) {
@@ -501,9 +612,17 @@ export class Game {
       } else if (w.has(e, Bullet)) {
         bullets.push(() => {
           const v = w.get(e, Velocity)!;
-          const enemyShot = w.get(e, Bullet)!.team === 'enemy';
-          if (enemyShot) {
+          const b = w.get(e, Bullet)!;
+          if (b.team === 'enemy') {
             r.drawTracer(t.x, t.y, v.x, v.y, 16, rd.r * 2, '#eaffd0', '#7be23a');
+          } else if (b.style === 'flame') {
+            // ragged flame tongue: flickering glow blob, hot core, no tracer tail
+            const flick = 0.7 + 0.3 * Math.sin(now / 34 + t.x * 0.6 + t.y * 0.4);
+            r.drawGlowCircle(t.x, t.y, (3.4 + flick * 3.2), '#fff3b0', '#ff6b1a');
+            r.drawCircle(t.x, t.y, 1.8 + flick, '#ffd166', 0.85);
+          } else if (b.style === 'rocket') {
+            r.drawTracer(t.x, t.y, v.x, v.y, 30, rd.r * 2.6, '#fff2d9', '#ff8a3c');
+            r.drawGlowCircle(t.x, t.y, 5.4, '#fffdf0', '#ffb43c');
           } else {
             r.drawTracer(t.x, t.y, v.x, v.y, 22, rd.r * 2.1, '#fffdf0', '#ffb43c');
           }
@@ -641,6 +760,24 @@ export class Game {
     }
     const threatLabel = bossHp !== null ? 'Boss 接战' : this.threatLabel(stage.index, ctx.time.elapsed);
 
+    const tier = comboTier(ctx.run.combo.count);
+    const combo = {
+      count: ctx.run.combo.count,
+      name: tier.name,
+      color: tier.color,
+      frac: ctx.run.combo.count > 0
+        ? Math.max(0, Math.min(1, (ctx.run.combo.until - ctx.time.elapsed) / COMBO_WINDOW))
+        : 0,
+    };
+
+    const act = activeSurge(ctx.time.elapsed);
+    const inc = incomingSurge(ctx.time.elapsed);
+    const surge = act
+      ? { label: `血月尸潮 · 剩余 ${Math.ceil(act.at + act.duration - ctx.time.elapsed)}s`, active: true }
+      : inc
+        ? { label: `血月将至 ${Math.ceil(inc.at - ctx.time.elapsed)}s`, active: false }
+        : null;
+
     // Build the inventory bar: only currently-held consumables / active buffs.
     const items: Array<{ def: import('./data/equipment').EquipDef; count: number; remain: number }> = [];
     for (const eqDef of EQUIPMENT) {
@@ -695,6 +832,8 @@ export class Game {
                 : false,
         })),
       shield: ctx.equip.shield,
+      combo,
+      surge,
     });
   }
 }

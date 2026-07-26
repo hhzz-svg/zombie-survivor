@@ -14,6 +14,7 @@ import { buySkill, skillCooldownRemaining, skillSystem, slowActive, useSkill } f
 import { damagePlayer } from '../src/systems/combat';
 import { enemyAISystem } from '../src/systems/enemyAI';
 import { rebuildEnemyHash } from '../src/systems/pipeline';
+import { freshRunState } from '../src/systems/combo';
 
 function freshStats(): PlayerStats {
   return {
@@ -51,6 +52,7 @@ function makeCtx(): GameContext {
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
     skills: freshSkills(),
+    run: freshRunState(),
   };
   ctx.player = createPlayer(ctx);
   return ctx;

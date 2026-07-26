@@ -28,6 +28,7 @@
 | 文件名 | 用途 |
 |---|---|
 | `pistol.png` `shotgun.png` `smg.png` `magnum.png` | 近远程枪械图标 |
+| `flamer.png` `rocket.png` | 火焰喷射器 / 火箭筒图标（程序化生成的扁平风格） |
 | `shockwave.png` `orbit_blade.png` | 现有技能武器图标 |
 | `skill_dash.png` | 疾冲 |
 | `skill_burst.png` | 冲击爆破 |

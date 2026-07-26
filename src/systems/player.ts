@@ -3,6 +3,7 @@ import { Transform, Collider, Health, Enemy, XPGem, GoldCoin, Medkit } from '../
 import { PLAYER_BASE, xpToNext } from '../data/balance';
 import { damagePlayer, killEnemy } from './combat';
 import { buffActive } from './equipment';
+import { comboXpMul } from './combo';
 import { pickupRangeMultiplier } from '../runFlow';
 
 /** Player ↔ enemy body contact (with i-frames) and the exploder's contact detonation. */
@@ -24,7 +25,9 @@ export function contactSystem(ctx: GameContext, dt: number): void {
     const rr = pc.r + oc.r;
     if ((ot.x - pt.x) ** 2 + (ot.y - pt.y) ** 2 <= rr * rr) {
       if (en.def.behavior === 'exploder') killEnemy(ctx, o);
-      else damagePlayer(ctx, en.def.contactDmg, `${en.def.name}近身攻击`);
+      else if (en.def.contactDmg > 0) {
+        damagePlayer(ctx, en.def.contactDmg * (en.elite?.dmgMul ?? 1), `${en.elite ? `${en.elite.name}·` : ''}${en.def.name}近身攻击`);
+      }
     }
   }
 }
@@ -91,9 +94,9 @@ export function pickupSystem(ctx: GameContext, dt: number): void {
   }
 }
 
-function collectXp(ctx: GameContext, value: number): void {
-  // Magnet buff grants +15% XP gain while active.
-  const xpMul = buffActive(ctx, 'magnet') ? 1.15 : 1;
+export function collectXp(ctx: GameContext, value: number): void {
+  // Magnet buff grants +15% XP gain while active; combo tiers multiply on top.
+  const xpMul = (buffActive(ctx, 'magnet') ? 1.15 : 1) * comboXpMul(ctx);
   ctx.stats.xp += Math.round(value * xpMul);
   while (ctx.stats.xp >= ctx.stats.xpToNext) {
     ctx.stats.xp -= ctx.stats.xpToNext;

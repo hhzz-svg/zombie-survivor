@@ -5,6 +5,11 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const renderer = new Canvas2DRenderer(canvas);
 const game = new Game(renderer);
 
+// Dev-only QA hook: lets manual tests jump to time-gated events (surges, drops, boss).
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__zs = game;
+}
+
 // Fixed-timestep loop with a spiral-of-death guard (same accumulator pattern as the Mario clone).
 const STEP = 1 / 60;
 let last = 0;

@@ -25,6 +25,8 @@ const FIREARM_KEYS: Record<string, string> = {
   shotgun: 'player_shotgun',
   smg: 'player_smg',
   magnum: 'player_magnum',
+  flamer: 'player_smg', // two-handed hip stance reads right for the flamer
+  rocket: 'player_shotgun', // heavy shoulder-carried tube borrows the shotgun stance
 };
 
 export function combatMuzzleOffset(input: CombatMuzzleInput): { x: number; y: number } {

@@ -8,6 +8,7 @@ import type { EquipmentState, GameContext, PlayerStats, SkillState } from '../sr
 import { PLAYER_BASE, xpToNext } from '../src/data/balance';
 import { Health } from '../src/components';
 import { createPlayer } from '../src/factory';
+import { freshRunState } from '../src/systems/combo';
 import {
   introSpawnMultiplier,
   pickupRangeMultiplier,
@@ -59,6 +60,7 @@ function makeCtx(): GameContext {
     stats,
     equip,
     skills,
+    run: freshRunState(),
     input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
     rng: world.rng,
     camera: { x: 0, y: 0 },

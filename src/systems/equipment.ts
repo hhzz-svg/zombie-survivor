@@ -55,6 +55,12 @@ function applyBuff(ctx: GameContext, id: string): () => void {
     case 'coinDouble':
       // Effect is read live via buffActive() at coin-drop time; nothing to revert.
       return () => {};
+    case 'supplyAmmo':
+      // Supply-crate reward: flat damage boost while the timer runs.
+      s.damageMul += 0.18;
+      return () => {
+        s.damageMul -= 0.18;
+      };
     default:
       return () => {};
   }

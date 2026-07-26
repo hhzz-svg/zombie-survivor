@@ -1,11 +1,12 @@
 import type { GameContext } from '../ctx';
 import { Transform, Collider, Bullet, Health } from '../components';
-import { damageEnemy, damagePlayer } from './combat';
+import { damageEnemy, damagePlayer, explode } from './combat';
 
 /**
  * Bullet collisions. Player bullets hit enemies (with pierce + a per-bullet hit set so one bullet
  * never double-hits the same enemy); enemy bullets hit the player. Enemy positions are read from
- * the spatial hash built at the top of the step.
+ * the spatial hash built at the top of the step. Rockets splash on impact (never hurting the
+ * player); flame stream hits keep their damage numbers quiet outside of crits.
  */
 export function bulletSystem(ctx: GameContext, _dt: number): void {
   const w = ctx.world;
@@ -30,7 +31,15 @@ export function bulletSystem(ctx: GameContext, _dt: number): void {
         if ((ot.x - t.x) ** 2 + (ot.y - t.y) ** 2 <= rr * rr) {
           b.hit.add(o);
           const d = Math.hypot(ot.x - t.x, ot.y - t.y) || 1;
-          damageEnemy(ctx, o, b.dmg, (ot.x - t.x) / d, (ot.y - t.y) / d, b.knockback, b.crit);
+          const quiet = b.style === 'flame' && !b.crit;
+          damageEnemy(ctx, o, b.dmg, (ot.x - t.x) / d, (ot.y - t.y) / d, b.knockback, b.crit, quiet);
+          if (b.explodeRadius) {
+            explode(ctx, t.x, t.y, b.explodeRadius, b.dmg * 0.7, false);
+            ctx.fx.flash(t.x, t.y, b.explodeRadius * 0.5, '#fff3d6', '#ff9b35', 0.14);
+            ctx.fx.shockwave(t.x, t.y, b.explodeRadius, '#ffb060', 0.3);
+            w.destroy(e);
+            break;
+          }
           if (b.pierce <= 0) {
             w.destroy(e);
             break;

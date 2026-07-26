@@ -1,6 +1,6 @@
 import type { GameContext } from '../ctx';
 import { Transform, Velocity, Enemy, Health } from '../components';
-import { speedScale, WAVE } from '../data/balance';
+import { speedScale, WAVE, activeSurge, SURGE_SPEED_MUL } from '../data/balance';
 import { ENEMIES } from '../data/enemies';
 import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet } from '../factory';
 import { damagePlayer } from './combat';
@@ -15,6 +15,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
   const pt = w.get(ctx.player, Transform)!;
   const neigh: number[] = [];
   const slowMul = slowActive(ctx) ? SLOW_FACTOR : 1;
+  const surgeMul = activeSurge(ctx.time.elapsed) ? SURGE_SPEED_MUL : 1;
 
   for (const e of w.query(Enemy, Transform, Velocity)) {
     const t = w.get(e, Transform)!;
@@ -50,7 +51,12 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
     let mx = dx + sx * 0.8;
     let my = dy + sy * 0.8;
 
-    if (en.def.behavior === 'spitter') {
+    if (en.def.behavior === 'golden') {
+      // Flees the player, weaving as it runs; despawns via its Lifetime if it escapes.
+      const weave = Math.sin(en.t * 5.2) * 0.55;
+      mx = -dx + -dy * weave + sx * 0.4;
+      my = -dy + dx * weave + sy * 0.4;
+    } else if (en.def.behavior === 'spitter') {
       if (dist < 200) {
         mx = -dx + sx * 0.8;
         my = -dy + sy * 0.8;
@@ -109,7 +115,12 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
     }
 
     const ml = Math.hypot(mx, my) || 1;
-    const speed = en.def.speed * speedScale(ctx.time.elapsed) * (en.enraged ? 1.4 : 1) * slowMul;
+    const speed = en.def.speed
+      * speedScale(ctx.time.elapsed)
+      * (en.enraged ? 1.4 : 1)
+      * (en.elite?.speedMul ?? 1)
+      * surgeMul
+      * slowMul;
     v.x = (mx / ml) * speed;
     v.y = (my / ml) * speed;
   }

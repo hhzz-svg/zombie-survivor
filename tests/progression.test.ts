@@ -9,6 +9,7 @@ import { PLAYER_BASE, xpToNext } from '../src/data/balance';
 import { WEAPONS } from '../src/data/weapons';
 import { createPlayer } from '../src/factory';
 import { makeChoices, applyChoice } from '../src/progression';
+import { freshRunState } from '../src/systems/combo';
 import { Loadout, Health } from '../src/components';
 
 function makeCtx(): GameContext {
@@ -26,6 +27,7 @@ function makeCtx(): GameContext {
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: { gold: 0, charges: new Map(), buffs: new Map(), buffUndo: new Map(), shield: 0, deathDanceStacks: 0 },
     skills: { owned: new Set(), cooldowns: new Map(), barrierUntil: 0, barrierLayers: 0, slowUntil: 0, dashUntil: 0 },
+    run: freshRunState(),
   };
   ctx.player = createPlayer(ctx);
   return ctx;

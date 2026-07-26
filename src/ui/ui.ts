@@ -1,6 +1,6 @@
 import type { Choice } from '../progression';
 import type { EquipDef } from '../data/equipment';
-import type { SkillDef } from '../data/schemas';
+import type { OperativeDef, SkillDef } from '../data/schemas';
 import type { ShopOffer } from '../shop';
 
 export interface HudData {
@@ -25,6 +25,8 @@ export interface HudData {
   items: Array<{ def: EquipDef; count: number; remain: number }>;
   skills: Array<{ def: SkillDef; remain: number; active: boolean }>;
   shield: number;
+  combo: { count: number; name: string; color: string; frac: number };
+  surge: { label: string; active: boolean } | null;
 }
 
 export interface RunSummary {
@@ -37,6 +39,11 @@ export interface RunSummary {
   gold: number;
   cause: string;
   nextGoal: string;
+  maxCombo: number;
+  elites: number;
+  crates: number;
+  tyrants: number; // endless-mode extra tyrant kills
+  endless: boolean; // this summary comes from an endless run
 }
 
 const STYLE = `
@@ -83,6 +90,31 @@ const STYLE = `
 #ui-boss{position:fixed;top:82px;left:50%;transform:translateX(-50%);width:60%;max-width:560px;display:none;padding:7px 10px;background:rgba(20,8,15,.82);border:1px solid rgba(229,106,168,.36);border-radius:14px;box-shadow:0 0 24px rgba(229,106,168,.12)}
 #ui-boss>i{display:block;height:10px;width:100%;background:linear-gradient(90deg,#8f2859,var(--boss));border-radius:999px}
 #ui-boss .t{font-size:12px;color:#ffc7e0;text-align:center;margin-bottom:5px;letter-spacing:2px;font-weight:800}
+#ui-combo{position:fixed;right:18px;top:44%;text-align:right;pointer-events:none;opacity:0;transition:opacity .25s}
+#ui-combo.show{opacity:1}
+#ui-combo .cnum{font-size:46px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 0 20px currentColor,0 2px 4px rgba(0,0,0,.6)}
+#ui-combo .cname{font-size:13px;letter-spacing:5px;font-weight:800;margin-top:4px;text-transform:uppercase;text-shadow:0 0 12px currentColor}
+#ui-combo .cbar{margin-top:7px;height:4px;width:118px;margin-left:auto;background:rgba(255,255,255,.14);border-radius:999px;overflow:hidden}
+#ui-combo .cbar i{display:block;height:100%;background:currentColor}
+#ui-combo.pulse .cnum{animation:combo-pop .16s ease}
+@keyframes combo-pop{0%{transform:scale(1)}45%{transform:scale(1.24)}100%{transform:scale(1)}}
+#ui-surge{position:fixed;top:122px;left:50%;transform:translateX(-50%);padding:8px 22px;background:rgba(64,8,14,.8);border:1px solid rgba(255,82,82,.55);border-radius:999px;color:#ffb3ab;font-weight:900;letter-spacing:3px;display:none;text-transform:uppercase;font-size:13px}
+#ui-surge.show{display:block;animation:surge-throb 1.1s ease-in-out infinite}
+@keyframes surge-throb{0%,100%{box-shadow:0 0 20px rgba(255,60,60,.22)}50%{box-shadow:0 0 46px rgba(255,60,60,.55)}}
+#ui-toast{position:fixed;left:50%;bottom:152px;transform:translateX(-50%) translateY(10px);padding:10px 22px;background:linear-gradient(180deg,rgba(38,32,12,.95),rgba(24,19,7,.95));border:1px solid rgba(255,209,102,.5);border-radius:14px;text-align:center;opacity:0;transition:.22s;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.4),0 0 28px rgba(255,209,102,.15)}
+#ui-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ui-toast .t-name{font-size:15px;font-weight:900;color:#ffe66a;letter-spacing:2px}
+#ui-toast .t-desc{font-size:12px;color:#e8d9ad;margin-top:3px}
+#ui-overlay .ops{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px;margin:18px 0 8px}
+#ui-overlay .op{cursor:pointer;padding:16px 10px 13px;background:linear-gradient(180deg,rgba(22,48,43,.8),rgba(9,18,17,.92));border:1px solid var(--line);border-radius:16px;transition:.15s;text-align:center}
+#ui-overlay .op img{width:74px;height:74px;object-fit:contain;filter:drop-shadow(0 5px 12px rgba(0,0,0,.55))}
+#ui-overlay .op .o-name{font-size:16px;font-weight:900;color:#f2fffa;margin-top:7px;letter-spacing:2px}
+#ui-overlay .op .o-title{font-size:11px;color:var(--growth);letter-spacing:2px;margin-top:2px;text-transform:uppercase}
+#ui-overlay .op .o-perk{font-size:12px;color:#ffd166;margin-top:7px;font-weight:700}
+#ui-overlay .op .o-desc{font-size:11px;color:#a8c7bd;margin-top:5px;line-height:1.5;min-height:33px}
+#ui-overlay .op:hover{transform:translateY(-2px);border-color:rgba(97,229,222,.5)}
+#ui-overlay .op.sel{border-color:var(--growth);background:rgba(28,66,59,.95);box-shadow:0 0 26px rgba(97,229,222,.28);transform:translateY(-3px)}
+#ui-overlay button.ghost{margin:8px 8px 0;cursor:pointer;background:linear-gradient(90deg,rgba(229,106,168,.85),rgba(255,120,120,.85));border:none;color:#2b0714;font-weight:900;font-size:15px;padding:12px 26px;border-radius:12px;letter-spacing:2px;box-shadow:0 8px 24px rgba(229,106,168,.25)}
 #ui-overlay{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 42%,rgba(31,54,49,.66),rgba(4,8,7,.86));backdrop-filter:blur(4px);pointer-events:auto}
 #ui-overlay .panel{width:min(880px,94%);max-height:86vh;overflow-y:auto;text-align:center;padding:30px 26px;background:linear-gradient(160deg,rgba(12,24,22,.96),rgba(5,10,9,.96));border:1px solid var(--line);border-radius:22px;box-shadow:0 0 60px rgba(0,0,0,.38),0 0 36px rgba(97,229,222,.08);font-family:system-ui,"Microsoft YaHei",sans-serif;color:var(--text)}
 #ui-overlay h1{font-size:32px;margin:0 0 8px;color:#eafff7;letter-spacing:3px;text-transform:uppercase}
@@ -135,7 +167,13 @@ export class UI {
   private goldEl: HTMLElement;
   private shopBtn: HTMLElement;
   private itemsBar: HTMLElement;
+  private comboEl: HTMLElement;
+  private surgeEl: HTMLElement;
+  private toastEl: HTMLElement;
   private onShopOpen: (() => void) | null = null;
+  private lastComboCount = 0;
+  private toastTimer: number | undefined;
+  private titleSelection = '';
 
   constructor() {
     const style = document.createElement('style');
@@ -149,11 +187,14 @@ export class UI {
       <div id="ui-mission"><span id="ui-stage"></span><strong id="ui-time"></strong><span id="ui-threat"></span></div>
       <div id="ui-economy"><span id="ui-gold"></span><button id="ui-shopbtn">[B] 商店</button></div>
       <div id="ui-stage-banner"></div>
+      <div id="ui-surge"></div>
       <div id="ui-tutorial"></div>
       <div id="ui-hpwrap"><div id="ui-hp"><i></i></div><div id="ui-hplabel"></div></div>
       <div id="ui-items"></div>
       <div id="ui-weapon-primary"></div>
       <div id="ui-weapons"></div>
+      <div id="ui-combo"><div class="cnum"></div><div class="cname"></div><div class="cbar"><i></i></div></div>
+      <div id="ui-toast"><div class="t-name"></div><div class="t-desc"></div></div>
       <div id="ui-boss"><div class="t">母巢暴君</div><i></i></div>
     `;
     document.body.appendChild(hud);
@@ -178,6 +219,9 @@ export class UI {
     this.goldEl = hud.querySelector('#ui-gold') as HTMLElement;
     this.shopBtn = hud.querySelector('#ui-shopbtn') as HTMLElement;
     this.itemsBar = hud.querySelector('#ui-items') as HTMLElement;
+    this.comboEl = hud.querySelector('#ui-combo') as HTMLElement;
+    this.surgeEl = hud.querySelector('#ui-surge') as HTMLElement;
+    this.toastEl = hud.querySelector('#ui-toast') as HTMLElement;
 
     this.shopBtn.addEventListener('click', () => {
       if (this.onShopOpen) this.onShopOpen();
@@ -220,6 +264,31 @@ export class UI {
 
     this.goldEl.innerHTML = `金币 <b>${d.gold}</b>`;
 
+    // Kill-combo widget: shows from 3 kills up, colored by tier, pulses on change.
+    const combo = d.combo;
+    this.comboEl.classList.toggle('show', combo.count >= 3);
+    if (combo.count >= 3) {
+      this.comboEl.style.color = combo.color;
+      (this.comboEl.querySelector('.cnum') as HTMLElement).textContent = `x${combo.count}`;
+      (this.comboEl.querySelector('.cname') as HTMLElement).textContent = combo.name || '连锁击杀';
+      (this.comboEl.querySelector('.cbar > i') as HTMLElement).style.width = `${Math.round(combo.frac * 100)}%`;
+      if (combo.count !== this.lastComboCount) {
+        this.comboEl.classList.remove('pulse');
+        void this.comboEl.offsetWidth; // restart the pop animation
+        this.comboEl.classList.add('pulse');
+      }
+    }
+    this.lastComboCount = combo.count;
+
+    // Blood-moon banner: warning countdown, then the active storm.
+    if (d.surge) {
+      this.surgeEl.classList.add('show');
+      this.surgeEl.textContent = d.surge.label;
+      this.surgeEl.style.borderColor = d.surge.active ? 'rgba(255,82,82,.85)' : 'rgba(255,140,82,.6)';
+    } else {
+      this.surgeEl.classList.remove('show');
+    }
+
     let barHtml = '';
     for (const item of d.items) {
       const isBuff = item.def.kind === 'buff';
@@ -248,21 +317,66 @@ export class UI {
     this.itemsBar.innerHTML = barHtml;
   }
 
-  showTitle(best: number, onStart: () => void): void {
+  showTitle(
+    best: number,
+    operatives: readonly OperativeDef[],
+    selectedId: string,
+    onStart: (operativeId: string) => void,
+  ): void {
+    this.titleSelection = operatives.some((o) => o.id === selectedId)
+      ? selectedId
+      : operatives[0]?.id ?? '';
+    const cards = operatives
+      .map(
+        (op) => `
+        <div class="op${op.id === this.titleSelection ? ' sel' : ''}" data-op="${op.id}" role="button" tabindex="0">
+          <img src="/assets/${op.spriteKey}.png" alt="">
+          <div class="o-name">${op.name}</div>
+          <div class="o-title">${op.title}</div>
+          <div class="o-perk">${op.perk}</div>
+          <div class="o-desc">${op.desc}</div>
+        </div>`,
+      )
+      .join('');
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>末日清道夫</h1>
         <p>战术俯视生存 · 自动开火 · 阶段推进<br>
-        WASD / 方向键移动，鼠标瞄准，按 <b style="color:#ffb438">B</b> 进入补给商店。<br>
-        前 30 秒拾取范围更友好；每次进入新阶段都会获得补给奖励。${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
-        <button class="start">开始 (Space)</button>
+        WASD 移动 · 鼠标瞄准 · <b style="color:#ffb438">B</b> 商店 · 连杀提升经验金币 · 空投与血月改变战局${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
+        <div class="ops">${cards}</div>
+        <button class="start">出击 (Space)</button>
       </div>`;
-    (this.overlay.querySelector('.start') as HTMLElement).onclick = onStart;
+    this.overlay.querySelectorAll('.op').forEach((el) => {
+      const card = el as HTMLElement;
+      const select = () => {
+        this.titleSelection = card.dataset.op ?? this.titleSelection;
+        this.overlay.querySelectorAll('.op').forEach((o) => o.classList.toggle('sel', o === card));
+      };
+      card.onclick = select;
+      card.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') select();
+      };
+    });
+    (this.overlay.querySelector('.start') as HTMLElement).onclick = () => onStart(this.titleSelection);
     this.overlay.style.display = 'flex';
+  }
+
+  /** Operative currently highlighted on the title screen (for Space-to-start). */
+  selectedOperative(): string {
+    return this.titleSelection;
   }
 
   hideTitle(): void {
     this.overlay.style.display = 'none';
+  }
+
+  /** Transient bottom-center announcement (supply rewards etc.). */
+  toast(name: string, desc: string): void {
+    (this.toastEl.querySelector('.t-name') as HTMLElement).textContent = name;
+    (this.toastEl.querySelector('.t-desc') as HTMLElement).textContent = desc;
+    this.toastEl.classList.add('show');
+    if (this.toastTimer !== undefined) window.clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => this.toastEl.classList.remove('show'), 2800);
   }
 
   showLevelUp(choices: Choice[], onPick: (i: number) => void): void {
@@ -368,23 +482,43 @@ export class UI {
     this.overlay.style.display = 'none';
   }
 
-  showEnd(summary: RunSummary, onRestart: () => void): void {
+  showEnd(summary: RunSummary, onRestart: () => void, onEndless?: () => void): void {
+    const headline = summary.victory
+      ? '任务完成'
+      : summary.endless
+        ? '无尽终局'
+        : '行动失败';
+    const sub = summary.victory
+      ? '你击杀了母巢暴君，清道夫路线已打通。还敢挑战无尽尸潮吗？'
+      : summary.endless
+        ? `你在无尽尸潮中又斩落 ${summary.tyrants} 尊暴君，这里是极限，也是新的起点。`
+        : '丧尸潮压垮了防线，下一局优先补足短板。';
+    const endlessBtn = summary.victory && onEndless
+      ? '<button class="ghost" id="end-endless">无尽尸潮 (E)</button>'
+      : '';
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>${summary.victory ? '任务完成' : '行动失败'}</h1>
-        <p>${summary.victory ? '你击杀了母巢暴君，清道夫路线已打通。' : '丧尸潮压垮了防线，下一局优先补足短板。'}</p>
+        <h1>${headline}</h1>
+        <p>${sub}</p>
         <div class="summary">
           <div><span>生存时间</span><b>${UI.fmt(summary.time)}</b></div>
           <div><span>击杀</span><b>${summary.kills}</b></div>
+          <div><span>最高连击</span><b>x${summary.maxCombo}</b></div>
+          <div><span>精英击破</span><b>${summary.elites}</b></div>
+          <div><span>空投回收</span><b>${summary.crates}</b></div>
           <div><span>阶段</span><b>${summary.stage}</b></div>
           <div><span>主武器</span><b>${summary.primaryWeapon}</b></div>
           <div><span>金币</span><b>${summary.gold}</b></div>
           <div><span>最佳</span><b>${UI.fmt(summary.best)}</b></div>
+          ${summary.tyrants > 0 ? `<div><span>额外暴君</span><b>${summary.tyrants}</b></div>` : ''}
         </div>
         <p>原因：${summary.cause}<br>${summary.nextGoal}</p>
         <button class="start">再来一局 (Space)</button>
+        ${endlessBtn}
       </div>`;
     (this.overlay.querySelector('.start') as HTMLElement).onclick = onRestart;
+    const endlessEl = this.overlay.querySelector('#end-endless') as HTMLElement | null;
+    if (endlessEl && onEndless) endlessEl.onclick = onEndless;
     this.overlay.style.display = 'flex';
   }
 

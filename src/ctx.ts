@@ -28,6 +28,21 @@ export interface TimeState {
   hitStop: number; // ms of remaining freeze for impact feel
 }
 
+/** Kill-combo chain: kills within the decay window stack; tiers boost XP/gold. */
+export interface ComboState {
+  count: number;
+  best: number;
+  until: number; // elapsed time at which the chain breaks
+}
+
+/** Per-run tallies surfaced on the HUD and the end-of-run summary. */
+export interface RunState {
+  combo: ComboState;
+  elitesKilled: number;
+  cratesOpened: number;
+  tyrantsSlain: number; // endless-mode extra boss kills
+}
+
 export interface Director {
   budget: number;
   bossSpawned: boolean;
@@ -35,6 +50,11 @@ export interface Director {
   bossWarningAt?: number;
   stageIndex?: number;
   stageBannerUntil?: number;
+  nextDropAt?: number; // next supply-drop time (lazily initialised by the supply system)
+  nextGoldenAt?: number; // next golden-runner spawn time
+  endless?: boolean; // post-victory endless mode
+  bossCycle?: number; // endless: how many tyrants have spawned so far
+  nextBossAt?: number; // endless: next tyrant respawn time
 }
 
 export interface GameEvents {
@@ -79,6 +99,7 @@ export interface VfxHooks {
   onEnemyKnocked: (x: number, y: number, key: string, r: number, isBoss: boolean, flipX: boolean) => void;
   onBloodSplat: (x: number, y: number, r: number) => void;
   onPlayerHit?: (cause: string) => void;
+  onSupplyReward?: (name: string, desc: string) => void;
 }
 
 /** Everything a system needs, passed explicitly (no globals) so the sim can construct its own. */
@@ -98,5 +119,6 @@ export interface GameContext {
   events: GameEvents;
   equip: EquipmentState;
   skills: SkillState;
+  run: RunState;
   vfx?: VfxHooks; // optional; present only in the live game
 }

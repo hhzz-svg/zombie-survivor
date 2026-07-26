@@ -1,6 +1,7 @@
 import { defineComponent } from '../ecs/world';
 import type { Entity } from '../ecs/world';
 import type { EnemyDef, WeaponDef } from '../data/schemas';
+import type { EliteAffix } from '../data/elites';
 
 /** A weapon the player owns, with its current level and cooldown timer. */
 export interface WeaponInst {
@@ -20,6 +21,7 @@ export interface EnemyRuntime {
   volleyCd: number; // boss radial bullet timer
   slamCd: number; // boss shockwave timer
   enraged: boolean; // boss phase-2 flag
+  elite?: EliteAffix; // affix carried by elite variants
 }
 
 export const Transform = defineComponent<{ x: number; y: number; rot: number }>('Transform');
@@ -43,8 +45,12 @@ export const Bullet = defineComponent<{
   knockback: number;
   crit: boolean;
   hit: Set<Entity>;
+  style?: 'flame' | 'rocket'; // non-default projectile rendering
+  explodeRadius?: number; // splash radius on hit (rockets)
 }>('Bullet');
 export const Lifetime = defineComponent<{ t: number }>('Lifetime');
 export const XPGem = defineComponent<{ value: number }>('XPGem');
 export const GoldCoin = defineComponent<{ value: number }>('GoldCoin');
 export const Medkit = defineComponent<{ heal: number }>('Medkit');
+/** A supply crate: parachutes in until `landAt`, then sits collectable on the ground. */
+export const SupplyCrate = defineComponent<{ landAt: number }>('SupplyCrate');
