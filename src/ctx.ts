@@ -41,6 +41,11 @@ export interface RunState {
   elitesKilled: number;
   cratesOpened: number;
   tyrantsSlain: number; // endless-mode extra boss kills
+  goldenKilled: number; // golden runners caught this run
+  evolved: boolean; // any weapon evolved this run
+  firstHpHitAt: number | null; // elapsed time of the first real HP hit (null = untouched)
+  adrenalineUsed: boolean; // the once-per-run low-HP save has fired
+  curse: number; // blood-curse altar stacks accepted this run
 }
 
 export interface Director {
@@ -100,6 +105,8 @@ export interface VfxHooks {
   onBloodSplat: (x: number, y: number, r: number) => void;
   onPlayerHit?: (cause: string) => void;
   onSupplyReward?: (name: string, desc: string) => void;
+  /** Center-screen announcements: curse pacts, achievements, adrenaline. */
+  onAnnounce?: (name: string, desc: string, kind: 'curse' | 'achieve' | 'adrenaline') => void;
 }
 
 /** Everything a system needs, passed explicitly (no globals) so the sim can construct its own. */

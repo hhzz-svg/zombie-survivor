@@ -21,6 +21,7 @@ import { MAX_WEAPON_LEVEL } from './data/weapons';
 import { EQUIPMENT } from './data/equipment';
 import { SKILLS } from './data/skills';
 import { OPERATIVES, DEFAULT_OPERATIVE, operativeById, applyOperative } from './data/operatives';
+import { ACHIEVEMENTS, evaluateAchievements, type AchieveSnapshot, type AchievementDef } from './data/achievements';
 import { createPlayer } from './factory';
 import { runSystems } from './systems/pipeline';
 import { useItem, startBuff } from './systems/equipment';
@@ -28,13 +29,19 @@ import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
 import { comboTier, freshRunState } from './systems/combo';
 import {
   Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity,
-  Lifetime, SupplyCrate, type WeaponInst,
+  Lifetime, SupplyCrate, CurseAltar, type WeaponInst,
 } from './components';
 import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, type ShopOffer } from './shop';
 
-type State = 'title' | 'playing' | 'levelup' | 'shop' | 'gameover' | 'victory';
+type State = 'title' | 'playing' | 'paused' | 'levelup' | 'shop' | 'gameover' | 'victory';
+
+interface LifetimeStats {
+  kills: number;
+  runs: number;
+  wins: number;
+}
 
 /** '#rrggbb' → 'r,g,b' for the renderer's edge-glow gradients. */
 function hexToRgb(hex: string): string {
@@ -60,14 +67,45 @@ export class Game {
   private lastFootstep = 0; // player footfall index, to fire step dust exactly on contact
   private lastDamageCause = '尚未受到致命伤害';
   private lastOperative: string;
+  private unlockedAch: Set<string>;
+  private lifetime: LifetimeStats;
+  private runAchievements: AchievementDef[] = []; // unlocked during the current run
+  private nextAchCheck = 0; // throttle for live achievement evaluation
+  // A run can "end" twice (victory screen → endless → death), so lifetime
+  // totals commit incrementally: kills as a delta, runs/wins exactly once.
+  private killsCommitted = 0;
+  private runCounted = false;
+  private winCounted = false;
 
   constructor(private readonly renderer: Renderer) {
     this.best = Number(localStorage.getItem('zs-best') || '0') || 0;
     this.lastOperative = localStorage.getItem('zs-operative') || DEFAULT_OPERATIVE;
+    this.unlockedAch = new Set(this.loadJson<string[]>('zs-ach', []));
+    this.lifetime = this.loadJson<LifetimeStats>('zs-life', { kills: 0, runs: 0, wins: 0 });
     void this.assets.load();
-    this.ui.showTitle(this.best, OPERATIVES, this.lastOperative, (id) => this.start(id));
+    this.showTitle();
     this.ui.setShopHandler(() => this.openShop());
     window.addEventListener('keydown', (e) => this.onKey(e));
+  }
+
+  private loadJson<T>(key: string, fallback: T): T {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private showTitle(): void {
+    this.ui.showTitle(
+      this.best,
+      OPERATIVES,
+      this.lastOperative,
+      (id) => this.start(id),
+      { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
+      () => this.ui.showAchievements(ACHIEVEMENTS, this.unlockedAch, () => this.showTitle()),
+    );
   }
 
   private freshStats(): PlayerStats {
@@ -141,12 +179,18 @@ export class Game {
         onPlayerHit: (cause) => {
           this.lastDamageCause = cause;
         },
-        onSupplyReward: (name, desc) => this.ui.toast(name, desc),
+        onSupplyReward: (name, desc) => this.ui.reveal(name, desc),
+        onAnnounce: (name, desc, kind) => this.ui.toast(name, desc, kind),
       },
     };
     ctx.player = createPlayer(ctx, op.weapon);
     this.ctx = ctx;
     this.pendingLevels = 0;
+    this.runAchievements = [];
+    this.nextAchCheck = 0;
+    this.killsCommitted = 0;
+    this.runCounted = false;
+    this.winCounted = false;
     this.state = 'playing';
     this.ui.hideTitle();
     this.ui.hideEnd();
@@ -170,7 +214,69 @@ export class Game {
     this.handleSkillKeys();
     this.keys.flush();
 
+    // Live achievement checks, throttled — win or lose, every run makes progress.
+    if (this.ctx.time.elapsed >= this.nextAchCheck) {
+      this.nextAchCheck = this.ctx.time.elapsed + 0.75;
+      this.checkAchievements(false);
+    }
+
     if (this.state === 'playing' && this.pendingLevels > 0) this.enterLevelUp();
+  }
+
+  private achieveSnapshot(victory: boolean): AchieveSnapshot {
+    const ctx = this.ctx!;
+    return {
+      time: ctx.time.elapsed,
+      kills: ctx.stats.kills,
+      maxCombo: ctx.run.combo.best,
+      elites: ctx.run.elitesKilled,
+      crates: ctx.run.cratesOpened,
+      golden: ctx.run.goldenKilled,
+      tyrants: ctx.run.tyrantsSlain,
+      stage: currentRunStage(ctx.time.elapsed).index,
+      gold: ctx.equip.gold,
+      victory: victory || ctx.director.bossDead || ctx.run.tyrantsSlain > 0,
+      evolved: ctx.run.evolved,
+      curse: ctx.run.curse,
+      firstHpHitAt: ctx.run.firstHpHitAt,
+      // live totals include the run in progress so lifetime goals can pop mid-run
+      totalKills: this.lifetime.kills + (ctx.stats.kills - this.killsCommitted),
+      totalRuns: this.lifetime.runs + (this.runCounted ? 0 : 1),
+      totalWins: this.lifetime.wins,
+    };
+  }
+
+  private checkAchievements(victory: boolean): void {
+    if (!this.ctx) return;
+    const fresh = evaluateAchievements(this.achieveSnapshot(victory), this.unlockedAch);
+    if (fresh.length === 0) return;
+    for (const a of fresh) {
+      this.unlockedAch.add(a.id);
+      this.runAchievements.push(a);
+      this.ui.toast(`成就解锁 · ${a.name}`, a.desc, 'achieve');
+      const pt = this.ctx.world.get(this.ctx.player, Transform);
+      if (pt) this.ctx.fx.text(pt.x, pt.y - 46, `成就 · ${a.name}`, '#61e5de', 15);
+    }
+    this.ctx.audio.levelUp();
+    localStorage.setItem('zs-ach', JSON.stringify([...this.unlockedAch]));
+  }
+
+  /** Fold run progress into lifetime totals (safe to call at each end screen). */
+  private commitLifetime(victory: boolean): void {
+    if (!this.ctx) return;
+    this.checkAchievements(victory); // run-level goals at their final values
+    this.lifetime.kills += this.ctx.stats.kills - this.killsCommitted;
+    this.killsCommitted = this.ctx.stats.kills;
+    if (!this.runCounted) {
+      this.lifetime.runs += 1;
+      this.runCounted = true;
+    }
+    if (victory && !this.winCounted) {
+      this.lifetime.wins += 1;
+      this.winCounted = true;
+    }
+    localStorage.setItem('zs-life', JSON.stringify(this.lifetime));
+    this.checkAchievements(victory); // lifetime goals with the committed totals
   }
 
   private handleItemKeys(): void {
@@ -313,6 +419,7 @@ export class Game {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'gameover';
     this.saveBest();
+    this.commitLifetime(false);
     this.ui.showEnd(this.buildRunSummary(false), () => this.start());
   }
 
@@ -320,7 +427,20 @@ export class Game {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'victory';
     this.saveBest();
+    this.commitLifetime(true);
     this.ui.showEnd(this.buildRunSummary(true), () => this.start(), () => this.enterEndless());
+  }
+
+  private pause(): void {
+    if (this.state !== 'playing') return;
+    this.state = 'paused';
+    this.ui.showPause(() => this.resume(), () => this.start());
+  }
+
+  private resume(): void {
+    if (this.state !== 'paused') return;
+    this.ui.hidePause();
+    this.state = 'playing';
   }
 
   /** Victory screen → keep the run going; tyrants respawn on a timer, tougher each cycle. */
@@ -356,6 +476,8 @@ export class Game {
       crates: ctx.run.cratesOpened,
       tyrants: ctx.run.tyrantsSlain,
       endless: !!ctx.director.endless,
+      newAchievements: this.runAchievements.map((a) => ({ name: a.name, desc: a.desc })),
+      achProgress: { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
     };
   }
 
@@ -405,6 +527,9 @@ export class Game {
       if (e.code === 'KeyB' || e.code === 'Escape') this.closeShop();
     } else if (this.state === 'playing') {
       if (e.code === 'KeyB') this.openShop();
+      else if (e.code === 'Escape' || e.code === 'KeyP') this.pause();
+    } else if (this.state === 'paused') {
+      if (e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Space') this.resume();
     } else if (this.state === 'victory' && e.code === 'KeyE') {
       this.enterEndless();
     } else if ((this.state === 'gameover' || this.state === 'victory') && (e.code === 'Space' || e.code === 'Enter')) {
@@ -588,6 +713,16 @@ export class Game {
           r.drawGlowCircle(t.x, t.y - 14, 3.4 + pulse * 2, '#fff6dd', '#ffd166');
           r.drawRing(t.x, t.y + 4, 25 + pulse * 5, `rgba(255,209,102,${0.5 - pulse * 0.22})`, 2);
         }
+      } else if (w.has(e, CurseAltar)) {
+        // blood-curse altar: dark obelisk, red rune glow, hungry pulsing ring
+        const pulse = 0.5 + 0.5 * Math.sin(now / 340 + t.x * 0.05);
+        r.drawEllipse(t.x, t.y + 16, 17, 6.5, 'rgba(0,0,0,0.35)');
+        r.drawRect(t.x, t.y + 4, 22, 10, '#241418');
+        r.drawRect(t.x, t.y - 6, 14, 26, '#33191f');
+        r.drawRect(t.x, t.y - 8, 8, 22, '#47222b');
+        r.drawGlowCircle(t.x, t.y - 8, 3.2 + pulse * 1.8, '#ffb3ab', '#e0344a');
+        r.drawRing(t.x, t.y + 10, 24 + pulse * 6, `rgba(224,52,74,${0.55 - pulse * 0.25})`, 2);
+        r.drawText(t.x, t.y - 30, '血怨祭坛', '#ff5a6a', 11, 'center', 0.65 + pulse * 0.3);
       } else if (w.has(e, GoldCoin)) {
         const img = this.assets.get('coin');
         if (img) {

@@ -12,6 +12,7 @@ import { equipmentSystem } from './equipment';
 import { skillSystem } from './skills';
 import { comboSystem } from './combo';
 import { supplyDropSystem } from './supply';
+import { curseAltarSystem } from './curse';
 import { runFlowSystem } from '../runFlow';
 
 /** Rebuild the enemy spatial hash from current positions. */
@@ -44,6 +45,7 @@ export function runSystems(ctx: GameContext, dt: number): void {
   skillSystem(ctx, dt);
   comboSystem(ctx, dt);
   supplyDropSystem(ctx, dt);
+  curseAltarSystem(ctx, dt);
   lifetimeSystem(ctx, dt);
   ctx.fx.update(dt);
 }

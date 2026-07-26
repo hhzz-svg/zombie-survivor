@@ -83,6 +83,7 @@ export function applyChoice(ctx: GameContext, c: Choice): void {
       wi.def = evoDef; // replace the weapon def with the evolved one
       wi.level = 1; // reset level so it can be upgraded again
       if (wasHeld && evoDef.kind === 'aim') lo.activeWeapon = evoDef.id;
+      ctx.run.evolved = true;
       ctx.audio.boss(); // dramatic sound
       ctx.screen.shake = Math.max(ctx.screen.shake, 18);
     }

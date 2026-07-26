@@ -1,6 +1,7 @@
 import type { Choice } from '../progression';
 import type { EquipDef } from '../data/equipment';
 import type { OperativeDef, SkillDef } from '../data/schemas';
+import type { AchievementDef } from '../data/achievements';
 import type { ShopOffer } from '../shop';
 
 export interface HudData {
@@ -44,6 +45,8 @@ export interface RunSummary {
   crates: number;
   tyrants: number; // endless-mode extra tyrant kills
   endless: boolean; // this summary comes from an endless run
+  newAchievements: Array<{ name: string; desc: string }>;
+  achProgress: { unlocked: number; total: number };
 }
 
 const STYLE = `
@@ -105,6 +108,27 @@ const STYLE = `
 #ui-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #ui-toast .t-name{font-size:15px;font-weight:900;color:#ffe66a;letter-spacing:2px}
 #ui-toast .t-desc{font-size:12px;color:#e8d9ad;margin-top:3px}
+#ui-toast.v-curse{background:linear-gradient(180deg,rgba(46,10,16,.96),rgba(28,6,10,.96));border-color:rgba(255,82,94,.55);box-shadow:0 12px 30px rgba(0,0,0,.4),0 0 28px rgba(255,60,74,.2)}
+#ui-toast.v-curse .t-name{color:#ff8a94}#ui-toast.v-curse .t-desc{color:#e8b3b8}
+#ui-toast.v-achieve{background:linear-gradient(180deg,rgba(8,36,34,.96),rgba(5,22,21,.96));border-color:rgba(97,229,222,.55);box-shadow:0 12px 30px rgba(0,0,0,.4),0 0 28px rgba(97,229,222,.2)}
+#ui-toast.v-achieve .t-name{color:#7ff0e9}#ui-toast.v-achieve .t-desc{color:#b3ded9}
+#ui-reveal{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);padding:18px 34px;background:linear-gradient(165deg,rgba(44,36,13,.97),rgba(22,17,6,.97));border:1px solid rgba(255,209,102,.65);border-radius:18px;text-align:center;opacity:0;pointer-events:none;box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 44px rgba(255,209,102,.22);transition:transform .18s cubic-bezier(.2,1.6,.4,1),opacity .18s}
+#ui-reveal.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#ui-reveal .rv-kicker{font-size:11px;color:#c9a55a;letter-spacing:4px;text-transform:uppercase}
+#ui-reveal .rv-name{font-size:22px;font-weight:900;color:#ffe66a;letter-spacing:2px;margin-top:5px;text-shadow:0 0 22px rgba(255,209,102,.4)}
+#ui-reveal .rv-desc{font-size:13px;color:#efdcae;margin-top:6px}
+#ui-ach-btn{margin-top:10px;cursor:pointer;background:rgba(97,229,222,.1);border:1px solid rgba(97,229,222,.4);color:#7ff0e9;font-size:13px;font-weight:700;padding:9px 20px;border-radius:10px;letter-spacing:1.5px;transition:.12s}
+#ui-ach-btn:hover{background:rgba(97,229,222,.18)}
+#ui-overlay .ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(198px,1fr));gap:9px;margin:16px 0;text-align:left;max-height:52vh;overflow-y:auto;padding-right:4px}
+#ui-overlay .ach{padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(10,20,19,.85)}
+#ui-overlay .ach .a-name{font-size:13px;font-weight:800;color:#eafff9;letter-spacing:1px}
+#ui-overlay .ach .a-desc{font-size:11px;color:#8fb0a7;margin-top:4px;line-height:1.45}
+#ui-overlay .ach.done{border-color:rgba(97,229,222,.55);background:rgba(13,42,39,.9);box-shadow:0 0 14px rgba(97,229,222,.12)}
+#ui-overlay .ach.done .a-name{color:#7ff0e9}
+#ui-overlay .ach.done .a-name::before{content:'✓ ';color:#61e5de}
+#ui-overlay .ach.locked{opacity:.5}
+#ui-overlay .new-ach-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0 4px}
+#ui-overlay .new-ach{padding:6px 14px;border-radius:999px;border:1px solid rgba(97,229,222,.5);background:rgba(13,42,39,.9);color:#7ff0e9;font-size:12px;font-weight:800;letter-spacing:1px}
 #ui-overlay .ops{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px;margin:18px 0 8px}
 #ui-overlay .op{cursor:pointer;padding:16px 10px 13px;background:linear-gradient(180deg,rgba(22,48,43,.8),rgba(9,18,17,.92));border:1px solid var(--line);border-radius:16px;transition:.15s;text-align:center}
 #ui-overlay .op img{width:74px;height:74px;object-fit:contain;filter:drop-shadow(0 5px 12px rgba(0,0,0,.55))}
@@ -170,9 +194,11 @@ export class UI {
   private comboEl: HTMLElement;
   private surgeEl: HTMLElement;
   private toastEl: HTMLElement;
+  private revealEl: HTMLElement;
   private onShopOpen: (() => void) | null = null;
   private lastComboCount = 0;
   private toastTimer: number | undefined;
+  private revealTimer: number | undefined;
   private titleSelection = '';
 
   constructor() {
@@ -195,6 +221,7 @@ export class UI {
       <div id="ui-weapons"></div>
       <div id="ui-combo"><div class="cnum"></div><div class="cname"></div><div class="cbar"><i></i></div></div>
       <div id="ui-toast"><div class="t-name"></div><div class="t-desc"></div></div>
+      <div id="ui-reveal"><div class="rv-kicker">空投补给</div><div class="rv-name"></div><div class="rv-desc"></div></div>
       <div id="ui-boss"><div class="t">母巢暴君</div><i></i></div>
     `;
     document.body.appendChild(hud);
@@ -222,6 +249,7 @@ export class UI {
     this.comboEl = hud.querySelector('#ui-combo') as HTMLElement;
     this.surgeEl = hud.querySelector('#ui-surge') as HTMLElement;
     this.toastEl = hud.querySelector('#ui-toast') as HTMLElement;
+    this.revealEl = hud.querySelector('#ui-reveal') as HTMLElement;
 
     this.shopBtn.addEventListener('click', () => {
       if (this.onShopOpen) this.onShopOpen();
@@ -322,6 +350,8 @@ export class UI {
     operatives: readonly OperativeDef[],
     selectedId: string,
     onStart: (operativeId: string) => void,
+    ach?: { unlocked: number; total: number },
+    onShowAchievements?: () => void,
   ): void {
     this.titleSelection = operatives.some((o) => o.id === selectedId)
       ? selectedId
@@ -338,13 +368,17 @@ export class UI {
         </div>`,
       )
       .join('');
+    const achBtn = ach && onShowAchievements
+      ? `<br><button id="ui-ach-btn">成就 ${ach.unlocked} / ${ach.total}</button>`
+      : '';
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>末日清道夫</h1>
         <p>战术俯视生存 · 自动开火 · 阶段推进<br>
-        WASD 移动 · 鼠标瞄准 · <b style="color:#ffb438">B</b> 商店 · 连杀提升经验金币 · 空投与血月改变战局${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
+        WASD 移动 · 鼠标瞄准 · <b style="color:#ffb438">B</b> 商店 · <b style="color:#ffb438">Esc</b> 暂停 · 连杀提升经验金币 · 空投 / 血月 / 血怨祭坛改变战局${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
         <div class="ops">${cards}</div>
         <button class="start">出击 (Space)</button>
+        ${achBtn}
       </div>`;
     this.overlay.querySelectorAll('.op').forEach((el) => {
       const card = el as HTMLElement;
@@ -358,7 +392,49 @@ export class UI {
       };
     });
     (this.overlay.querySelector('.start') as HTMLElement).onclick = () => onStart(this.titleSelection);
+    const achEl = this.overlay.querySelector('#ui-ach-btn') as HTMLElement | null;
+    if (achEl && onShowAchievements) achEl.onclick = onShowAchievements;
     this.overlay.style.display = 'flex';
+  }
+
+  /** Full-wall achievement browser reached from the title screen. */
+  showAchievements(defs: readonly AchievementDef[], unlocked: ReadonlySet<string>, onBack: () => void): void {
+    const cells = defs
+      .map((a) => {
+        const done = unlocked.has(a.id);
+        return `<div class="ach ${done ? 'done' : 'locked'}">
+          <div class="a-name">${a.name}</div>
+          <div class="a-desc">${a.desc}</div>
+        </div>`;
+      })
+      .join('');
+    this.overlay.innerHTML = `
+      <div class="panel">
+        <h1>成就</h1>
+        <p>已解锁 ${[...unlocked].filter((id) => defs.some((d) => d.id === id)).length} / ${defs.length} · 输赢都有进度</p>
+        <div class="ach-grid">${cells}</div>
+        <button class="start" id="ach-back">返回</button>
+      </div>`;
+    (this.overlay.querySelector('#ach-back') as HTMLElement).onclick = onBack;
+    this.overlay.style.display = 'flex';
+  }
+
+  /** Pause curtain: resume or abandon into a fresh run. */
+  showPause(onResume: () => void, onRestart: () => void): void {
+    this.overlay.innerHTML = `
+      <div class="panel">
+        <h1>已暂停</h1>
+        <p>喘口气。尸潮不会真的等你。</p>
+        <button class="start" id="pause-resume">继续 (Esc)</button>
+        <button class="ghost" id="pause-restart">重新出击</button>
+      </div>`;
+    (this.overlay.querySelector('#pause-resume') as HTMLElement).onclick = onResume;
+    (this.overlay.querySelector('#pause-restart') as HTMLElement).onclick = onRestart;
+    this.overlay.style.display = 'flex';
+  }
+
+  hidePause(): void {
+    this.overlay.style.display = 'none';
   }
 
   /** Operative currently highlighted on the title screen (for Space-to-start). */
@@ -370,13 +446,27 @@ export class UI {
     this.overlay.style.display = 'none';
   }
 
-  /** Transient bottom-center announcement (supply rewards etc.). */
-  toast(name: string, desc: string): void {
+  /** Transient bottom-center announcement, tinted by kind. */
+  toast(name: string, desc: string, kind: 'gold' | 'curse' | 'achieve' | 'adrenaline' = 'gold'): void {
     (this.toastEl.querySelector('.t-name') as HTMLElement).textContent = name;
     (this.toastEl.querySelector('.t-desc') as HTMLElement).textContent = desc;
+    this.toastEl.classList.remove('v-curse', 'v-achieve');
+    if (kind === 'curse') this.toastEl.classList.add('v-curse');
+    if (kind === 'achieve') this.toastEl.classList.add('v-achieve');
     this.toastEl.classList.add('show');
     if (this.toastTimer !== undefined) window.clearTimeout(this.toastTimer);
-    this.toastTimer = window.setTimeout(() => this.toastEl.classList.remove('show'), 2800);
+    this.toastTimer = window.setTimeout(() => this.toastEl.classList.remove('show'), kind === 'achieve' ? 3400 : 2800);
+  }
+
+  /** Center-screen supply-crate reveal: a short pop ceremony, no game pause. */
+  reveal(name: string, desc: string): void {
+    (this.revealEl.querySelector('.rv-name') as HTMLElement).textContent = name;
+    (this.revealEl.querySelector('.rv-desc') as HTMLElement).textContent = desc;
+    this.revealEl.classList.remove('show');
+    void this.revealEl.offsetWidth; // restart the pop-in animation
+    this.revealEl.classList.add('show');
+    if (this.revealTimer !== undefined) window.clearTimeout(this.revealTimer);
+    this.revealTimer = window.setTimeout(() => this.revealEl.classList.remove('show'), 1900);
   }
 
   showLevelUp(choices: Choice[], onPick: (i: number) => void): void {
@@ -496,10 +586,17 @@ export class UI {
     const endlessBtn = summary.victory && onEndless
       ? '<button class="ghost" id="end-endless">无尽尸潮 (E)</button>'
       : '';
+    const achRow = summary.newAchievements.length > 0
+      ? `<div class="new-ach-row">${summary.newAchievements
+          .map((a) => `<span class="new-ach" title="${a.desc}">✓ ${a.name}</span>`)
+          .join('')}</div>
+         <p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">本局解锁 ${summary.newAchievements.length} 项成就 · 总进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`
+      : `<p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">成就进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`;
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>${headline}</h1>
         <p>${sub}</p>
+        ${achRow}
         <div class="summary">
           <div><span>生存时间</span><b>${UI.fmt(summary.time)}</b></div>
           <div><span>击杀</span><b>${summary.kills}</b></div>

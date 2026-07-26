@@ -6,7 +6,8 @@ import { COIN_DROP, DEATH_DANCE_CAP } from '../data/equipment';
 import { activeSurge, SURGE_GOLD_MUL, ENDLESS_BOSS_INTERVAL } from '../data/balance';
 import { TOXIC_DEATH_BOLTS } from '../data/elites';
 import { buffActive } from './equipment';
-import { addComboKill, comboGoldMul, resetCombo } from './combo';
+import { addComboKill, comboGoldMul, comboPitch, resetCombo } from './combo';
+import { curseGoldMul } from './curse';
 import { barrierAbsorb } from './skills';
 
 /** Shared damage resolution — used by bullets, nova, and explosions so the rules live in one place. */
@@ -30,6 +31,7 @@ export function damagePlayer(ctx: GameContext, dmg: number, cause = '感染者�
   h.invuln = 0.6;
   h.flash = 0.2;
   resetCombo(ctx); // real HP damage breaks the kill chain
+  if (ctx.run.firstHpHitAt === null) ctx.run.firstHpHitAt = ctx.time.elapsed;
   ctx.time.hitStop = Math.max(ctx.time.hitStop, 55);
   ctx.screen.shake = Math.max(ctx.screen.shake, 9);
   ctx.audio.hurt();
@@ -37,6 +39,32 @@ export function damagePlayer(ctx: GameContext, dmg: number, cause = '感染者�
   if (h.hp <= 0) {
     h.hp = 0;
     ctx.events.onDeath();
+    return;
+  }
+  // Adrenaline surge: the first time HP dips under 20%, buy the player one comeback.
+  if (!ctx.run.adrenalineUsed && h.hp < ctx.stats.maxHp * 0.2) {
+    ctx.run.adrenalineUsed = true;
+    h.hp = Math.min(h.max, h.hp + 15);
+    h.invuln = Math.max(h.invuln, 1.5);
+    const pt = ctx.world.get(ctx.player, Transform);
+    if (pt) {
+      const neigh: number[] = [];
+      ctx.hash.query(pt.x, pt.y, 220, neigh);
+      for (const o of neigh) {
+        const ot = ctx.world.get(o, Transform);
+        if (!ot) continue;
+        const d = Math.hypot(ot.x - pt.x, ot.y - pt.y) || 1;
+        if (d <= 220) damageEnemy(ctx, o, 12, (ot.x - pt.x) / d, (ot.y - pt.y) / d, 320);
+      }
+      ctx.fx.shockwave(pt.x, pt.y, 220, '#ffd166', 0.5);
+      ctx.fx.flash(pt.x, pt.y, 46, '#fff6dd', '#ffb43c', 0.22);
+      ctx.fx.burst(pt.x, pt.y, 30, '#ffd166', 320, ctx.rng);
+      ctx.fx.text(pt.x, pt.y - 34, '肾上腺素！', '#ffd166', 20);
+    }
+    ctx.time.hitStop = Math.max(ctx.time.hitStop, 70);
+    ctx.screen.shake = Math.max(ctx.screen.shake, 14);
+    ctx.audio.levelUp();
+    ctx.vfx?.onAnnounce?.('肾上腺素爆发', '+15 生命 · 1.5 秒无敌 · 击退周围尸群（每局一次）', 'adrenaline');
   }
 }
 
@@ -97,12 +125,13 @@ export function killEnemy(ctx: GameContext, e: Entity): void {
   ctx.world.destroy(e); // remove BEFORE any explosion so it can't re-hit itself
   spawnGem(ctx, x, y, def.xp * (elite?.xpMul ?? 1));
 
-  // Gold coin drop with ±20% jitter; elites, surges, and combo tiers multiply it.
+  // Gold coin drop with ±20% jitter; elites, surges, combo tiers, and curse stacks multiply it.
   const baseCoins = COIN_DROP[def.id] ?? 2;
   const coinMul = (buffActive(ctx, 'coinDouble') ? 2 : 1)
     * (elite?.goldMul ?? 1)
     * (activeSurge(ctx.time.elapsed) ? SURGE_GOLD_MUL : 1)
-    * comboGoldMul(ctx);
+    * comboGoldMul(ctx)
+    * curseGoldMul(ctx);
   const coins = Math.max(1, Math.round(baseCoins * (0.8 + ctx.rng() * 0.4) * coinMul));
   spawnCoin(ctx, x, y, coins);
 
@@ -117,7 +146,7 @@ export function killEnemy(ctx: GameContext, e: Entity): void {
   }
   if (!def.isBoss && ctx.rng() < 0.035) spawnMedkit(ctx, x, y, 20);
   ctx.fx.burst(x, y, 10, def.color, 170, ctx.rng);
-  ctx.audio.kill();
+  ctx.audio.kill(comboPitch(ctx));
   if (def.behavior === 'exploder') explode(ctx, x, y, 72, 30);
 
   if (elite) {
@@ -137,6 +166,7 @@ export function killEnemy(ctx: GameContext, e: Entity): void {
   }
 
   if (def.behavior === 'golden') {
+    ctx.run.goldenKilled++;
     // The golden runner erupts into a coin fountain instead of a normal drop.
     for (let i = 0; i < 10; i++) {
       const a = ctx.rng() * Math.PI * 2;

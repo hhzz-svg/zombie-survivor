@@ -10,6 +10,7 @@ import { rollEliteAffix } from '../data/elites';
 import { ENEMIES, SPAWN_TABLE } from '../data/enemies';
 import { spawnEnemyRing, spawnBoss, spawnGoldenRunner } from '../factory';
 import { introSpawnMultiplier } from '../runFlow';
+import { curseSpawnMul, curseEliteBonus } from './curse';
 
 const GOLDEN_FIRST_AT = 70;
 const GOLDEN_INTERVAL = 65;
@@ -28,6 +29,7 @@ export function directorSystem(ctx: GameContext, dt: number): void {
     * spawnRateMulAt(ctx.time.elapsed)
     * introSpawnMultiplier(ctx.time.elapsed)
     * (activeSurge(ctx.time.elapsed) ? SURGE_SPAWN_MUL : 1)
+    * curseSpawnMul(ctx)
     * dt;
 
   // Golden runner: a periodic chase target that flees with a coin fountain at stake.
@@ -46,7 +48,8 @@ export function directorSystem(ctx: GameContext, dt: number): void {
     const def = pickEnemy(ctx);
     if (!def) break;
     d.budget -= def.cost;
-    const elite = !def.isBoss && def.behavior !== 'exploder' && ctx.rng() < eliteChance(ctx.time.elapsed)
+    const eliteP = Math.min(0.25, eliteChance(ctx.time.elapsed) + curseEliteBonus(ctx));
+    const elite = !def.isBoss && def.behavior !== 'exploder' && ctx.rng() < eliteP
       ? rollEliteAffix(ctx.rng)
       : undefined;
     spawnEnemyRing(ctx, def, elite);

@@ -1,6 +1,7 @@
 import type { GameContext } from './ctx';
 import { Health } from './components';
 import { currentRunStage } from './data/balance';
+import { spawnCurseAltar } from './systems/curse';
 
 export const INTRO_RAMP_SECONDS = 20;
 export const INTRO_PICKUP_SECONDS = 30;
@@ -30,4 +31,6 @@ export function runFlowSystem(ctx: GameContext): void {
   ctx.equip.gold += reward.gold;
   const health = ctx.world.get(ctx.player, Health);
   if (health) health.hp = Math.min(health.max, health.hp + reward.heal);
+  // Each later stage raises one blood-curse altar — an optional risk dial.
+  if (stage.index >= 2) spawnCurseAltar(ctx);
 }

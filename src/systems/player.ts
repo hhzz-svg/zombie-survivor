@@ -4,6 +4,7 @@ import { PLAYER_BASE, xpToNext } from '../data/balance';
 import { damagePlayer, killEnemy } from './combat';
 import { buffActive } from './equipment';
 import { comboXpMul } from './combo';
+import { curseXpMul } from './curse';
 import { pickupRangeMultiplier } from '../runFlow';
 
 /** Player ↔ enemy body contact (with i-frames) and the exploder's contact detonation. */
@@ -95,8 +96,8 @@ export function pickupSystem(ctx: GameContext, dt: number): void {
 }
 
 export function collectXp(ctx: GameContext, value: number): void {
-  // Magnet buff grants +15% XP gain while active; combo tiers multiply on top.
-  const xpMul = (buffActive(ctx, 'magnet') ? 1.15 : 1) * comboXpMul(ctx);
+  // Magnet buff grants +15% XP gain while active; combo tiers and curse stacks multiply on top.
+  const xpMul = (buffActive(ctx, 'magnet') ? 1.15 : 1) * comboXpMul(ctx) * curseXpMul(ctx);
   ctx.stats.xp += Math.round(value * xpMul);
   while (ctx.stats.xp >= ctx.stats.xpToNext) {
     ctx.stats.xp -= ctx.stats.xpToNext;

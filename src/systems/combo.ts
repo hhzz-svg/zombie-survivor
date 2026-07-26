@@ -15,7 +15,17 @@ export function freshRunState(): RunState {
     elitesKilled: 0,
     cratesOpened: 0,
     tyrantsSlain: 0,
+    goldenKilled: 0,
+    evolved: false,
+    firstHpHitAt: null,
+    adrenalineUsed: false,
+    curse: 0,
   };
+}
+
+/** Kill-sound pitch ladder: rises with the live chain, capped for sanity. */
+export function comboPitch(ctx: GameContext): number {
+  return 1 + Math.min(0.6, ctx.run.combo.count * 0.006);
 }
 
 /** Highest tier reached at `count` kills. */

@@ -29,6 +29,9 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 - **Elite mutations.** Swift / Mighty / Toxic affix elites roll in over time with auras, name tags, and multiplied rewards; Toxic ones burst into a ring of acid on death. See a glow, plan before you dive.
 - **Supply drops and blood moons bend the run.** A crate parachutes in every 42 seconds (gold / field-wide vacuum / weapon upgrade / shield cell… six rewards, revealed on open); blood moons hit on a schedule — ×2.3 spawns, +12% enemy speed, +60% gold. The screen turns red, and those seconds are both the danger and the payday.
 - **The golden runner.** A glowing target that flees at full sprint. Catch it for a fountain of coins; miss it and it's gone — a chase scene about once a minute.
+- **Blood-curse altars: your own difficulty dial.** From stage 2, an altar rises each stage. Step in to seal a pact — more spawns and elites in exchange for richer XP and gold. Greed pays, if you can back it up.
+- **20 achievements — every run makes progress.** Combo peaks, elite hunts, untouched openings, lifetime kill counts… unlocks pop live mid-run, with a persistent wall on the title screen and progress on the results screen.
+- **A comeback in your veins.** The first time HP dips under 20%, an adrenaline surge fires: heal, brief invulnerability, and a shockwave that throws the horde back — turning near-death into a highlight.
 - **Eight weapons, each with an evolution.** Pistol, shotgun, SMG, magnum, nova, orbit blades — plus the flamethrower (close-range fire hose) and the rocket launcher (splash damage). Max a weapon to unlock its ultimate form.
 - **Auto-fire, all movement.** No reloading, no aiming clicks — your attention goes entirely into positioning and crowd control. Easy to start, hard to master.
 - **A boss with a kit — and it doesn't end there.** The Hive Tyrant volleys, slams, and summons. Beat it and you can enter the **endless horde**: the Tyrant returns every 110 seconds, tougher each cycle, with blood moons on rotation. See how far you get.
@@ -59,6 +62,7 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | Open shop | `B` |
 | Pick a level-up | `1` / `2` / `3` |
 | Pick operative / start / restart | Click + `Space` |
+| Pause / resume | `Esc` / `P` |
 | Enter endless mode after victory | `E` or the on-screen button |
 
 ## The shop

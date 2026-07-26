@@ -78,12 +78,13 @@ export class AudioBus {
   }
 
   /** Play a loaded sample; returns false if unavailable so callers can fall back to a tone. */
-  private sample(name: string, vol: number): boolean {
+  private sample(name: string, vol: number, rate = 1): boolean {
     if (!this.ctx) return false;
     const buf = this.samples.get(name);
     if (!buf) return false;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
+    src.playbackRate.value = rate;
     const g = this.ctx.createGain();
     g.gain.value = vol;
     src.connect(g).connect(this.ctx.destination);
@@ -94,8 +95,9 @@ export class AudioBus {
   shoot(): void {
     if (!this.sample('shoot', 0.25)) this.tone(430, 0.05, 'square', 0.022);
   }
-  kill(): void {
-    if (!this.sample('hit', 0.3)) this.tone(130, 0.09, 'sawtooth', 0.02);
+  /** Kill thock; `pitch` climbs with the combo chain so streaks are audible. */
+  kill(pitch = 1): void {
+    if (!this.sample('hit', 0.3, pitch)) this.tone(130 * pitch, 0.09, 'sawtooth', 0.02);
   }
   explode(): void {
     if (!this.sample('explode', 0.5)) this.tone(90, 0.18, 'sawtooth', 0.05);

@@ -332,3 +332,36 @@
 - `tests/`：helpers.ts + 7 个新测试文件；6 个既有测试的 ctx 构造补 `run` 字段。
 - `README.md`、`README.zh-CN.md`：特性、敌人表、操作表、目录结构更新。
 - 回滚方式：回退本任务对应提交（git revert 或 reset 到前一提交），无数据迁移。
+
+## 2026-07-26 - Task: 留存与爽感迭代——成就、血怨祭坛、肾上腺素、开箱演出、连击音调、暂停
+
+### What was done
+
+- 新增 20 项成就系统：单局目标（击杀/连击/精英/空投/零接触/进化/血怨/无尽暴君等）+ 累计目标（总击杀/总局数/总胜场），检查为纯函数快照评估；局内每 0.75s 实时解锁并弹青色 toast，localStorage 持久化（zs-ach / zs-life），无尽模式下按增量提交避免重复计数；标题页成就墙（20 格勾选态）、结算页展示本局新解锁徽章与总进度。
+- 新增血怨祭坛（风险旋钮）：阶段 2 起每次进阶升起一座黑曜石碑（红光+脉冲环+名牌），踏入立约消耗祭坛并叠层——每层刷怪 +15%、精英率 +3%，换经验 +20%、金币 +10%，红色 toast 播报当前总加成。
+- 新增肾上腺素爆发：血量首次跌破 20% 自动触发（每局一次）：+15 生命、1.5s 无敌、220px 击退波与金色特效，把濒死转为高光；对致命一击不触发。
+- 空投开箱从底部 toast 升级为中央揭示卡（弹跳缩放动画+金色辉光，1.9s 自动淡出，不暂停游戏）。
+- 击杀音效接入连击音调阶梯：pitch = 1 + min(0.6, 连击数×0.006)，采样与合成两条路径都支持变调。
+- 新增暂停：游玩中 Esc/P 暂停（含继续/重新出击按钮），Esc/P/Space 恢复。
+- 标题界面新增"成就 X/20"入口与 Esc 暂停提示；操作表/特性说明双语同步。
+
+### Testing
+
+- `npm test`：22 个测试文件 97 个测试全部通过（新增 achievements/curse/adrenaline 三个测试文件）。
+- `npm run build`：TypeScript 与 Vite 产线构建通过（127 模块）。
+- 浏览器实测（Vite dev + JS 驱动）：成就墙 20 格开合正常；40s 后"猎杀新手"实时解锁（青色 toast + zs-ach 落库）；空投揭示卡"武器改装件"中央弹出；祭坛触碰→"血怨诅咒 ×1"红色 toast + curse=1；Esc 暂停→"已暂停"面板→Esc 恢复；30HP 吃 15 伤→肾上腺素触发（回到 30HP、无敌 1.5s、toast），二次受击不再触发；阵亡结算显示"✓ 猎杀新手"徽章与"总进度 1/20"，zs-life 记录 {kills:92,runs:1,wins:0}；全程 console 零报错。
+- Canvas 截图验收祭坛渲染（石碑/红光/名牌可读）。
+- 因 5173 被占用，`.claude/launch.json` 开启 autoPort（vite.config 已支持 PORT 环境变量）。
+
+### Notes
+
+- `src/data/achievements.ts`：成就定义 + evaluateAchievements 纯函数。
+- `src/systems/curse.ts`：祭坛生成/触碰/四组乘数；`runFlow.ts` 阶段进阶时升起祭坛；`spawn.ts` 刷怪与精英率吃诅咒；`player.ts` 经验、`combat.ts` 金币吃诅咒。
+- `src/systems/combat.ts`：肾上腺素爆发、firstHpHitAt 记录、金色击杀计数、击杀音调；`combo.ts` comboPitch + RunState 新字段；`audio/audio.ts` sample/tone 变调。
+- `src/progression.ts`：武器进化标记 run.evolved。
+- `src/game.ts`：成就快照/实时检查/增量生命周期提交、暂停状态机、onAnnounce 接线、祭坛渲染分支、结算新字段。
+- `src/ui/ui.ts`：成就墙、结算成就徽章、toast 变体（金/红/青）、中央揭示卡、暂停面板、标题成就入口。
+- `src/ctx.ts`、`src/components/index.ts`：RunState 扩展（goldenKilled/evolved/firstHpHitAt/adrenalineUsed/curse）、CurseAltar 组件、onAnnounce hook。
+- `tests/achievements.test.ts`、`tests/curse.test.ts`、`tests/adrenaline.test.ts`：新增。
+- `README.md`、`README.zh-CN.md`：特性与操作表更新。
+- 回滚方式：回退本任务对应提交；本地存档键 zs-ach/zs-life 可手动清除。

@@ -54,3 +54,5 @@ export const GoldCoin = defineComponent<{ value: number }>('GoldCoin');
 export const Medkit = defineComponent<{ heal: number }>('Medkit');
 /** A supply crate: parachutes in until `landAt`, then sits collectable on the ground. */
 export const SupplyCrate = defineComponent<{ landAt: number }>('SupplyCrate');
+/** A blood-curse altar: touch it to accept a harder-but-richer pact. */
+export const CurseAltar = defineComponent<true>('CurseAltar');
