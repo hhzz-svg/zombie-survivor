@@ -5,6 +5,7 @@ import { barrelSystem, blockerSystem } from './collision';
 import { directorSystem } from './spawn';
 import { inputSystem } from './input';
 import { enemyAISystem } from './enemyAI';
+import { telegraphSystem } from './telegraph';
 import { wingmanSystem } from './wingman';
 import { weaponSystem } from './weapons';
 import { bulletSystem } from './bullets';
@@ -45,6 +46,7 @@ export function runSystems(ctx: GameContext, dt: number): void {
   rebuildEnemyHash(ctx);
   inputSystem(ctx);
   enemyAISystem(ctx, dt);
+  telegraphSystem(ctx, dt);
   wingmanSystem(ctx, dt);
   weaponSystem(ctx, dt);
   movementSystem(ctx.world, dt);

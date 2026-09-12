@@ -34,7 +34,7 @@ import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
 import { comboTier, freshRunState } from './systems/combo';
 import {
   Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity,
-  Lifetime, SupplyCrate, CurseAltar, Survivor, Wingman, Barrel, type WeaponInst,
+  Lifetime, SupplyCrate, CurseAltar, Survivor, Wingman, Barrel, Telegraph, type WeaponInst,
 } from './components';
 import { obstaclesInRect, type Obstacle } from './data/obstacles';
 import { SURVIVOR_WAIT } from './data/wingmen';
@@ -728,6 +728,7 @@ export class Game {
     if (ctx) {
       this.blood.draw(r); // blood painted on the ground, never fades
       this.corpses.draw(r, this.assets); // corpses/afterimages sit under the living
+      this.drawTelegraphs(ctx, r);
       this.drawWorld(ctx, r);
       ctx.fx.draw(r);
       const pt = ctx.world.get(ctx.player, Transform);
@@ -846,6 +847,29 @@ export class Game {
     }
   }
 
+  /**
+   * Incoming telegraphed attacks. Drawn on the ground beneath the horde so a wall of bodies
+   * can never hide the warning — being readable is the entire point of the mechanic.
+   */
+  private drawTelegraphs(ctx: GameContext, r: Renderer): void {
+    const w = ctx.world;
+    for (const e of w.query(Telegraph)) {
+      const tg = w.get(e, Telegraph)!;
+      const left = Math.max(0, tg.at - ctx.time.elapsed);
+      const k = 1 - left / tg.total; // 0 → just started, 1 → landing
+      if (tg.kind === 'lash') {
+        const st = w.get(e, Transform);
+        if (st) {
+          r.drawLine(st.x, st.y, tg.x, tg.y, tg.color, 1 + k * 3, 0.3 + k * 0.55);
+          r.drawRing(tg.x, tg.y, tg.r * (1.6 - k * 0.6), tg.color, 2, 0.35 + k * 0.5);
+        }
+        continue;
+      }
+      r.drawEllipse(tg.x, tg.y, tg.r * k, tg.r * k * 0.62, tg.color, 0.16 + k * 0.16);
+      r.drawRing(tg.x, tg.y, tg.r, tg.color, 2.5, 0.45 + k * 0.45);
+    }
+  }
+
   private drawWorld(ctx: GameContext, r: Renderer): void {
     const w = ctx.world;
     const pt = w.get(ctx.player, Transform);
@@ -897,12 +921,14 @@ export class Game {
             }
             // tags only near the player — full-horde tag spam reads as noise
             const showTag = en.elite && dist < 340;
-            const img = this.assets.get(en.def.id);
+            const img = this.assets.get(en.def.sprite ?? en.def.id);
+            let bodyY = y; // visual centre of the enemy — overlays hang off this, not the collider
             if (img) {
               const size = enemySpriteSize(rd.r, en.def.isBoss);
               const sw = size * (1 + squash);
               const sh = size * (1 - squash);
-              r.drawSprite(img, x, y + rd.r - sh / 2 - anim.bob, sw, sh, px - t.x < 0);
+              bodyY = y + rd.r - sh / 2 - anim.bob;
+              r.drawSprite(img, x, bodyY, sw, sh, px - t.x < 0);
               if (showTag) {
                 r.drawText(x, y + rd.r - sh - 9, `${en.elite!.name}·${en.def.name}`, en.elite!.color, 11, 'center', 0.92);
               }
@@ -911,8 +937,26 @@ export class Game {
               if (en.def.isBoss) r.drawRing(x, y, rd.r + 6, '#ffd0e6', 3);
               if (showTag) r.drawText(x, y - rd.r - 10, `${en.elite!.name}·${en.def.name}`, en.elite!.color, 11, 'center', 0.92);
             }
+            if (en.def.behavior === 'warden') {
+              // The plate the player has to get around — held at chest height, on the side
+              // the shield actually blocks, so the weak flank is readable at a glance.
+              const sx2 = x + en.faceX * (rd.r + 5);
+              const sy2 = bodyY + en.faceY * (rd.r + 5) * 0.6;
+              const px2 = -en.faceY;
+              const py2 = en.faceX * 0.72; // squashed along y to match the tilted view
+              const half = rd.r * 1.15;
+              r.drawLine(sx2 - px2 * half, sy2 - py2 * half, sx2 + px2 * half, sy2 + py2 * half, '#0f151c', 9, 0.55);
+              r.drawLine(sx2 - px2 * half, sy2 - py2 * half, sx2 + px2 * half, sy2 + py2 * half, '#c3d6ea', 6, 0.95);
+              r.drawLine(sx2 - px2 * half * 0.7, sy2 - py2 * half * 0.7, sx2 + px2 * half * 0.7, sy2 + py2 * half * 0.7, '#5d6f85', 2, 0.9);
+            } else if (en.def.behavior === 'brood') {
+              const pulse2 = 0.5 + 0.5 * Math.sin(now / 260 + t.x * 0.05);
+              r.drawRing(x, y + rd.r * 0.5, rd.r + 5 + pulse2 * 4, `rgba(199,155,240,${0.4 - pulse2 * 0.16})`, 2);
+              r.drawGlowCircle(x, bodyY, 3 + pulse2 * 2.5, '#f0e2ff', '#9a6fc3');
+            }
             const h = w.get(e, Health);
-            if (h && h.flash > 0) r.drawCircle(x, y, rd.r, '#ffffff', 0.45);
+            // Flash on the BODY, not the collider: on big sprites the old placement put a
+            // pale disc on the ground beside the enemy.
+            if (h && h.flash > 0) r.drawCircle(x, bodyY, rd.r, '#ffffff', 0.45);
           },
         });
       } else if (w.has(e, Survivor)) {

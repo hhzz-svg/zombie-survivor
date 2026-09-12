@@ -6,6 +6,7 @@ import { spawnGem, spawnMedkit, spawnCoin, spawnEnemyBullet } from '../factory';
 import { COIN_DROP, DEATH_DANCE_CAP } from '../data/equipment';
 import { activeSurge, SURGE_GOLD_MUL, ENDLESS_BOSS_INTERVAL } from '../data/balance';
 import { TOXIC_DEATH_BOLTS } from '../data/elites';
+import { WARDEN_ARC_COS, WARDEN_FRONT_MUL } from '../data/enemies';
 import { buffActive } from './equipment';
 import { addComboKill, comboGoldMul, comboPitch, resetCombo } from './combo';
 import { curseGoldMul } from './curse';
@@ -83,6 +84,17 @@ export function damageEnemy(
   const h = ctx.world.get(e, Health);
   const t = ctx.world.get(e, Transform);
   if (!h || !t || h.hp <= 0) return;
+
+  // Warden shields: fire inside the frontal arc mostly bounces. The shield swings slowly
+  // (see WARDEN_TURN_RATE), so the answer is to get around it — through the horde.
+  const en0 = ctx.world.get(e, Enemy);
+  if (en0 && en0.def.behavior === 'warden' && dx * en0.faceX + dy * en0.faceY < WARDEN_ARC_COS) {
+    dmg *= WARDEN_FRONT_MUL;
+    ctx.fx.spark(t.x + en0.faceX * 14, t.y + en0.faceY * 14, -dx, -dy, 4, '#cfe0f2', 220, ctx.rng);
+    if (!quiet) ctx.fx.text(t.x, t.y - 16, '挡下', '#9fb6cf', 12);
+    quiet = true; // the blocked number is noise; the "挡下" tag already says it
+  }
+
   h.hp -= dmg;
   h.flash = 0.08;
   // Barrels share the enemy damage path (so every weapon and blast hits them for free) but

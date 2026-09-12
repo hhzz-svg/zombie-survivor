@@ -1,3 +1,39 @@
+## 2026-09-12 - Task: CI、三种施压型敌人与攻击预警系统
+
+### What was done
+
+- 新增 GitHub Actions CI（`.github/workflows/ci.yml`）：push 与 PR 上跑 typecheck → test → build，`node-version-file` 跟随 `.node-version`，开启 npm 缓存与同分支并发取消。此前 160 个测试没有任何人跑。
+- **攻击预警系统**（`src/systems/telegraph.ts` + `Telegraph` 组件）：起手时把落点**冻结**在世界里，画成逐渐填充的地面圈，到时才结算。此前全游戏没有一个可预判的攻击——被打中只是「发生了」，而不是「我该躲开的」。
+  - 顺带把**母巢暴君的震地**改成预警式（0.6 秒）。它原本是瞬发的，站在旁边就必吃，现在可以走出去。
+  - 预警绘制在尸群**之下**，一堵尸墙挡不住警告——可读性就是这个机制的全部意义。
+- 新增三种施压型敌人（每种惩罚一个习惯，而不是又一个「朝你走」）：
+  - **盾卫**（95s 解锁）：正面弧内只放进 18% 伤害；盾牌转向限速 2.1 rad/s，所以正解是绕到背面——代价是穿过尸群。盾牌画在胸前对应方向，弱侧一眼可读。
+  - **孵化体**（130s）：躲在后排每 5.5 秒孵化 2 只行尸，不优先处理场面会自己滚起来。
+  - **钩刺者**（150s）：维持 210–420px 距离，甩钩前 0.75 秒画出预警线与落点圈，命中把玩家拽向自己 170px。**掩体挡视线就钩不到**（采样式线段检测，与子弹阻挡同一套规则）。
+- `EnemyDef` 增加可选 `sprite` 字段：新原型复用既有美术（盾卫用 brute、孵化体用 spitter、钩刺者用 runner），而不是退化成纯色圆。
+- 修了一个既有渲染缺陷：命中白闪画在碰撞体坐标上，而精灵是抬高绘制的，导致大体型敌人身旁地面上出现一个苍白圆盘。现在闪光与盾牌都挂在精灵视觉中心。
+
+### Testing
+
+- `npm test`：31 个测试文件 160 个测试全部通过（新增 `pressureEnemies.test.ts` 9 项，改写 director 的暴君用例）。
+- `npm run build`：TypeScript 与 Vite 产线构建通过。
+- 关键用例：盾卫正面只吃 `WARDEN_FRONT_MUL` 倍伤害、背面吃满、单帧转向不超过限速、其他敌人不受弧判定影响；孵化体按时孵化且计时未到不重复；钩刺者只在距离带内起手、近了远了都不起手、预警期间不位移不掉血、到期才拽人并造成伤害；**暴君震地在预警期间无伤，走出圈外完全不吃伤害**。
+- 确定性：`runHeadless(9191,60)` 两次结果一致。
+- 平衡对照（无头模拟 **n=24**）：本次 avgSec 45.6 / medSec 36.9 / avgKills 189.7，上一提交 47.5 / 37.4 / 195.7 —— 三种新敌人 95s 之后才解锁，脚本 AI 基本走不到，所以早期节奏没有变化；差异来自 `spawnEnemyAt` 多消耗一次 rng 导致的序列偏移。
+- 浏览器实测（Vite dev + Playwright）：**临时**下调三种敌人的解锁时间与 cost 以便取景，截图验收盾卫盾牌位置、孵化体紫环、钩刺者预警线与落点圈，全程 console 零报错；验收后已还原 `enemies.ts` / `balance.ts`（`git diff` 确认仅保留正式改动）。
+
+### Notes
+
+- `.github/workflows/ci.yml`、`src/systems/telegraph.ts`、`tests/pressureEnemies.test.ts`：新增。
+- `src/data/enemies.ts`：三个 def + 刷怪表条目 + 调参常量（`WARDEN_*` / `BROOD_*` / `LASHER_*` / `BOSS_SLAM_WINDUP`）；`schemas.ts` 扩展 behavior 枚举并新增可选 `sprite`。
+- `src/components/index.ts`：`Telegraph` 组件、`EnemyRuntime.faceX/faceY/abilityCd`；`factory.ts` 初始化。
+- `src/systems/enemyAI.ts`：三种行为、`turnToward`、`hasLineOfSight`，暴君震地改走预警。
+- `src/systems/combat.ts`：盾卫正面减伤（弧判定基于命中方向与朝向点乘）。
+- `src/systems/pipeline.ts`：`telegraphSystem` 注册于 `enemyAISystem` 之后。
+- `src/game.ts`：`drawTelegraphs`、盾牌/孵化体渲染、`bodyY` 视觉中心修正、`def.sprite` 查表。
+- `README.md`、`README.zh-CN.md`：敌人表与特性说明。
+- 回滚方式：回退本任务对应提交（无存档格式变更）。
+
 ## 2026-09-12 - Task: 种子分享、每日挑战与设置面板
 
 ### What was done

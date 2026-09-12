@@ -9,7 +9,10 @@ import { z } from 'zod';
 export const EnemyDefSchema = z.object({
   id: z.string(),
   name: z.string(),
-  behavior: z.enum(['walker', 'runner', 'brute', 'spitter', 'exploder', 'boss', 'golden']),
+  behavior: z.enum([
+    'walker', 'runner', 'brute', 'spitter', 'exploder', 'boss', 'golden',
+    'warden', 'brood', 'lasher',
+  ]),
   hp: z.number().positive(),
   speed: z.number().nonnegative(),
   contactDmg: z.number().nonnegative(),
@@ -18,6 +21,8 @@ export const EnemyDefSchema = z.object({
   xp: z.number().nonnegative(),
   cost: z.number().positive(),
   isBoss: z.boolean(),
+  /** Manifest key for the sprite; defaults to `id`. Lets a new archetype reuse existing art. */
+  sprite: z.string().optional(),
 });
 export type EnemyDef = z.infer<typeof EnemyDefSchema>;
 

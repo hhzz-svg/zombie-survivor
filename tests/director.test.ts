@@ -7,9 +7,11 @@ import { AudioBus } from '../src/audio/audio';
 import type { GameContext, PlayerStats, EquipmentState, SkillState } from '../src/ctx';
 import { PLAYER_BASE, currentRunStage, hordeCapAt, xpToNext, WAVE } from '../src/data/balance';
 import { createPlayer, spawnBoss } from '../src/factory';
-import { Bullet, Enemy, Health, Transform, type EnemyRuntime } from '../src/components';
+import { Bullet, Enemy, Health, Telegraph, Transform, type EnemyRuntime } from '../src/components';
 import { directorSystem } from '../src/systems/spawn';
 import { enemyAISystem } from '../src/systems/enemyAI';
+import { telegraphSystem } from '../src/systems/telegraph';
+import { BOSS_SLAM_WINDUP } from '../src/data/enemies';
 import { freshRunState } from '../src/systems/combo';
 
 class RecordingFX extends FX {
@@ -125,7 +127,39 @@ describe('boss combat skills', () => {
     const enemyBullets = ctx.world.query(Bullet).filter((e) => ctx.world.get(e, Bullet)!.team === 'enemy');
     expect(enemyBullets.length).toBeGreaterThanOrEqual(8);
     expect(fx.shockwaves).toBeGreaterThan(0);
+
+    // The slam is telegraphed, so standing in it costs nothing until it actually lands.
+    expect(ctx.world.has(boss, Telegraph)).toBe(true);
+    telegraphSystem(ctx, 1 / 60);
+    expect(ctx.world.get(ctx.player, Health)!.hp).toBe(playerHp);
+
+    ctx.time.elapsed += BOSS_SLAM_WINDUP;
+    telegraphSystem(ctx, 1 / 60);
     expect(ctx.world.get(ctx.player, Health)!.hp).toBeLessThan(playerHp);
     expect(ctx.screen.shake).toBeGreaterThanOrEqual(12);
+  });
+
+  it('lets the player step out of the slam ring during the wind-up', () => {
+    const ctx = makeCtx(new RecordingFX());
+    ctx.time.elapsed = WAVE.bossAt;
+    const boss = spawnBoss(ctx);
+    const bt = ctx.world.get(boss, Transform)!;
+    bt.x = 90;
+    bt.y = 0;
+    (ctx.world.get(boss, Enemy)! as EnemyRuntime & { slamCd: number }).slamCd = 0;
+    enemyAISystem(ctx, 1 / 60);
+    const tg = ctx.world.get(boss, Telegraph)!;
+
+    // Walk clear of the marked circle before it resolves.
+    const pt = ctx.world.get(ctx.player, Transform)!;
+    pt.x = tg.x + tg.r + 80;
+    pt.y = tg.y;
+    const hp = ctx.world.get(ctx.player, Health)!.hp;
+
+    ctx.time.elapsed += BOSS_SLAM_WINDUP;
+    telegraphSystem(ctx, 1 / 60);
+
+    expect(ctx.world.has(boss, Telegraph)).toBe(false);
+    expect(ctx.world.get(ctx.player, Health)!.hp).toBe(hp);
   });
 });

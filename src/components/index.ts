@@ -22,6 +22,9 @@ export interface EnemyRuntime {
   volleyCd: number; // boss radial bullet timer
   slamCd: number; // boss shockwave timer
   enraged: boolean; // boss phase-2 flag
+  faceX: number; // unit facing, turn-rate limited (the warden's shield points this way)
+  faceY: number;
+  abilityCd: number; // brood litter / lasher hook timer
   chillUntil: number; // elapsed time at which the `chill` trait's slow wears off
   chillMul: number; // speed multiplier while chilled (1 = unchilled)
   elite?: EliteAffix; // affix carried by elite variants
@@ -57,6 +60,22 @@ export const GoldCoin = defineComponent<{ value: number }>('GoldCoin');
 export const Medkit = defineComponent<{ heal: number }>('Medkit');
 /** A supply crate: parachutes in until `landAt`, then sits collectable on the ground. */
 export const SupplyCrate = defineComponent<{ landAt: number }>('SupplyCrate');
+/**
+ * A wind-up the player can read and step out of. Telegraphed attacks are the difference
+ * between "I got hit" and "I should have moved" — the horde had none before this.
+ */
+export const Telegraph = defineComponent<{
+  kind: 'slam' | 'lash';
+  x: number; // where it will land (world space, fixed at wind-up time)
+  y: number;
+  r: number;
+  at: number; // elapsed time it resolves
+  total: number; // full wind-up duration, for the fill animation
+  dmg: number;
+  color: string;
+  cause: string;
+}>('Telegraph');
+
 /** An explosive barrel standing in the field. `fuse` > 0 means it is lit and counting down. */
 export const Barrel = defineComponent<{ fuse: number }>('Barrel');
 /** A blood-curse altar: touch it to accept a harder-but-richer pact. */

@@ -3,12 +3,42 @@ import { Transform, Velocity, Enemy, Health } from '../components';
 import { speedScale, WAVE, activeSurge, SURGE_SPEED_MUL } from '../data/balance';
 import { ENEMIES } from '../data/enemies';
 import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet } from '../factory';
-import { damagePlayer } from './combat';
 import { SLOW_FACTOR, slowActive } from './skills';
-import { obstaclesNear, type Obstacle } from '../data/obstacles';
+import { obstaclesNear, blockedAt, type Obstacle } from '../data/obstacles';
+import { startTelegraph } from './telegraph';
+import {
+  WARDEN_TURN_RATE, BROOD_INTERVAL, BROOD_LITTER,
+  LASHER_MIN_RANGE, LASHER_MAX_RANGE, LASHER_INTERVAL, LASHER_WINDUP, LASHER_DAMAGE,
+  BOSS_SLAM_WINDUP,
+} from '../data/enemies';
 
 /** How close cover has to be before the horde starts steering around it. */
 const AVOID_RANGE = 74;
+
+/** Rotate a facing toward (tx, ty) by at most `maxStep` radians. */
+function turnToward(en: { faceX: number; faceY: number }, tx: number, ty: number, maxStep: number): void {
+  const cur = Math.atan2(en.faceY, en.faceX);
+  const want = Math.atan2(ty, tx);
+  let diff = want - cur;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  const step = Math.max(-maxStep, Math.min(maxStep, diff));
+  en.faceX = Math.cos(cur + step);
+  en.faceY = Math.sin(cur + step);
+}
+
+/**
+ * Cheap segment test against cover — sampled, not analytic, which is plenty for deciding
+ * whether a hook can reach. Ducking behind a container stops the lasher, same as bullets.
+ */
+function hasLineOfSight(ctx: GameContext, x1: number, y1: number, x2: number, y2: number): boolean {
+  const steps = 10;
+  for (let i = 1; i < steps; i++) {
+    const k = i / steps;
+    if (blockedAt(ctx.seed, x1 + (x2 - x1) * k, y1 + (y2 - y1) * k, 4)) return false;
+  }
+  return true;
+}
 
 /**
  * Enemy steering: seek the player + separation (anti-clumping) via the spatial hash.
@@ -78,6 +108,56 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
       const weave = Math.sin(en.t * 5.2) * 0.55;
       mx = -dx + -dy * weave + sx * 0.4;
       my = -dy + dx * weave + sy * 0.4;
+    } else if (en.def.behavior === 'warden') {
+      // Shield-first advance: it turns slowly, so a player who circles it gets the back.
+      turnToward(en, dx, dy, WARDEN_TURN_RATE * dt);
+    } else if (en.def.behavior === 'brood') {
+      // Hangs back and floods the field. Ignore it and the horde compounds.
+      if (dist < 220) {
+        mx = -dx * 0.6 + sx * 0.8;
+        my = -dy * 0.6 + sy * 0.8;
+      }
+      en.abilityCd -= dt * slowMul;
+      if (en.abilityCd <= 0 && w.query(Enemy).length < WAVE.cap) {
+        en.abilityCd = BROOD_INTERVAL;
+        for (let i = 0; i < BROOD_LITTER; i++) {
+          const a = ctx.rng() * Math.PI * 2;
+          spawnEnemyAt(ctx, ENEMIES['walker']!, t.x + Math.cos(a) * 34, t.y + Math.sin(a) * 34);
+        }
+        ctx.fx.shockwave(t.x, t.y, 42, '#c79bf0', 0.26);
+        ctx.fx.burst(t.x, t.y, 14, '#c79bf0', 150, ctx.rng);
+      }
+    } else if (en.def.behavior === 'lasher') {
+      // Holds a band of range and hooks the player in — standing still at range is no longer safe.
+      if (dist < LASHER_MIN_RANGE) {
+        mx = -dx + sx * 0.8;
+        my = -dy + sy * 0.8;
+      } else if (dist > LASHER_MAX_RANGE) {
+        mx = dx + sx * 0.8;
+        my = dy + sy * 0.8;
+      } else {
+        mx = sx * 0.8 + -dy * 0.5; // strafe
+        my = sy * 0.8 + dx * 0.5;
+      }
+      en.abilityCd -= dt * slowMul;
+      if (
+        en.abilityCd <= 0 &&
+        dist >= LASHER_MIN_RANGE &&
+        dist <= LASHER_MAX_RANGE &&
+        hasLineOfSight(ctx, t.x, t.y, pt.x, pt.y)
+      ) {
+        en.abilityCd = LASHER_INTERVAL;
+        startTelegraph(ctx, e, {
+          kind: 'lash',
+          x: pt.x,
+          y: pt.y,
+          r: 26,
+          windup: LASHER_WINDUP,
+          dmg: LASHER_DAMAGE * (en.elite?.dmgMul ?? 1),
+          color: '#ffb160',
+          cause: '钩刺者拖拽',
+        });
+      }
     } else if (en.def.behavior === 'spitter') {
       if (dist < 200) {
         mx = -dx + sx * 0.8;
@@ -120,19 +200,19 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
       en.slamCd -= dt * slowMul;
       if (en.slamCd <= 0) {
         en.slamCd = en.enraged ? 4.7 : 6.5;
-        const radius = 128 + (en.enraged ? 32 : 0);
-        ctx.fx.shockwave(t.x, t.y, radius, '#ffb4d0', 0.38);
-        ctx.fx.burst(t.x, t.y, en.enraged ? 28 : 20, '#ff87b5', 220, ctx.rng);
-        const ptDist = Math.hypot(pt.x - t.x, pt.y - t.y) || 1;
-        const push = en.enraged ? 260 : 180;
-        const px = (pt.x - t.x) / ptDist;
-        const py = (pt.y - t.y) / ptDist;
-        if (ptDist <= radius + 14) damagePlayer(ctx, en.enraged ? 24 : 16, '母巢暴君震地猛击');
-        pt.x += px * push * 0.02;
-        pt.y += py * push * 0.02;
-        ctx.time.hitStop = Math.max(ctx.time.hitStop, en.enraged ? 45 : 28);
-        ctx.screen.shake = Math.max(ctx.screen.shake, en.enraged ? 18 : 12);
-        ctx.audio.explode();
+        // Wound up on the ground where the tyrant stands, so the slam is dodgeable now
+        // instead of simply happening to whoever was standing near it.
+        startTelegraph(ctx, e, {
+          kind: 'slam',
+          x: t.x,
+          y: t.y,
+          r: 128 + (en.enraged ? 32 : 0),
+          windup: BOSS_SLAM_WINDUP,
+          dmg: en.enraged ? 24 : 16,
+          color: '#ffb4d0',
+          cause: '母巢暴君震地猛击',
+        });
+        ctx.audio.boss();
       }
     }
 
