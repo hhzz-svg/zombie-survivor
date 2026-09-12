@@ -24,6 +24,9 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 
 ## Why it's fun
 
+- **Every run has a seed, and the seed is the run.** The whole simulation is deterministic from one number, so the end screen prints the run's code, "same seed again" replays it exactly, and typing a code someone shares gives you their world — same terrain, same spawns, same supply rolls.
+- **Daily challenge.** One world per calendar day, identical for everyone playing that date, with its own local best.
+- **Settings that respect the player.** Volume, mute, screen-shake scale (down to zero), damage numbers, and a *reduce flashing* switch that calms the blood-moon wash, the fever glow and the low-HP vignette. All presentation only — a seeded run plays out identically whatever you pick.
 - **Three playable operatives that grow.** Ranger (fire rate), Juggernaut (HP over speed), Hunter (crit glass cannon) — different starting weapons and stats. Every run banks veterancy XP (kills, survival, elites, victories), permanently leveling each operative's signature stat up to Lv.10, with live level and XP bars on the title cards.
 - **Rescue survivors, build a squad.** Stranded survivors appear on the field — reach them before they give up and they join (up to 2): a gunner with rapid covering fire, a burner hosing flame, or a medic who patches you up. Wingmen follow your movement, soak horde contact, and can fall for good — and then new survivors turn up.
 - **Kill chains are multipliers.** Kills within a 4-second window stack into tiers — 连击 → 杀戮 → 狂热 → 灭世 — multiplying XP and gold as you climb. One real hit breaks the chain. The riskier your kiting, the faster you snowball.
@@ -67,6 +70,7 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | Pick a level-up | `1` / `2` / `3` |
 | Pick operative / start / restart | Click + `Space` |
 | Pause / resume | `Esc` / `P` |
+| Settings (title / pause menu) | Click **Settings**; `Esc` goes back |
 | Enter endless mode after victory | `E` or the on-screen button |
 
 ## The shop

@@ -1,3 +1,34 @@
+## 2026-09-12 - Task: 种子分享、每日挑战与设置面板
+
+### What was done
+
+- 种子系统（`src/seed.ts`）：整套模拟本来就由一个 uint32 完全决定，这次把它变成功能——`formatSeed` 打成 6~7 位大写码（base36），`parseSeed` 容错解析（忽略大小写与空格、拒绝非法输入）。结算页展示本局种子并提供「同种子再来」；标题页可直接输入种子码出击，输入框内按键不再穿透到全局热键。
+- 每日挑战：`dailySeed(dailyKey())` 以玩家**本地日期**做 FNV-1a 哈希，当天所有人拿到完全相同的世界（地形、刷怪、空投开箱一致）。标题页显示日期、种子与当日最佳；当日成绩单独存于 `zs-daily`，只在刷新纪录时写入。
+- 设置面板（`src/settings.ts` + `ui.showSettings`）：音量、静音、屏幕震动强度（可归零）、减弱闪烁、伤害数字开关；即时生效并写入 `zs-settings`，读取时做钳制与损坏兜底。标题页与暂停菜单均可进入，`Esc` 返回来处（不会误把暂停解掉）。
+- **全部设置只作用于表现层**：震动只缩放渲染时的抖动幅度（模拟照常累积 `screen.shake`）、减弱闪烁只压低血月红幕/狂热光晕/濒死暗角的脉动、伤害数字在 `FX.text` 层按首字符是否为数字过滤（播报文本如「肾上腺素！」不受影响）。因此同一个种子在任何设置下都是同一局。
+- `AudioBus` 补上主增益节点：此前所有音源直连 `destination`，没有音量概念；现在统一经由 `master`，`setVolume/setMuted` 实时生效，且在 AudioContext 尚未创建时也会被记住。
+- `showTitle` 由 7 个位置参数重构为 `TitleData` 对象（已经到了看不出第几个参数是什么的程度）。
+- 新增 `.quiet` 次级按钮样式：此前把成就/设置/种子都挂在 `.ghost`（粉色大 CTA）上会盖过「出击」，`.ghost` 现在只留给无尽尸潮。复选框改为自绘，避免浏览器默认白块打断暗色面板。
+
+### Testing
+
+- `npm test`：29 个测试文件 150 个测试全部通过（新增 `seed.test.ts` 11 项）。
+- `npm run build`：TypeScript 与 Vite 产线构建通过。
+- 关键用例：种子码往返一致（含 0 与 0xffffffff 边界）/ 大小写与空格容错 / 非法输入被拒 / 同日期同种子、跨日期不同 / `dailyKey` 按本地日期 / 设置默认值、往返、越界钳制、损坏 JSON 兜底。
+- **端到端验证了 UI 的承诺**：`runHeadless(parseSeed(formatSeed(x)))` 与 `runHeadless(x)` 结果完全相同；同一 `dailySeed` 两次运行结果完全相同。
+- 浏览器实测（Vite dev + Playwright 驱动）：标题页「今日挑战 · 2026-09-12 · 种子 12IKDX7 · 今天还没打过」正确；设置面板改动即时落库 `{"volume":0.3,...,"shake":0,"reduceFlashing":true,"damageNumbers":false}`；`Esc` 从设置返回标题、以及从暂停→设置→`Esc`→暂停均正确；非法种子提示「种子无效」；输入 `ZOMBIE` 成功开局，阵亡结算显示「种子 ZOMBIE」与「同种子再来」按钮；全程 console 零报错。
+- 截图验收标题页按钮层级（出击 > 今日挑战 > 次级按钮）与设置面板配色。
+
+### Notes
+
+- `src/seed.ts`、`src/settings.ts`：新增。
+- `src/audio/audio.ts`：`master` 增益节点 + `setVolume` / `setMuted` / `out()`；三处直连 `destination` 改为 `out()`。
+- `src/fx/fx.ts`：`showNumbers` 开关（只过滤首字符为数字的伤害数字）。
+- `src/ui/ui.ts`：`TitleData` 重构、`showSettings`、`showPause` 增设置入口、`showEnd` 增种子芯片与 `onSameSeed`、`RunSummary.seed/daily`、`.quiet` 与表单样式。
+- `src/game.ts`：`start(operativeId, seedOverride?)`、`runSeed` / `runDailyKey` / `dailyRecords` / `settings`、`openSettings` / `applySettings` / `showPausePanel` / `saveDaily`、渲染层套用震动与闪烁设置、`settingsBack` 拦截 `Esc`。
+- 新增 localStorage 键：`zs-settings`、`zs-daily`（可手动清除）。
+- 回滚方式：回退本任务对应提交。
+
 ## 2026-09-12 - Task: 战场地形——程序化掩体、碰撞滑行、可爆油桶
 
 ### What was done

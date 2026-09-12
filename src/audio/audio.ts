@@ -10,6 +10,9 @@ export class AudioBus {
   private ctx: AudioContext | null = null;
   private readonly supported: boolean;
   private droneGain: GainNode | null = null;
+  private master: GainNode | null = null;
+  private volume = 0.8;
+  private muted = false;
   private readonly samples = new Map<string, AudioBuffer>();
   private samplesRequested = false;
 
@@ -26,6 +29,9 @@ export class AudioBus {
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.muted ? 0 : this.volume;
+      this.master.connect(this.ctx.destination);
       this.initDrone();
       void this.loadSamples();
     }
@@ -54,9 +60,30 @@ export class AudioBus {
     o.type = 'sawtooth';
     o.frequency.value = 55;
     g.gain.value = 0;
-    o.connect(g).connect(this.ctx.destination);
+    o.connect(g).connect(this.out());
     o.start();
     this.droneGain = g;
+  }
+
+  /** Master volume, 0..1. Applied live, and remembered for a context created later. */
+  setVolume(v: number): void {
+    this.volume = Math.max(0, Math.min(1, v));
+    this.applyGain();
+  }
+
+  setMuted(m: boolean): void {
+    this.muted = m;
+    this.applyGain();
+  }
+
+  private applyGain(): void {
+    if (!this.master || !this.ctx) return;
+    this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime, 0.02);
+  }
+
+  /** Everything routes through the master gain — never straight to the destination. */
+  private out(): AudioNode {
+    return this.master ?? this.ctx!.destination;
   }
 
   setIntensity(n: number): void {
@@ -72,7 +99,7 @@ export class AudioBus {
     o.frequency.value = freq;
     g.gain.value = vol;
     g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + dur);
-    o.connect(g).connect(this.ctx.destination);
+    o.connect(g).connect(this.out());
     o.start();
     o.stop(this.ctx.currentTime + dur);
   }
@@ -87,7 +114,7 @@ export class AudioBus {
     src.playbackRate.value = rate;
     const g = this.ctx.createGain();
     g.gain.value = vol;
-    src.connect(g).connect(this.ctx.destination);
+    src.connect(g).connect(this.out());
     src.start();
     return true;
   }

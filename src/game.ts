@@ -41,6 +41,8 @@ import { SURVIVOR_WAIT } from './data/wingmen';
 import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, type ShopOffer } from './shop';
+import { loadSettings, saveSettings, type Settings } from './settings';
+import { dailyKey, dailySeed, formatSeed, parseSeed, randomSeed } from './seed';
 
 type State = 'title' | 'playing' | 'paused' | 'levelup' | 'shop' | 'gameover' | 'victory';
 
@@ -72,6 +74,11 @@ export class Game {
   private pendingLevels = 0;
   private choices: Choice[] = [];
   private best: number;
+  private settings: Settings;
+  private runSeed = 0;
+  private runDailyKey: string | null = null; // set when this run IS today's daily
+  private settingsBack: (() => void) | null = null; // non-null while the settings panel is open
+  private dailyRecords: Record<string, { time: number; kills: number }>;
   private lastFootstep = 0; // player footfall index, to fire step dust exactly on contact
   private lastDamageCause = '尚未受到致命伤害';
   private lastOperative: string;
@@ -94,6 +101,9 @@ export class Game {
     this.unlockedAch = new Set(this.loadJson<string[]>('zs-ach', []));
     this.lifetime = this.loadJson<LifetimeStats>('zs-life', { kills: 0, runs: 0, wins: 0 });
     this.opXp = this.loadJson<Record<string, number>>('zs-ops', {});
+    this.dailyRecords = this.loadJson<Record<string, { time: number; kills: number }>>('zs-daily', {});
+    this.settings = loadSettings();
+    this.applySettings();
     void this.assets.load();
     this.showTitle();
     this.ui.setShopHandler(() => this.openShop());
@@ -115,15 +125,42 @@ export class Game {
       const lv = opLevelFromXp(this.opXp[op.id] ?? 0);
       progress[op.id] = { ...lv, bonus: opLevelBonusText(op, lv.level) };
     }
-    this.ui.showTitle(
-      this.best,
-      OPERATIVES,
-      this.lastOperative,
-      (id) => this.start(id),
-      { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
-      () => this.ui.showAchievements(ACHIEVEMENTS, this.unlockedAch, () => this.showTitle()),
+    const key = dailyKey();
+    this.ui.showTitle({
+      best: this.best,
+      operatives: OPERATIVES,
+      selectedId: this.lastOperative,
       progress,
+      ach: { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
+      daily: { key, seed: formatSeed(dailySeed(key)), best: this.dailyRecords[key] ?? null },
+      onStart: (id, seed) => this.start(id, seed),
+      onShowAchievements: () => this.ui.showAchievements(ACHIEVEMENTS, this.unlockedAch, () => this.showTitle()),
+      onShowSettings: () => this.openSettings(() => this.showTitle()),
+      parseSeed,
+    });
+  }
+
+  /** Settings are live: every change applies and persists immediately, then `back` returns. */
+  private openSettings(back: () => void): void {
+    this.settingsBack = () => {
+      this.settingsBack = null;
+      back();
+    };
+    this.ui.showSettings(
+      this.settings,
+      (next) => {
+        this.settings = next;
+        this.applySettings();
+        saveSettings(next);
+      },
+      () => this.settingsBack?.(),
     );
+  }
+
+  private applySettings(): void {
+    this.audio.setVolume(this.settings.volume);
+    this.audio.setMuted(this.settings.muted);
+    this.fx.showNumbers = this.settings.damageNumbers;
   }
 
   private freshStats(): PlayerStats {
@@ -157,7 +194,7 @@ export class Game {
     };
   }
 
-  start(operativeId?: string): void {
+  start(operativeId?: string, seedOverride?: number): void {
     const op = operativeById(operativeId ?? this.lastOperative);
     this.lastOperative = op.id;
     localStorage.setItem('zs-operative', op.id);
@@ -167,7 +204,9 @@ export class Game {
     this.blood.clear();
     this.hash.clear();
     this.lastDamageCause = '尚未受到致命伤害';
-    const seed = (performance.now() * 1000) >>> 0;
+    const seed = seedOverride ?? randomSeed();
+    this.runSeed = seed;
+    this.runDailyKey = seed === dailySeed(dailyKey()) ? dailyKey() : null;
     const world = new World(makeRng(seed));
     const ctx: GameContext = {
       world,
@@ -467,7 +506,13 @@ export class Game {
     this.state = 'gameover';
     this.saveBest();
     this.commitLifetime(false);
-    this.ui.showEnd(this.buildRunSummary(false), () => this.start());
+    this.saveDaily();
+    this.ui.showEnd(
+      this.buildRunSummary(false),
+      () => this.start(),
+      undefined,
+      () => this.start(this.lastOperative, this.runSeed),
+    );
   }
 
   private win(): void {
@@ -475,13 +520,28 @@ export class Game {
     this.state = 'victory';
     this.saveBest();
     this.commitLifetime(true);
-    this.ui.showEnd(this.buildRunSummary(true), () => this.start(), () => this.enterEndless());
+    this.saveDaily();
+    this.ui.showEnd(
+      this.buildRunSummary(true),
+      () => this.start(),
+      () => this.enterEndless(),
+      () => this.start(this.lastOperative, this.runSeed),
+    );
   }
 
   private pause(): void {
     if (this.state !== 'playing') return;
     this.state = 'paused';
-    this.ui.showPause(() => this.resume(), () => this.start());
+    this.showPausePanel();
+  }
+
+  /** Re-entrant so the settings panel can hand control straight back to the pause menu. */
+  private showPausePanel(): void {
+    this.ui.showPause(
+      () => this.resume(),
+      () => this.start(),
+      () => this.openSettings(() => this.showPausePanel()),
+    );
   }
 
   private resume(): void {
@@ -549,6 +609,8 @@ export class Game {
       newAchievements: this.runAchievements.map((a) => ({ name: a.name, desc: a.desc })),
       achProgress: { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
       rescued: ctx.run.rescued,
+      seed: formatSeed(this.runSeed),
+      daily: this.runDailyKey !== null,
       build: {
         weapons: (lo?.weapons ?? []).map((wi) => ({ name: wi.def.name, level: wi.level })),
         passives: this.passiveList(ctx).map((pv) => ({ name: pv.name, level: pv.level })),
@@ -579,6 +641,22 @@ export class Game {
       ?? lo!.weapons[0]!;
   }
 
+  /** Today's daily keeps its own best, since every player got the exact same world. */
+  private saveDaily(): void {
+    if (!this.ctx || this.runDailyKey === null) return;
+    const key = this.runDailyKey;
+    const time = Math.floor(this.ctx.time.elapsed);
+    const kills = this.ctx.stats.kills;
+    const prev = this.dailyRecords[key];
+    if (prev && prev.time >= time) return;
+    this.dailyRecords[key] = { time, kills };
+    try {
+      localStorage.setItem('zs-daily', JSON.stringify(this.dailyRecords));
+    } catch {
+      // storage disabled — the record just doesn't persist
+    }
+  }
+
   private saveBest(): void {
     if (!this.ctx) return;
     const t = Math.floor(this.ctx.time.elapsed);
@@ -594,6 +672,11 @@ export class Game {
   }
 
   private onKey(e: KeyboardEvent): void {
+    if (this.settingsBack) {
+      // The settings panel overlays whatever state we came from; Esc backs out of it.
+      if (e.code === 'Escape') this.settingsBack();
+      return;
+    }
     if (this.state === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
       this.start(this.ui.selectedOperative() || this.lastOperative);
     } else if (this.state === 'levelup') {
@@ -630,7 +713,9 @@ export class Game {
     let sx = 0;
     let sy = 0;
     if (ctx && ctx.screen.shake > 0) {
-      const sh = ctx.screen.shake;
+      // The simulation always accumulates shake; only the presentation scales it, so the
+      // setting can never change how a seeded run plays out.
+      const sh = ctx.screen.shake * this.settings.shake;
       sx = (Math.random() - 0.5) * sh * 2;
       sy = (Math.random() - 0.5) * sh * 2;
       ctx.screen.shake *= 0.86;
@@ -651,15 +736,17 @@ export class Game {
         r.drawAtmosphere(pt.x, pt.y, pressure);
       }
       // blood-moon storm: pulsing red edges; combo fever: tier-colored glow
+      // "Reduce flashing" holds these at a steady low level instead of pulsing them.
+      const calm = this.settings.reduceFlashing;
       const surge = activeSurge(ctx.time.elapsed);
       if (surge) {
-        const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 300);
-        r.drawEdgeGlow('255,60,60', 0.7 * pulse);
+        const pulse = calm ? 0.6 : 0.75 + 0.25 * Math.sin(performance.now() / 300);
+        r.drawEdgeGlow('255,60,60', (calm ? 0.34 : 0.7) * pulse);
       } else {
         const tier = comboTier(ctx.run.combo.count);
         if (tier.at >= 50) {
-          const pulse = 0.7 + 0.3 * Math.sin(performance.now() / 240);
-          r.drawEdgeGlow(hexToRgb(tier.color), 0.55 * pulse);
+          const pulse = calm ? 0.6 : 0.7 + 0.3 * Math.sin(performance.now() / 240);
+          r.drawEdgeGlow(hexToRgb(tier.color), (calm ? 0.28 : 0.55) * pulse);
         }
       }
     }
@@ -669,7 +756,7 @@ export class Game {
       if (ph) {
         const hpPct = ph.hp / ctx.stats.maxHp;
         const vig = hpPct < 0.3 ? Math.pow(1 - hpPct / 0.3, 1.8) : 0;
-        r.drawVignette(vig);
+        r.drawVignette(this.settings.reduceFlashing ? vig * 0.55 : vig);
       }
     }
     r.end();

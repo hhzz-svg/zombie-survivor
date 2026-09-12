@@ -3,6 +3,7 @@ import type { EquipDef } from '../data/equipment';
 import type { OperativeDef, SkillDef } from '../data/schemas';
 import type { AchievementDef } from '../data/achievements';
 import type { ShopOffer } from '../shop';
+import type { Settings } from '../settings';
 
 export interface HudData {
   stage: number;
@@ -52,12 +53,29 @@ export interface RunSummary {
   newAchievements: Array<{ name: string; desc: string }>;
   achProgress: { unlocked: number; total: number };
   rescued: number;
+  seed: string; // the run's seed code, so a good run can be replayed or shared
+  daily: boolean; // this run was today's daily challenge
   operative: { name: string; level: number; gained: number; leveledUp: boolean };
   /** The build the player actually assembled — shown so a loss is legible. */
   build: {
     weapons: Array<{ name: string; level: number }>;
     passives: Array<{ name: string; level: number }>;
   };
+}
+
+/** Everything the title screen renders. Grew past the point where positional args were sane. */
+export interface TitleData {
+  best: number;
+  operatives: readonly OperativeDef[];
+  selectedId: string;
+  progress?: Record<string, OperativeProgress>;
+  ach?: { unlocked: number; total: number };
+  daily: { key: string; seed: string; best: { time: number; kills: number } | null };
+  onStart: (operativeId: string, seed?: number) => void;
+  onShowAchievements?: () => void;
+  onShowSettings?: () => void;
+  /** Parse a typed seed code; returns null when it is not a valid seed. */
+  parseSeed: (text: string) => number | null;
 }
 
 /** Per-operative veterancy shown on the title cards. */
@@ -195,8 +213,26 @@ const STYLE = `
 #ui-overlay .card .lack{font-size:12px;color:var(--danger);margin-top:4px;font-weight:800}
 #ui-overlay .card .held-label{font-size:11px;color:#d8fff3;margin-top:6px;font-weight:700}
 #ui-overlay .card .key{font-size:11px;color:#77a79a;margin-top:8px}
+#ui-overlay button.quiet{margin:0;cursor:pointer;background:rgba(97,229,222,.08);border:1px solid var(--line);color:#cfeee5;font-weight:700;font-size:13px;padding:9px 18px;border-radius:11px;letter-spacing:1.2px;transition:.12s}
+#ui-overlay button.quiet:hover{background:rgba(97,229,222,.16);color:#eafff9;transform:translateY(-1px)}
+#ui-overlay button.quiet.accent{background:rgba(255,180,56,.12);border-color:rgba(255,180,56,.42);color:#ffe2a0}
+#ui-overlay button.quiet.accent:hover{background:rgba(255,180,56,.2);color:#fff6dd}
 #ui-overlay button.start{margin-top:8px;cursor:pointer;background:linear-gradient(90deg,var(--fire),#ffd46a);border:none;color:#231706;font-weight:900;font-size:16px;padding:12px 30px;border-radius:12px;letter-spacing:2px;box-shadow:0 8px 24px rgba(255,180,56,.2)}
 #ui-overlay .gold-display{font-size:16px;color:var(--fire);margin-bottom:14px}.gold-display b{color:#ffe66a}
+#ui-overlay .title-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+#ui-overlay .seed-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px}
+#ui-overlay .seed-daily,#ui-overlay .seed-custom{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;min-width:240px}
+#ui-overlay .seed-note{font-size:11px;color:var(--muted);line-height:1.5;text-align:center}
+#ui-overlay #ui-seed-input{width:150px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(4,9,8,.7);color:var(--text);font-size:13px;letter-spacing:2px;text-align:center;text-transform:uppercase}
+#ui-overlay #ui-seed-input:focus{outline:2px solid var(--growth);outline-offset:1px}
+#ui-overlay .settings{display:grid;gap:8px;margin:14px 0;text-align:left}
+#ui-overlay .srow{display:grid;grid-template-columns:104px 1fr 52px;align-items:center;gap:12px;padding:9px 12px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;font-size:13px;cursor:pointer}
+#ui-overlay .srow b{color:var(--growth);font-variant-numeric:tabular-nums;text-align:right;font-size:12px}
+#ui-overlay .srow input[type=range]{width:100%;accent-color:#61e5de}
+#ui-overlay .srow input[type=checkbox]{appearance:none;-webkit-appearance:none;width:19px;height:19px;margin:0;justify-self:start;border:1px solid var(--line);border-radius:6px;background:rgba(4,9,8,.7);cursor:pointer;transition:.12s}
+#ui-overlay .srow input[type=checkbox]:hover{border-color:var(--growth)}
+#ui-overlay .srow input[type=checkbox]:checked{background:var(--growth);border-color:var(--growth);box-shadow:inset 0 0 0 3px rgba(7,14,13,.85)}
+#ui-overlay .seed-chip{display:inline-block;margin:2px 0 8px;padding:4px 10px;border-radius:999px;font-size:11px;letter-spacing:1.5px;background:rgba(97,229,222,.1);border:1px solid var(--line);color:#cfeee5}
 #ui-overlay .build-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 2px}
 #ui-overlay .build-row .chip{font-size:11px;padding:4px 9px;border-radius:999px;background:rgba(97,229,222,.1);border:1px solid var(--line);color:#cfeee5}
 #ui-overlay .build-row .chip.p{background:rgba(158,240,111,.1);border-color:rgba(158,240,111,.3);color:#d6f5c4}
@@ -407,17 +443,10 @@ export class UI {
     this.itemsBar.innerHTML = barHtml;
   }
 
-  showTitle(
-    best: number,
-    operatives: readonly OperativeDef[],
-    selectedId: string,
-    onStart: (operativeId: string) => void,
-    ach?: { unlocked: number; total: number },
-    onShowAchievements?: () => void,
-    progress?: Record<string, OperativeProgress>,
-  ): void {
-    this.titleSelection = operatives.some((o) => o.id === selectedId)
-      ? selectedId
+  showTitle(d: TitleData): void {
+    const { best, operatives, progress, ach } = d;
+    this.titleSelection = operatives.some((o) => o.id === d.selectedId)
+      ? d.selectedId
       : operatives[0]?.id ?? '';
     const cards = operatives
       .map(
@@ -440,9 +469,25 @@ export class UI {
         },
       )
       .join('');
-    const achBtn = ach && onShowAchievements
-      ? `<br><button id="ui-ach-btn">成就 ${ach.unlocked} / ${ach.total}</button>`
+    const achBtn = ach && d.onShowAchievements
+      ? `<button class="quiet" id="ui-ach-btn">成就 ${ach.unlocked} / ${ach.total}</button>`
       : '';
+    const setBtn = d.onShowSettings ? `<button class="quiet" id="ui-set-btn">设置</button>` : '';
+    const dailyBest = d.daily.best
+      ? `今日最佳 ${UI.fmt(d.daily.best.time)} · ${d.daily.best.kills} 击杀`
+      : '今天还没打过';
+    const seedRow = `
+      <div class="seed-row">
+        <div class="seed-daily">
+          <button class="quiet accent" id="ui-daily-btn">今日挑战 · ${d.daily.key}</button>
+          <span class="seed-note">全员同一张地图 · 种子 ${d.daily.seed} · ${dailyBest}</span>
+        </div>
+        <div class="seed-custom">
+          <input id="ui-seed-input" maxlength="7" placeholder="输入种子" aria-label="输入种子">
+          <button class="quiet" id="ui-seed-btn">用此种子出击</button>
+          <span class="seed-note" id="ui-seed-note"></span>
+        </div>
+      </div>`;
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>末日清道夫</h1>
@@ -450,7 +495,8 @@ export class UI {
         WASD 移动 · 鼠标瞄准 · <b style="color:#ffb438">B</b> 商店 · <b style="color:#ffb438">Esc</b> 暂停 · 连杀提升经验金币 · 空投 / 血月 / 血怨祭坛改变战局${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
         <div class="ops">${cards}</div>
         <button class="start">出击 (Space)</button>
-        ${achBtn}
+        ${seedRow}
+        <div class="title-btns">${achBtn}${setBtn}</div>
       </div>`;
     this.overlay.querySelectorAll('.op').forEach((el) => {
       const card = el as HTMLElement;
@@ -463,9 +509,90 @@ export class UI {
         if (e.key === 'Enter' || e.key === ' ') select();
       };
     });
-    (this.overlay.querySelector('.start') as HTMLElement).onclick = () => onStart(this.titleSelection);
+    (this.overlay.querySelector('.start') as HTMLElement).onclick = () => d.onStart(this.titleSelection);
     const achEl = this.overlay.querySelector('#ui-ach-btn') as HTMLElement | null;
-    if (achEl && onShowAchievements) achEl.onclick = onShowAchievements;
+    if (achEl && d.onShowAchievements) achEl.onclick = d.onShowAchievements;
+    const setEl = this.overlay.querySelector('#ui-set-btn') as HTMLElement | null;
+    if (setEl && d.onShowSettings) setEl.onclick = d.onShowSettings;
+
+    (this.overlay.querySelector('#ui-daily-btn') as HTMLElement).onclick = () =>
+      d.onStart(this.titleSelection, d.parseSeed(d.daily.seed) ?? undefined);
+
+    const input = this.overlay.querySelector('#ui-seed-input') as HTMLInputElement;
+    const note = this.overlay.querySelector('#ui-seed-note') as HTMLElement;
+    const launchSeed = () => {
+      const seed = d.parseSeed(input.value);
+      if (seed === null) {
+        note.textContent = '种子无效（只认数字和字母）';
+        note.style.color = 'var(--danger)';
+        return;
+      }
+      d.onStart(this.titleSelection, seed);
+    };
+    (this.overlay.querySelector('#ui-seed-btn') as HTMLElement).onclick = launchSeed;
+    input.onkeydown = (e) => {
+      e.stopPropagation(); // typing a seed must not trigger the global hotkeys
+      if (e.key === 'Enter') launchSeed();
+    };
+    this.overlay.style.display = 'flex';
+  }
+
+  /** Presentation options. Reachable from the title screen and from the pause menu. */
+  showSettings(
+    current: Settings,
+    onChange: (next: Settings) => void,
+    onBack: () => void,
+  ): void {
+    const pct = (n: number) => Math.round(n * 100);
+    this.overlay.innerHTML = `
+      <div class="panel">
+        <h1>设置</h1>
+        <p>只影响表现，不影响模拟——同一个种子在任何设置下都是同一局。</p>
+        <div class="settings">
+          <label class="srow"><span>音量</span>
+            <input type="range" id="set-vol" min="0" max="100" value="${pct(current.volume)}">
+            <b id="set-vol-v">${pct(current.volume)}%</b></label>
+          <label class="srow"><span>静音</span>
+            <input type="checkbox" id="set-mute" ${current.muted ? 'checked' : ''}><b></b></label>
+          <label class="srow"><span>屏幕震动</span>
+            <input type="range" id="set-shake" min="0" max="100" value="${pct(current.shake)}">
+            <b id="set-shake-v">${pct(current.shake)}%</b></label>
+          <label class="srow"><span>减弱闪烁</span>
+            <input type="checkbox" id="set-flash" ${current.reduceFlashing ? 'checked' : ''}><b></b></label>
+          <label class="srow"><span>伤害数字</span>
+            <input type="checkbox" id="set-num" ${current.damageNumbers ? 'checked' : ''}><b></b></label>
+        </div>
+        <p class="seed-note">「减弱闪烁」会压低血月红幕、狂热光晕与濒死暗角的脉动强度。</p>
+        <button class="start" id="set-back">返回</button>
+      </div>`;
+
+    const next = { ...current };
+    const push = () => onChange({ ...next });
+    const vol = this.overlay.querySelector('#set-vol') as HTMLInputElement;
+    const volV = this.overlay.querySelector('#set-vol-v') as HTMLElement;
+    vol.oninput = () => {
+      next.volume = Number(vol.value) / 100;
+      volV.textContent = `${vol.value}%`;
+      push();
+    };
+    const shake = this.overlay.querySelector('#set-shake') as HTMLInputElement;
+    const shakeV = this.overlay.querySelector('#set-shake-v') as HTMLElement;
+    shake.oninput = () => {
+      next.shake = Number(shake.value) / 100;
+      shakeV.textContent = `${shake.value}%`;
+      push();
+    };
+    const bind = (id: string, key: 'muted' | 'reduceFlashing' | 'damageNumbers') => {
+      const el = this.overlay.querySelector(id) as HTMLInputElement;
+      el.onchange = () => {
+        next[key] = el.checked;
+        push();
+      };
+    };
+    bind('#set-mute', 'muted');
+    bind('#set-flash', 'reduceFlashing');
+    bind('#set-num', 'damageNumbers');
+    (this.overlay.querySelector('#set-back') as HTMLElement).onclick = onBack;
     this.overlay.style.display = 'flex';
   }
 
@@ -492,16 +619,21 @@ export class UI {
   }
 
   /** Pause curtain: resume or abandon into a fresh run. */
-  showPause(onResume: () => void, onRestart: () => void): void {
+  showPause(onResume: () => void, onRestart: () => void, onSettings?: () => void): void {
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>已暂停</h1>
         <p>喘口气。尸潮不会真的等你。</p>
         <button class="start" id="pause-resume">继续 (Esc)</button>
-        <button class="ghost" id="pause-restart">重新出击</button>
+        <div class="title-btns">
+          <button class="quiet" id="pause-restart">重新出击</button>
+          ${onSettings ? '<button class="quiet" id="pause-settings">设置</button>' : ''}
+        </div>
       </div>`;
     (this.overlay.querySelector('#pause-resume') as HTMLElement).onclick = onResume;
     (this.overlay.querySelector('#pause-restart') as HTMLElement).onclick = onRestart;
+    const setEl = this.overlay.querySelector('#pause-settings') as HTMLElement | null;
+    if (setEl && onSettings) setEl.onclick = onSettings;
     this.overlay.style.display = 'flex';
   }
 
@@ -648,7 +780,12 @@ export class UI {
     this.overlay.style.display = 'none';
   }
 
-  showEnd(summary: RunSummary, onRestart: () => void, onEndless?: () => void): void {
+  showEnd(
+    summary: RunSummary,
+    onRestart: () => void,
+    onEndless?: () => void,
+    onSameSeed?: () => void,
+  ): void {
     const headline = summary.victory
       ? '任务完成'
       : summary.endless
@@ -673,12 +810,15 @@ export class UI {
       ...summary.build.passives.map((p) => `<span class="chip p">${p.name} Lv.${p.level}</span>`),
     ].join('');
     const buildRow = buildChips ? `<div class="build-row">${buildChips}</div>` : '';
+    const seedChip = `<div><span class="seed-chip">${summary.daily ? '今日挑战' : '种子'} ${summary.seed}</span></div>`;
+    const sameSeedBtn = onSameSeed ? '<button class="quiet" id="end-sameseed">同种子再来</button>' : '';
     const opLine = `<div class="op-line">${summary.operative.name} 经验 <b>+${summary.operative.gained}</b> · Lv.${summary.operative.level}${summary.operative.leveledUp ? '<span class="lvup">▲ 升级！</span>' : ''}</div>`;
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>${headline}</h1>
         <p>${sub}</p>
         ${achRow}
+        ${seedChip}
         ${opLine}
         ${buildRow}
         <div class="summary">
@@ -697,10 +837,13 @@ export class UI {
         <p>原因：${summary.cause}<br>${summary.nextGoal}</p>
         <button class="start">再来一局 (Space)</button>
         ${endlessBtn}
+        <div class="title-btns">${sameSeedBtn}</div>
       </div>`;
     (this.overlay.querySelector('.start') as HTMLElement).onclick = onRestart;
     const endlessEl = this.overlay.querySelector('#end-endless') as HTMLElement | null;
     if (endlessEl && onEndless) endlessEl.onclick = onEndless;
+    const seedEl = this.overlay.querySelector('#end-sameseed') as HTMLElement | null;
+    if (seedEl && onSameSeed) seedEl.onclick = onSameSeed;
     this.overlay.style.display = 'flex';
   }
 
