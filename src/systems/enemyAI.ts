@@ -5,6 +5,10 @@ import { ENEMIES } from '../data/enemies';
 import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet } from '../factory';
 import { damagePlayer } from './combat';
 import { SLOW_FACTOR, slowActive } from './skills';
+import { obstaclesNear, type Obstacle } from '../data/obstacles';
+
+/** How close cover has to be before the horde starts steering around it. */
+const AVOID_RANGE = 74;
 
 /**
  * Enemy steering: seek the player + separation (anti-clumping) via the spatial hash.
@@ -14,6 +18,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
   const w = ctx.world;
   const pt = w.get(ctx.player, Transform)!;
   const neigh: number[] = [];
+  const nearby: Obstacle[] = [];
   const slowMul = slowActive(ctx) ? SLOW_FACTOR : 1;
   const surgeMul = activeSurge(ctx.time.elapsed) ? SURGE_SPEED_MUL : 1;
 
@@ -50,6 +55,23 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
 
     let mx = dx + sx * 0.8;
     let my = dy + sy * 0.8;
+
+    // Tangential avoidance: skim past cover rather than pressing into it. Combined with the
+    // push-out in blockerSystem this is enough — see the note there on why there is no A*.
+    if (!en.def.isBoss) {
+      obstaclesNear(ctx.seed, t.x, t.y, AVOID_RANGE, nearby);
+      for (const ob of nearby) {
+        const ax = t.x - ob.x;
+        const ay = t.y - ob.y;
+        const ad = Math.hypot(ax, ay);
+        if (ad === 0 || ad > AVOID_RANGE) continue;
+        const w8 = (1 - ad / AVOID_RANGE) * 1.6;
+        // Slide around whichever way the enemy is already leaning.
+        const side = mx * -ay + my * ax >= 0 ? 1 : -1;
+        mx += (-ay / ad) * side * w8 + (ax / ad) * w8 * 0.35;
+        my += (ax / ad) * side * w8 + (ay / ad) * w8 * 0.35;
+      }
+    }
 
     if (en.def.behavior === 'golden') {
       // Flees the player, weaving as it runs; despawns via its Lifetime if it escapes.

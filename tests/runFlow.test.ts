@@ -66,7 +66,7 @@ function makeCtx(): GameContext {
     skills,
     run: freshRunState(),
     input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
-    rng: world.rng,
+    rng: world.rng, seed: 19,
     camera: { x: 0, y: 0 },
     screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },

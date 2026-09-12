@@ -7,6 +7,7 @@ import type { GameContext, PlayerStats, EquipmentState, SkillState } from '../sr
 import { PLAYER_BASE, xpToNext } from '../src/data/balance';
 import { createPlayer } from '../src/factory';
 import { freshRunState } from '../src/systems/combo';
+import { cellObstacle, type Obstacle } from '../src/data/obstacles';
 
 /** Shared deterministic GameContext builder for the newer feature tests. */
 
@@ -43,7 +44,7 @@ export function makeCtx(seed = 5): GameContext {
     world, player: 0, hash: new SpatialHash(40), fx: new FX(), audio: new AudioBus(),
     time: { elapsed: 0, hitStop: 0 }, director: { budget: 0, bossSpawned: false, bossDead: false },
     stats: freshStats(), passives: new Map<string, number>(), input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
-    rng: world.rng, camera: { x: 0, y: 0 }, screen: { shake: 0 },
+    rng: world.rng, seed: seed, camera: { x: 0, y: 0 }, screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
     skills: freshSkills(),
@@ -51,4 +52,15 @@ export function makeCtx(seed = 5): GameContext {
   };
   ctx.player = createPlayer(ctx);
   return ctx;
+}
+
+/** First obstacle found scanning outwards from the origin — tests need a concrete one. */
+export function findObstacle(seed: number): { o: Obstacle; cx: number; cy: number } {
+  for (let cx = -14; cx <= 14; cx++) {
+    for (let cy = -14; cy <= 14; cy++) {
+      const o = cellObstacle(seed, cx, cy);
+      if (o) return { o, cx, cy };
+    }
+  }
+  throw new Error('no obstacle within range of the origin');
 }

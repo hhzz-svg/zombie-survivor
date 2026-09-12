@@ -3,8 +3,9 @@ import type { Entity } from './ecs/world';
 import type { EnemyDef, WeaponDef } from './data/schemas';
 import type { EliteAffix } from './data/elites';
 import {
-  Transform, Velocity, Health, Collider, Renderable, Enemy, Bullet, Lifetime, XPGem, GoldCoin, Medkit, PlayerTag, Aim, Loadout, SupplyCrate, Survivor, Wingman,
+  Transform, Velocity, Health, Collider, Renderable, Enemy, Bullet, Lifetime, XPGem, GoldCoin, Medkit, PlayerTag, Aim, Loadout, SupplyCrate, Survivor, Wingman, Barrel,
 } from './components';
+import { BARREL_HP, blockedAt } from './data/obstacles';
 import { PLAYER_BASE, hpScale, WAVE, SUPPLY_FALL_SECONDS } from './data/balance';
 import { WEAPONS, STARTER_WEAPON } from './data/weapons';
 import { ENEMIES } from './data/enemies';
@@ -54,7 +55,13 @@ export function spawnEnemyAt(ctx: GameContext, def: EnemyDef, x: number, y: numb
 export function spawnEnemyRing(ctx: GameContext, def: EnemyDef, elite?: EliteAffix): Entity {
   const pt = ctx.world.get(ctx.player, Transform)!;
   const a = ctx.rng() * Math.PI * 2;
-  return spawnEnemyAt(ctx, def, pt.x + Math.cos(a) * WAVE.spawnRadius, pt.y + Math.sin(a) * WAVE.spawnRadius, elite);
+  const spot = findFreeSpot(
+    ctx,
+    pt.x + Math.cos(a) * WAVE.spawnRadius,
+    pt.y + Math.sin(a) * WAVE.spawnRadius,
+    def.radius,
+  );
+  return spawnEnemyAt(ctx, def, spot.x, spot.y, elite);
 }
 
 export function spawnBoss(ctx: GameContext, hpMul = 1): Entity {
@@ -98,10 +105,39 @@ export function spawnBullet(
   return e;
 }
 
-export function spawnCrate(ctx: GameContext, x: number, y: number): Entity {
+/** An explosive barrel: destructible cover the player can turn into a bomb. */
+export function spawnBarrel(ctx: GameContext, x: number, y: number): Entity {
   const w = ctx.world;
   const e = w.create();
   w.add(e, Transform, { x, y, rot: 0 });
+  w.add(e, Health, { hp: BARREL_HP, max: BARREL_HP, invuln: 0, flash: 0 });
+  w.add(e, Collider, { r: 12 });
+  w.add(e, Barrel, { fuse: 0 });
+  w.add(e, Renderable, { shape: 'circle', r: 12, color: '#c2622a' });
+  return e;
+}
+
+/**
+ * Nudge a spawn point off any cover it would land inside. Interactables (crates, altars,
+ * survivors) are unreachable when they spawn inside a container, so this is not cosmetic.
+ */
+export function findFreeSpot(ctx: GameContext, x: number, y: number, r: number): { x: number; y: number } {
+  if (!blockedAt(ctx.seed, x, y, r)) return { x, y };
+  for (let i = 1; i <= 6; i++) {
+    const a = ctx.rng() * Math.PI * 2;
+    const d = 40 * i;
+    const nx = x + Math.cos(a) * d;
+    const ny = y + Math.sin(a) * d;
+    if (!blockedAt(ctx.seed, nx, ny, r)) return { x: nx, y: ny };
+  }
+  return { x, y };
+}
+
+export function spawnCrate(ctx: GameContext, x: number, y: number): Entity {
+  const w = ctx.world;
+  const e = w.create();
+  const spot = findFreeSpot(ctx, x, y, 20);
+  w.add(e, Transform, { x: spot.x, y: spot.y, rot: 0 });
   w.add(e, SupplyCrate, { landAt: ctx.time.elapsed + SUPPLY_FALL_SECONDS });
   w.add(e, Renderable, { shape: 'rect', r: 14, color: '#c8b273' });
   return e;
@@ -114,7 +150,8 @@ export function spawnSurvivor(ctx: GameContext, def: WingmanDef): Entity {
   const a = ctx.rng() * Math.PI * 2;
   const r = 300 + ctx.rng() * 150;
   const e = w.create();
-  w.add(e, Transform, { x: (pt?.x ?? 0) + Math.cos(a) * r, y: (pt?.y ?? 0) + Math.sin(a) * r, rot: 0 });
+  const spot = findFreeSpot(ctx, (pt?.x ?? 0) + Math.cos(a) * r, (pt?.y ?? 0) + Math.sin(a) * r, 16);
+  w.add(e, Transform, { x: spot.x, y: spot.y, rot: 0 });
   w.add(e, Survivor, { def, until: ctx.time.elapsed + SURVIVOR_WAIT });
   w.add(e, Renderable, { shape: 'circle', r: 11, color: def.color });
   return e;

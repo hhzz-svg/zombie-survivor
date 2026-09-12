@@ -1,6 +1,7 @@
 import type { GameContext } from '../ctx';
 import type { Entity } from '../ecs/world';
 import { Transform, Renderable, CurseAltar } from '../components';
+import { findFreeSpot } from '../factory';
 
 /**
  * Blood-curse altars: one rises per stage from stage 2 on. Walking into one
@@ -37,7 +38,8 @@ export function spawnCurseAltar(ctx: GameContext): Entity {
   const a = ctx.rng() * Math.PI * 2;
   const r = 380 + ctx.rng() * 140;
   const e = w.create();
-  w.add(e, Transform, { x: (pt?.x ?? 0) + Math.cos(a) * r, y: (pt?.y ?? 0) + Math.sin(a) * r, rot: 0 });
+  const spot = findFreeSpot(ctx, (pt?.x ?? 0) + Math.cos(a) * r, (pt?.y ?? 0) + Math.sin(a) * r, 20);
+  w.add(e, Transform, { x: spot.x, y: spot.y, rot: 0 });
   w.add(e, CurseAltar, true);
   w.add(e, Renderable, { shape: 'rect', r: 14, color: '#8a2733' });
   return e;

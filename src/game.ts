@@ -34,8 +34,9 @@ import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
 import { comboTier, freshRunState } from './systems/combo';
 import {
   Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity,
-  Lifetime, SupplyCrate, CurseAltar, Survivor, Wingman, type WeaponInst,
+  Lifetime, SupplyCrate, CurseAltar, Survivor, Wingman, Barrel, type WeaponInst,
 } from './components';
+import { obstaclesInRect, type Obstacle } from './data/obstacles';
 import { SURVIVOR_WAIT } from './data/wingmen';
 import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
@@ -65,6 +66,7 @@ export class Game {
   private readonly blood = new BloodDecals();
   private readonly hash = new SpatialHash(40);
   private readonly assets = new AssetStore();
+  private readonly obstacleBuf: Obstacle[] = []; // reused per frame, never allocated in the loop
   private ctx: GameContext | null = null;
   private state: State = 'title';
   private pendingLevels = 0;
@@ -165,7 +167,8 @@ export class Game {
     this.blood.clear();
     this.hash.clear();
     this.lastDamageCause = '尚未受到致命伤害';
-    const world = new World(makeRng((performance.now() * 1000) >>> 0));
+    const seed = (performance.now() * 1000) >>> 0;
+    const world = new World(makeRng(seed));
     const ctx: GameContext = {
       world,
       player: 0,
@@ -185,6 +188,7 @@ export class Game {
       run: freshRunState(),
       input: new DomInput(this.keys, this.renderer),
       rng: world.rng,
+      seed,
       camera: { x: 0, y: 0 },
       screen: { shake: 0 },
       events: {
@@ -635,6 +639,7 @@ export class Game {
 
     r.begin({ x: camX + sx, y: camY + sy });
     this.drawGround(camX, camY, r);
+    if (ctx) this.drawObstacleShadows(ctx, r);
     if (ctx) {
       this.blood.draw(r); // blood painted on the ground, never fades
       this.corpses.draw(r, this.assets); // corpses/afterimages sit under the living
@@ -690,6 +695,70 @@ export class Game {
     }
   }
 
+  /** Soft contact shadows, painted on the ground before blood and corpses. */
+  private drawObstacleShadows(ctx: GameContext, r: Renderer): void {
+    const hw = r.width / 2 + 80;
+    const hh = r.height / 2 + 80;
+    for (const o of obstaclesInRect(ctx.seed, ctx.camera.x, ctx.camera.y, hw, hh, this.obstacleBuf)) {
+      r.drawEllipse(o.x, o.y + o.hh * 0.55, o.hw * 0.98, o.hh * 0.5 + 4, 'rgba(0,0,0,0.3)');
+    }
+  }
+
+  /** Cover, drawn with the actors so the player is correctly occluded when standing behind it. */
+  private pushObstacles(ctx: GameContext, r: Renderer, actors: Array<{ depth: number; draw: () => void }>): void {
+    const hw = r.width / 2 + 80;
+    const hh = r.height / 2 + 80;
+    for (const o of obstaclesInRect(ctx.seed, ctx.camera.x, ctx.camera.y, hw, hh, this.obstacleBuf)) {
+      const ob = o;
+      actors.push({
+        depth: actorDepth(ob.y, ob.hh),
+        draw: () => this.drawObstacle(ob, r),
+      });
+    }
+  }
+
+  /**
+   * Cover, drawn as stacked slabs: a dark silhouette, a body, a lit top face and a contact
+   * line. Placeholder art on purpose — but layered enough to read as volume against the
+   * photographic ground rather than as a flat decal.
+   */
+  private drawObstacle(o: Obstacle, r: Renderer): void {
+    const w = o.hw * 2;
+    const h = o.hh * 2;
+    const lift = Math.min(18, o.hh + 8); // fake height: the body is drawn above its footprint
+    const cy = o.y - lift * 0.5;
+    const outline = (pad: number, color: string) => r.drawRect(o.x, cy, w + pad, h + pad, color);
+
+    if (o.kind === 'car') {
+      outline(5, '#101a1e');
+      r.drawRect(o.x, cy, w, h, '#3d4f57');
+      r.drawRect(o.x, cy - h * 0.22, w * 0.94, h * 0.3, '#4f6672'); // sun-hit roof
+      r.drawRect(o.x, cy - h * 0.1, w * 0.46, h * 0.44, '#1d2b33'); // cabin
+      r.drawRect(o.x, cy - h * 0.2, w * 0.4, h * 0.16, '#7fa3ae', 0.55); // glass
+      r.drawRect(o.x - w * 0.3, cy + h * 0.45, w * 0.18, 5, '#12181b');
+      r.drawRect(o.x + w * 0.3, cy + h * 0.45, w * 0.18, 5, '#12181b');
+    } else if (o.kind === 'container') {
+      outline(5, '#1a1208');
+      r.drawRect(o.x, cy, w, h, '#6b5335');
+      r.drawRect(o.x, cy - h * 0.3, w, h * 0.28, '#856a45'); // top face
+      for (let i = -3; i <= 3; i++) {
+        r.drawRect(o.x + i * (w / 8), cy + h * 0.08, 2, h * 0.7, '#4a3823', 0.75); // corrugation
+      }
+      r.drawRect(o.x, cy + h * 0.46, w, 3, '#2c2114');
+    } else if (o.kind === 'rock') {
+      r.drawCircle(o.x, cy + 2, o.hw + 2, '#2a2d28');
+      r.drawCircle(o.x, cy, o.hw, '#565b52');
+      r.drawCircle(o.x - o.hw * 0.35, cy - o.hw * 0.4, o.hw * 0.55, '#6d7266');
+      r.drawCircle(o.x + o.hw * 0.4, cy + o.hw * 0.2, o.hw * 0.42, '#454a42');
+    } else {
+      outline(5, '#191713');
+      r.drawRect(o.x, cy, w, h, '#5a574d');
+      r.drawRect(o.x, cy - h * 0.32, w, h * 0.26, '#726e61'); // lit top
+      r.drawRect(o.x, cy + h * 0.3, w, h * 0.2, '#3f3d36', 0.8); // shaded base
+      r.drawRect(o.x, cy + h * 0.48, w, 3, '#26241f');
+    }
+  }
+
   private drawWorld(ctx: GameContext, r: Renderer): void {
     const w = ctx.world;
     const pt = w.get(ctx.player, Transform);
@@ -698,6 +767,7 @@ export class Game {
     const now = performance.now();
     const actors: Array<{ depth: number; draw: () => void }> = [];
     const bullets: Array<() => void> = [];
+    this.pushObstacles(ctx, r, actors);
 
     for (const e of w.query(Renderable, Transform)) {
       const t = w.get(e, Transform)!;
@@ -840,6 +910,24 @@ export class Game {
           r.drawGlowCircle(t.x, t.y - 14, 3.4 + pulse * 2, '#fff6dd', '#ffd166');
           r.drawRing(t.x, t.y + 4, 25 + pulse * 5, `rgba(255,209,102,${0.5 - pulse * 0.22})`, 2);
         }
+      } else if (w.has(e, Barrel)) {
+        const bar = w.get(e, Barrel)!;
+        actors.push({
+          depth: actorDepth(t.y, 14),
+          draw: () => {
+            const lit = bar.fuse > 0;
+            const blink = lit ? 0.5 + 0.5 * Math.sin(now / 55) : 0;
+            r.drawEllipse(t.x, t.y + 12, 13, 5, 'rgba(0,0,0,0.34)');
+            r.drawRect(t.x, t.y, 20, 26, lit ? '#e0762f' : '#9c4f22');
+            r.drawRect(t.x, t.y - 6, 20, 3, '#c8b273', 0.7);
+            r.drawRect(t.x, t.y + 6, 20, 3, '#c8b273', 0.7);
+            r.drawRing(t.x, t.y, 13, '#1b0f08', 1.5, 0.6);
+            if (lit) {
+              r.drawGlowCircle(t.x, t.y - 16, 3 + blink * 3, '#fff3d6', '#ff9b35');
+              r.drawRing(t.x, t.y, 18 + blink * 8, `rgba(255,155,53,${0.6 - blink * 0.35})`, 2);
+            }
+          },
+        });
       } else if (w.has(e, CurseAltar)) {
         // blood-curse altar: dark obelisk, red rune glow, hungry pulsing ring
         const pulse = 0.5 + 0.5 * Math.sin(now / 340 + t.x * 0.05);

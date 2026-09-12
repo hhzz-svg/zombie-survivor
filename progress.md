@@ -1,3 +1,37 @@
+## 2026-09-12 - Task: 战场地形——程序化掩体、碰撞滑行、可爆油桶
+
+### What was done
+
+- 新增确定性程序化障碍场（`src/data/obstacles.ts`）：世界按 260px 网格划分，每格由 `(seed, cx, cy)` 纯哈希决定最多一个轴对齐掩体（车辆 / 集装箱 / 横竖路障 / 石堆，35% 密度）。世界是无限的（相机跟随），所以掩体不能手摆——纯函数换来无限地形、零内存与完全确定性；原点 ±2 格恒为空，开局不会被围死；每个掩体完整落在自己格内，因此查询只需扫描矩形覆盖的格子且结果精确。加了按 seed 的 memo 缓存（纯函数，整帧复用）。
+- 打通 `ctx.seed`：`game.ts` 原本 `makeRng((performance.now()*1000)>>>0)` 生成后把种子直接丢弃，现在存入 `GameContext.seed`（顺带铺好后续种子分享 / 每日挑战的地基）。
+- 新增 `src/systems/collision.ts`：`blockerSystem` 对玩家、非 Boss 敌人、僚机做圆 vs AABB 推出，并把速度投影到接触面切线实现**沿墙滑行**（没有滑行会贴墙卡死）；暴君无视掩体直接碾过。敌人 AI 增加 74px 内的切向绕行分量。**刻意不做 A\***：掩体全为凸形、稀疏、无凹形死角，"切向转向 + 接触滑行"表现即为丧尸沿墙蹭行，代码注释已写明以免后人误以为是漏做。
+- 子弹**双向**被掩体阻挡（`bullets.ts`）：火箭在掩体上引爆，其余留火花后销毁。破视线因此成为喷吐者的正解——这是掩体产生玩法价值的核心一条。
+- 新增可爆油桶：格子哈希决定位置（仅在无静态掩体的格），玩家靠近时按格激活并记入 `director.activatedCells`，因此炸掉的油桶不会复活。油桶随敌人一起插入同一个空间哈希，于是子弹 / 冲击波 / 环刃 / 手雷**无需改动任何武器代码**即可命中；`contactSystem` 要求 `Enemy` 组件，油桶天然不会误伤走过的玩家。被打空血后点燃 0.35 秒引信（闪烁预警）再炸：半径 120、伤害 90、连锁引爆、**对玩家同样生效**（没有风险就不是工具，只是免费伤害）。
+- 生成点避让 `findFreeSpot`：空投箱、血怨祭坛、幸存者、环形刷怪都不会再卡在集装箱里。
+- 渲染：掩体地面软阴影画在血迹/尸体之下；掩体本体加入既有的 `actorDepth` 深度排序，玩家走到车后会被正确遮挡（伪 3D 观感直接受益）。分层绘制（暗描边 + 本体 + 受光顶面 + 接地线）作为占位美术。
+
+### Testing
+
+- `npm test`：28 个测试文件 139 个测试全部通过（新增 `obstacles.test.ts` 7 项、`collision.test.ts` 8 项）。
+- `npm run build`：TypeScript 与 Vite 产线构建通过。
+- 关键用例：同种子同格恒等 / 不同种子布局不同 / 原点 ±2 格恒空 / 掩体不越格（邻格不可能重叠）/ 矩形查询覆盖精确 / 推出后不再重叠 / 贴墙斜向走 60 帧仍横向位移 > 40px（滑行生效）/ 双方子弹均被阻挡而空地不阻挡 / 油桶格只激活一次且炸毁不复活 / 油桶不吃击退不弹伤害数字 / 引信期间不伤人、到期炸伤周围。
+- 确定性未被破坏：`tests/sim.test.ts` 同种子复现用例通过；另跑 `runHeadless(4242,45)` 两次结果完全一致。
+- 性能实测：420 只敌人下 `enemyAISystem + blockerSystem` 合计 0.898 ms/帧（预算 16.7ms）。
+- 浏览器实测（Vite dev + Playwright 驱动）：远离出生点后掩体/油桶正常出现并深度排序正确，长距离移动不卡死，全程 console 零报错；截图验收车辆/集装箱/路障/石堆/油桶五种外观可读。
+- 平衡参考（无头模拟 8 种子 × 250s）：avgSec 68.0 / avgKills 512.4（Phase A 后为 92.4 / 967.5）。脚本 AI 没有地形意识、被掩体挡住逃生路线所以变差，属机器人局限而非数值退化——真人可以用掩体，机器人不会。
+
+### Notes
+
+- `src/data/obstacles.ts`：新增（网格、哈希、`cellObstacle` / `obstaclesInRect` / `blockedAt` / `resolveCircle` / `cellBarrel` + 油桶常量）。
+- `src/systems/collision.ts`：新增（`blockerSystem` / `barrelSystem` / `igniteBarrel`）；`pipeline.ts` 在 `movementSystem` 之后注册，并把油桶一并插入空间哈希。
+- `src/ctx.ts`：`GameContext.seed`、`Director.activatedCells`；`components`：`Barrel`；`factory`：`spawnBarrel` / `findFreeSpot` 与四处生成点接线。
+- `src/systems/combat.ts`：油桶走敌人伤害通道但不吃击退/不弹数字/改为点燃；`explode` 增加 `cause` 参数（死亡结算会显示"油桶爆炸"）。
+- `src/systems/bullets.ts`：掩体阻挡；`src/systems/enemyAI.ts`：切向绕行。
+- `src/game.ts`：`drawObstacleShadows` / `pushObstacles` / `drawObstacle`、油桶渲染分支、`obstacleBuf` 复用缓冲。
+- 7 个自带 ctx 的测试文件补 `seed` 字段；`tests/helpers.ts` 新增 `findObstacle`。
+- `README.md`、`README.zh-CN.md`：新特性说明。
+- 回滚方式：回退本任务对应提交（无存档格式变更）。
+
 ## 2026-09-12 - Task: Build 取舍——槽位上限、被动分级、条件进化、特性强化
 
 ### What was done

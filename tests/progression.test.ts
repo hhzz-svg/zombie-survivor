@@ -24,7 +24,7 @@ function makeCtx(): GameContext {
     world, player: 0, hash: new SpatialHash(40), fx: new FX(), audio: new AudioBus(),
     time: { elapsed: 0, hitStop: 0 }, director: { budget: 0, bossSpawned: false, bossDead: false },
     stats, passives: new Map<string, number>(), input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
-    rng: world.rng, camera: { x: 0, y: 0 }, screen: { shake: 0 },
+    rng: world.rng, seed: 5, camera: { x: 0, y: 0 }, screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: { gold: 0, charges: new Map(), buffs: new Map(), buffUndo: new Map(), shield: 0, deathDanceStacks: 0 },
     skills: { owned: new Set(), cooldowns: new Map(), barrierUntil: 0, barrierLayers: 0, slowUntil: 0, dashUntil: 0 },

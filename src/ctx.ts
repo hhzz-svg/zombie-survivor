@@ -63,6 +63,7 @@ export interface Director {
   nextDropAt?: number; // next supply-drop time (lazily initialised by the supply system)
   nextGoldenAt?: number; // next golden-runner spawn time
   nextSurvivorAt?: number; // next stranded-survivor spawn time
+  activatedCells?: Set<string>; // obstacle cells whose barrels have already been materialised
   endless?: boolean; // post-victory endless mode
   bossCycle?: number; // endless: how many tyrants have spawned so far
   nextBossAt?: number; // endless: next tyrant respawn time
@@ -129,6 +130,8 @@ export interface GameContext {
   passives: Map<string, number>;
   input: InputProvider;
   rng: () => number;
+  /** The run's world seed. Drives the obstacle field, and is what a shared/daily run would pin. */
+  seed: number;
   camera: Camera;
   screen: { shake: number }; // current screen-shake magnitude, decayed by the camera each frame
   events: GameEvents;

@@ -57,6 +57,8 @@ export const GoldCoin = defineComponent<{ value: number }>('GoldCoin');
 export const Medkit = defineComponent<{ heal: number }>('Medkit');
 /** A supply crate: parachutes in until `landAt`, then sits collectable on the ground. */
 export const SupplyCrate = defineComponent<{ landAt: number }>('SupplyCrate');
+/** An explosive barrel standing in the field. `fuse` > 0 means it is lit and counting down. */
+export const Barrel = defineComponent<{ fuse: number }>('Barrel');
 /** A blood-curse altar: touch it to accept a harder-but-richer pact. */
 export const CurseAltar = defineComponent<true>('CurseAltar');
 /** A stranded survivor waiting for rescue; gives up at `until`. */

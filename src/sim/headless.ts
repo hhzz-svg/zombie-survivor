@@ -90,6 +90,7 @@ export function runHeadless(seed: number, maxSeconds: number): SimResult {
     run: freshRunState(),
     input: ai,
     rng: world.rng,
+    seed,
     camera: { x: 0, y: 0 },
     screen: { shake: 0 },
     events: {

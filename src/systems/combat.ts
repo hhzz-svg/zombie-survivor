@@ -1,6 +1,7 @@
 import type { GameContext } from '../ctx';
 import type { Entity } from '../ecs/world';
-import { Transform, Health, Enemy } from '../components';
+import { Transform, Health, Enemy, Barrel } from '../components';
+import { igniteBarrel } from './collision';
 import { spawnGem, spawnMedkit, spawnCoin, spawnEnemyBullet } from '../factory';
 import { COIN_DROP, DEATH_DANCE_CAP } from '../data/equipment';
 import { activeSurge, SURGE_GOLD_MUL, ENDLESS_BOSS_INTERVAL } from '../data/balance';
@@ -84,6 +85,12 @@ export function damageEnemy(
   if (!h || !t || h.hp <= 0) return;
   h.hp -= dmg;
   h.flash = 0.08;
+  // Barrels share the enemy damage path (so every weapon and blast hits them for free) but
+  // take no knockback, pop no damage numbers, and detonate instead of dying.
+  if (ctx.world.get(e, Barrel)) {
+    if (h.hp <= 0) igniteBarrel(ctx, e);
+    return;
+  }
   // `chill` trait: every hit re-applies the slow, so sustained fire keeps the horde crawling.
   if (ctx.stats.chill > 0) {
     const en = ctx.world.get(e, Enemy);
@@ -218,6 +225,7 @@ export function explode(
   radius: number,
   dmg: number,
   hurtPlayer = true,
+  cause = '爆裂感染者自爆',
 ): void {
   const neigh: number[] = [];
   ctx.hash.query(x, y, radius, neigh);
@@ -230,7 +238,7 @@ export function explode(
   }
   if (hurtPlayer) {
     const pt = ctx.world.get(ctx.player, Transform)!;
-    if (Math.hypot(pt.x - x, pt.y - y) <= radius + 14) damagePlayer(ctx, dmg, '爆裂感染者自爆');
+    if (Math.hypot(pt.x - x, pt.y - y) <= radius + 14) damagePlayer(ctx, dmg, cause);
   }
   ctx.fx.burst(x, y, 16, '#ffb060', 240, ctx.rng);
   ctx.screen.shake = Math.max(ctx.screen.shake, 6);
