@@ -21,6 +21,10 @@ export interface PlayerStats {
   projectileBonus: number;
   crit: number; // crit chance 0..1 (crit = 2× damage)
   lifesteal: number; // hp restored per kill
+  // Trait passives — behaviour, not raw numbers. Each level adds one step.
+  detonate: number; // chance a kill detonates the corpse (0..1)
+  chill: number; // slow fraction applied to enemies on hit (0..1)
+  desperate: number; // bonus damage multiplier while below DESPERATE_HP_FRAC
 }
 
 export interface TimeState {
@@ -121,6 +125,8 @@ export interface GameContext {
   time: TimeState;
   director: Director;
   stats: PlayerStats;
+  /** Owned passives → current level. Drives the level-up pool, evolutions and the HUD. */
+  passives: Map<string, number>;
   input: InputProvider;
   rng: () => number;
   camera: Camera;

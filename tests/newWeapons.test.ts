@@ -11,8 +11,8 @@ describe('flamer and rocket launcher', () => {
   it('both weapons and their evolutions parse and are linked', () => {
     expect(WEAPONS['flamer']).toBeDefined();
     expect(WEAPONS['rocket']).toBeDefined();
-    expect(EVOLUTIONS['flamer']).toBe('flamer-evo');
-    expect(EVOLUTIONS['rocket']).toBe('rocket-evo');
+    expect(EVOLUTIONS['flamer']!.evo).toBe('flamer-evo');
+    expect(EVOLUTIONS['rocket']!.evo).toBe('rocket-evo');
     expect(WEAPONS['flamer']!.bulletStyle).toBe('flame');
     expect(WEAPONS['rocket-evo']!.explodeRadius).toBeGreaterThan(WEAPONS['rocket']!.explodeRadius!);
   });

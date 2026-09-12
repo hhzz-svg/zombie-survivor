@@ -8,6 +8,17 @@ export const PLAYER_BASE = {
   pickupRange: 48,
 };
 
+// ---------------------------------------------------------------------------
+// Build slots: the run's core trade-off. Weapons and passives are capped, so a
+// level-up is a decision (what do I give up?) instead of a free stat handout.
+
+export const WEAPON_SLOTS = 6;
+export const PASSIVE_SLOTS = 6;
+export const MAX_PASSIVE_LEVEL = 5;
+
+/** Below this fraction of max HP the `desperate` trait pays out. */
+export const DESPERATE_HP_FRAC = 0.4;
+
 /** XP needed to go from `level` to `level+1`. Grows so late levels feel earned. */
 export function xpToNext(level: number): number {
   return Math.floor(5 + level * 4 + level * level * 0.7);

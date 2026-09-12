@@ -34,6 +34,9 @@ function freshStats(): PlayerStats {
     projectileBonus: 0,
     crit: 0,
     lifesteal: 0,
+    detonate: 0,
+    chill: 0,
+    desperate: 0,
   };
 }
 
@@ -81,6 +84,7 @@ export function runHeadless(seed: number, maxSeconds: number): SimResult {
     time,
     director,
     stats,
+    passives: new Map<string, number>(),
     equip: freshEquip(),
     skills: freshSkills(),
     run: freshRunState(),

@@ -28,14 +28,52 @@ export const WEAPONS: Record<string, WeaponDef> = Object.fromEntries(
 export const STARTER_WEAPON = 'pistol';
 export const MAX_WEAPON_LEVEL = 6;
 
-/** Maps base weapon ID to its evolution ID. */
-export const EVOLUTIONS: Record<string, string> = {
-  pistol: 'pistol-evo',
-  shotgun: 'shotgun-evo',
-  smg: 'smg-evo',
-  magnum: 'magnum-evo',
-  nova: 'nova-evo',
-  orbit: 'orbit-evo',
-  flamer: 'flamer-evo',
-  rocket: 'rocket-evo',
+/**
+ * Evolution recipes. A weapon evolves only at MAX_WEAPON_LEVEL *and* with the paired passive
+ * at `passiveLevel` — so the mid-run goal is "I need multi-shot to Lv.3", not "it happened".
+ */
+export interface EvolutionRecipe {
+  evo: string;
+  passive: string; // passive id required
+  passiveLevel: number;
+}
+
+export const EVOLUTIONS: Record<string, EvolutionRecipe> = {
+  pistol:  { evo: 'pistol-evo',  passive: 'rof',   passiveLevel: 3 },
+  shotgun: { evo: 'shotgun-evo', passive: 'multi', passiveLevel: 3 },
+  smg:     { evo: 'smg-evo',     passive: 'ap',    passiveLevel: 3 },
+  magnum:  { evo: 'magnum-evo',  passive: 'crit',  passiveLevel: 3 },
+  nova:    { evo: 'nova-evo',    passive: 'pow',   passiveLevel: 3 },
+  orbit:   { evo: 'orbit-evo',   passive: 'legs',  passiveLevel: 3 },
+  flamer:  { evo: 'flamer-evo',  passive: 'vamp',  passiveLevel: 3 },
+  rocket:  { evo: 'rocket-evo',  passive: 'vest',  passiveLevel: 3 },
 };
+
+/** The recipe for a weapon, or undefined if it has none (evolved weapons never re-evolve). */
+export function evolutionFor(weaponId: string): EvolutionRecipe | undefined {
+  if (weaponId.endsWith('-evo')) return undefined;
+  return EVOLUTIONS[weaponId];
+}
+
+/** True when this weapon is maxed AND its paired passive has reached the required level. */
+export function evolutionReady(
+  weaponId: string,
+  weaponLevel: number,
+  passives: ReadonlyMap<string, number>,
+): boolean {
+  const r = evolutionFor(weaponId);
+  if (!r || weaponLevel < MAX_WEAPON_LEVEL) return false;
+  return (passives.get(r.passive) ?? 0) >= r.passiveLevel;
+}
+
+/** Human-readable requirement line, e.g. "进化需求：多重射击 Lv.3（当前 Lv.1）". */
+export function evolutionHint(
+  weaponId: string,
+  passives: ReadonlyMap<string, number>,
+  passiveName: (id: string) => string,
+): string {
+  const r = evolutionFor(weaponId);
+  if (!r) return '';
+  const have = passives.get(r.passive) ?? 0;
+  return `进化需求：${passiveName(r.passive)} Lv.${r.passiveLevel}（当前 Lv.${have}）`;
+}

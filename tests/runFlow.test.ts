@@ -32,6 +32,9 @@ function makeCtx(): GameContext {
     projectileBonus: 0,
     crit: 0,
     lifesteal: 0,
+    detonate: 0,
+    chill: 0,
+    desperate: 0,
   };
   const equip: EquipmentState = {
     gold: 0,
@@ -58,6 +61,7 @@ function makeCtx(): GameContext {
     time: { elapsed: 0, hitStop: 0 },
     director: { budget: 0, bossSpawned: false, bossDead: false },
     stats,
+    passives: new Map<string, number>(),
     equip,
     skills,
     run: freshRunState(),

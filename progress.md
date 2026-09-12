@@ -1,3 +1,36 @@
+## 2026-09-12 - Task: Build 取舍——槽位上限、被动分级、条件进化、特性强化
+
+### What was done
+
+- 槽位上限：武器 6 / 强化 6（`WEAPON_SLOTS` / `PASSIVE_SLOTS`），满槽后升级卡不再提供同类新增，只提供已有项的升级——"三选一"从"哪个数字大"变成"放弃什么"。
+- 被动分级：单条被动上限 Lv.5（`MAX_PASSIVE_LEVEL`），每级施加一次 `amount`；`GameContext.passives: Map<id, level>` 记录持有等级，驱动卡池、进化判定与 HUD。属性仍是增量修改（装备 buff 的 `buffUndo` 依赖这一点，未改成全量重算）。
+- 条件进化：`EVOLUTIONS` 由 `Record<string,string>` 升级为配方表（`{ evo, passive, passiveLevel }`），八把武器各绑定一条被动、统一要求 Lv.3。条件满足时进化卡强制占据第 1 张，绝不会被随机掉；未满足时在对应被动卡上追加"· 解锁XX进化"提示，HUD 常驻显示最近一条未达成的进化需求。
+- 新增 3 条特性强化（`kind: 'trait'`，改打法而非数值）：尸爆（击杀 18%/级 概率引爆尸体，60 伤害 r=70，不伤玩家）、冻伤（命中减速 12%/级，1.2 秒，封顶 55%）、背水（生命 < 40% 时伤害 +15%/级）。
+- 卡池枯竭兜底：满槽满级后补 `bonus` 卡（+15 最大生命并回满 / +40 金币 / +1 层护盾），保证永远 3 张。
+- 结算页新增"本局 Build"芯片行（武器 + 强化及等级），HUD 武器面板新增强化列表与 `武器 n/6 · 强化 n/6` 槽位预算。
+- 顺带修掉一个既有缺陷：`makeChoices` 原本把 `-evo` 进化武器也当作"新武器"投进卡池，玩家可以跳过进化流程直接抽到终极形态；现已排除。
+
+### Testing
+
+- `npm test`：26 个测试文件 124 个测试全部通过（新增 `buildSlots.test.ts` 8 项、`traits.test.ts` 5 项）。
+- `npm run build`：TypeScript 与 Vite 产线构建通过（131 模块）。
+- 浏览器实测（Vite dev + Playwright 驱动）：开局 HUD 显示"武器 1/6 · 强化 0/6"；升级弹窗恒为 3 张卡且 `.k` 分类标签（武器/强化/特性/升级/进化）正确；取得磁能拾取后 HUD 追加"磁能拾取 Lv.1"并刷新为"强化 1/6"；阵亡结算页渲染出"手枪 Lv.1"Build 芯片；全程 console 零报错。
+- 平衡回归（无头模拟 8 个种子 × 250s）：改动前 avgSec 39.5 / avgKills 46.4 / avgLevel 2.4，改动后 avgSec 92.4 / avgKills 967.5 / avgLevel 7.6——脚本 AI 不再被随机进化武器带偏，节奏没有退化。
+- 确定性未被破坏：`tests/sim.test.ts` 的同种子复现用例通过。
+
+### Notes
+
+- `src/data/balance.ts`：`WEAPON_SLOTS` / `PASSIVE_SLOTS` / `MAX_PASSIVE_LEVEL` / `DESPERATE_HP_FRAC`。
+- `src/data/weapons.ts`：`EvolutionRecipe` + `evolutionFor` / `evolutionReady` / `evolutionHint`。
+- `src/data/passives.ts`：3 条 trait + 调参常量（`DETONATE_*` / `CHILL_*`）+ `passiveById`；`schemas.ts` 的 `PassiveDefSchema` 扩展 stat 枚举并新增 `kind`。
+- `src/progression.ts`：`makeChoices` 重写（槽位门槛、`passive-up`、强制进化位、`bonus` 兜底）、`grantPassive`、`applyBonus`。
+- `src/systems/combat.ts`：尸爆（`killEnemy`）与冻伤（`damageEnemy`）；`src/systems/weapons.ts`：背水（`rollDmg`）；`src/systems/enemyAI.ts`：冻伤速度乘算与过期；`components`/`factory`：`EnemyRuntime.chillUntil/chillMul`。
+- `src/ctx.ts`：`PlayerStats` 新增 detonate/chill/desperate，`GameContext` 新增 `passives`；同步 4 处构造点（`game.ts`、`sim/headless.ts`、`tests/helpers.ts`、`tests/progression.test.ts`）与 5 个自带 ctx 的测试文件。
+- `src/ui/ui.ts`：`HudData.passives/slots/evoHint`、`RunSummary.build`、进化/特性卡样式、`choiceKindLabel`。
+- `src/game.ts`：`passiveList` / `evoHint` 辅助、HUD 与结算接线。
+- `README.md`、`README.zh-CN.md`：特性说明更新。
+- 回滚方式：回退本任务对应提交（无存档格式变更，localStorage 键未新增或改动）。
+
 ## 2026-06-30 - Task: 审查现有游戏并完成同类产品调研
 
 ### What was done

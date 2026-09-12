@@ -9,6 +9,7 @@ import { buffActive } from './equipment';
 import { addComboKill, comboGoldMul, comboPitch, resetCombo } from './combo';
 import { curseGoldMul } from './curse';
 import { barrierAbsorb } from './skills';
+import { CHILL_CAP, CHILL_SECONDS, DETONATE_DAMAGE, DETONATE_RADIUS } from '../data/passives';
 
 /** Shared damage resolution — used by bullets, nova, and explosions so the rules live in one place. */
 
@@ -83,6 +84,14 @@ export function damageEnemy(
   if (!h || !t || h.hp <= 0) return;
   h.hp -= dmg;
   h.flash = 0.08;
+  // `chill` trait: every hit re-applies the slow, so sustained fire keeps the horde crawling.
+  if (ctx.stats.chill > 0) {
+    const en = ctx.world.get(e, Enemy);
+    if (en) {
+      en.chillMul = 1 - Math.min(CHILL_CAP, ctx.stats.chill);
+      en.chillUntil = ctx.time.elapsed + CHILL_SECONDS;
+    }
+  }
   if (crit) {
     // crits pop: bigger type scaled by how hard the hit was
     const size = Math.min(24, 16 + dmg / 30);
@@ -123,6 +132,11 @@ export function killEnemy(ctx: GameContext, e: Entity): void {
     ctx.vfx.onBloodSplat(x, y, def.radius);
   }
   ctx.world.destroy(e); // remove BEFORE any explosion so it can't re-hit itself
+  // `detonate` trait: corpses cook off, chaining through packed crowds. Never hurts the player.
+  if (ctx.stats.detonate > 0 && ctx.rng() < ctx.stats.detonate) {
+    explode(ctx, x, y, DETONATE_RADIUS, DETONATE_DAMAGE, false);
+    ctx.fx.shockwave(x, y, DETONATE_RADIUS, '#9ef06f', 0.28);
+  }
   spawnGem(ctx, x, y, def.xp * (elite?.xpMul ?? 1));
 
   // Gold coin drop with ±20% jitter; elites, surges, combo tiers, and curse stacks multiply it.

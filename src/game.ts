@@ -16,8 +16,10 @@ import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx
 import {
   PLAYER_BASE, RUN_STAGES, currentRunStage, xpToNext,
   activeSurge, incomingSurge, COMBO_WINDOW, ENDLESS_BOSS_INTERVAL, SUPPLY_FALL_SECONDS,
+  WEAPON_SLOTS, PASSIVE_SLOTS,
 } from './data/balance';
-import { MAX_WEAPON_LEVEL } from './data/weapons';
+import { MAX_WEAPON_LEVEL, evolutionHint, evolutionReady } from './data/weapons';
+import { PASSIVES, passiveById } from './data/passives';
 import { EQUIPMENT } from './data/equipment';
 import { SKILLS } from './data/skills';
 import {
@@ -127,6 +129,7 @@ export class Game {
       level: 1, xp: 0, xpToNext: xpToNext(1), kills: 0,
       damageMul: 1, fireRateMul: 1, moveSpeed: PLAYER_BASE.moveSpeed, maxHp: PLAYER_BASE.maxHp,
       pierceBonus: 0, magnet: 0, projectileBonus: 0, crit: 0, lifesteal: 0,
+      detonate: 0, chill: 0, desperate: 0,
     };
   }
 
@@ -176,6 +179,7 @@ export class Game {
         op,
         opLevelFromXp(this.opXp[op.id] ?? 0).level,
       ),
+      passives: new Map<string, number>(),
       equip: this.freshEquip(),
       skills: this.freshSkills(),
       run: freshRunState(),
@@ -495,6 +499,29 @@ export class Game {
     this.ctx.audio.boss();
   }
 
+  /** Owned passives in definition order, for the HUD and the end-of-run build recap. */
+  private passiveList(ctx: GameContext): Array<{ name: string; level: number; trait: boolean }> {
+    const out: Array<{ name: string; level: number; trait: boolean }> = [];
+    for (const p of PASSIVES) {
+      const level = ctx.passives.get(p.id);
+      if (level) out.push({ name: p.name, level, trait: p.kind === 'trait' });
+    }
+    return out;
+  }
+
+  /** The nearest unmet evolution requirement, so the goal is visible mid-run. */
+  private evoHint(ctx: GameContext): string {
+    const lo = ctx.world.get(ctx.player, Loadout);
+    if (!lo) return '';
+    for (const wi of lo.weapons) {
+      if (wi.level < MAX_WEAPON_LEVEL) continue;
+      if (evolutionReady(wi.def.id, wi.level, ctx.passives)) continue;
+      const hint = evolutionHint(wi.def.id, ctx.passives, (id) => passiveById(id)?.name ?? id);
+      if (hint) return hint;
+    }
+    return '';
+  }
+
   private buildRunSummary(victory: boolean): RunSummary {
     const ctx = this.ctx!;
     const lo = ctx.world.get(ctx.player, Loadout);
@@ -518,6 +545,10 @@ export class Game {
       newAchievements: this.runAchievements.map((a) => ({ name: a.name, desc: a.desc })),
       achProgress: { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
       rescued: ctx.run.rescued,
+      build: {
+        weapons: (lo?.weapons ?? []).map((wi) => ({ name: wi.def.name, level: wi.level })),
+        passives: this.passiveList(ctx).map((pv) => ({ name: pv.name, level: pv.level })),
+      },
       operative: this.lastOpProgress ?? { name: operativeById(this.lastOperative).name, level: 1, gained: 0, leveledUp: false },
     };
   }
@@ -1052,6 +1083,12 @@ export class Game {
       kills: ctx.stats.kills,
       time: ctx.time.elapsed,
       weapons: lo.weapons.map((wi) => ({ name: wi.def.name, level: wi.level })),
+      passives: this.passiveList(ctx),
+      slots: {
+        weapons: `${lo.weapons.length}/${WEAPON_SLOTS}`,
+        passives: `${ctx.passives.size}/${PASSIVE_SLOTS}`,
+      },
+      evoHint: this.evoHint(ctx),
       bossHp,
       gold: ctx.equip.gold,
       items,

@@ -68,8 +68,13 @@ export const PassiveDefSchema = z.object({
   id: z.string(),
   name: z.string(),
   desc: z.string(),
-  stat: z.enum(['damageMul', 'fireRateMul', 'moveSpeed', 'maxHp', 'pierce', 'magnet', 'projectiles', 'crit', 'lifesteal']),
+  stat: z.enum([
+    'damageMul', 'fireRateMul', 'moveSpeed', 'maxHp', 'pierce', 'magnet', 'projectiles', 'crit', 'lifesteal',
+    'detonate', 'chill', 'desperate',
+  ]),
   amount: z.number(),
+  /** 'stat' = flat numbers, 'trait' = changes how combat behaves. UI tints them differently. */
+  kind: z.enum(['stat', 'trait']).default('stat'),
 });
 export type PassiveDef = z.infer<typeof PassiveDefSchema>;
 

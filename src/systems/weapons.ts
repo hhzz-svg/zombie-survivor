@@ -2,6 +2,7 @@ import type { GameContext } from '../ctx';
 import type { WeaponInst } from '../components';
 import { Transform, Aim, Loadout, Health, Collider } from '../components';
 import { spawnBullet } from '../factory';
+import { DESPERATE_HP_FRAC } from '../data/balance';
 import { combatMuzzleOffset } from '../render/combatActor';
 import { damageEnemy } from './combat';
 
@@ -24,10 +25,18 @@ export function weaponSystem(ctx: GameContext, dt: number): void {
   }
 }
 
-/** base × damageMul, doubled on a crit roll. Returns the rolled amount and whether it crit. */
+/**
+ * base × damageMul, doubled on a crit roll. The `desperate` trait pays out only while the
+ * player is actually in danger, so it rewards staying in the fight instead of kiting safely.
+ */
 function rollDmg(ctx: GameContext, base: number): { dmg: number; crit: boolean } {
   const crit = ctx.rng() < ctx.stats.crit;
-  return { dmg: base * ctx.stats.damageMul * (crit ? 2 : 1), crit };
+  let mul = ctx.stats.damageMul;
+  if (ctx.stats.desperate > 0) {
+    const h = ctx.world.get(ctx.player, Health);
+    if (h && h.hp < h.max * DESPERATE_HP_FRAC) mul += ctx.stats.desperate;
+  }
+  return { dmg: base * mul * (crit ? 2 : 1), crit };
 }
 
 /** Orbiting blades: advance their angle, damage overlapping enemies with a per-enemy re-hit cooldown. */

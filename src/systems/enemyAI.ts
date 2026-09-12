@@ -114,13 +114,15 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
       }
     }
 
+    if (en.chillMul < 1 && ctx.time.elapsed >= en.chillUntil) en.chillMul = 1;
     const ml = Math.hypot(mx, my) || 1;
     const speed = en.def.speed
       * speedScale(ctx.time.elapsed)
       * (en.enraged ? 1.4 : 1)
       * (en.elite?.speedMul ?? 1)
       * surgeMul
-      * slowMul;
+      * slowMul
+      * en.chillMul;
     v.x = (mx / ml) * speed;
     v.y = (my / ml) * speed;
   }

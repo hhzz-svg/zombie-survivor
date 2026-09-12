@@ -18,11 +18,12 @@ function makeCtx(): GameContext {
     level: 1, xp: 0, xpToNext: xpToNext(1), kills: 0,
     damageMul: 1, fireRateMul: 1, moveSpeed: PLAYER_BASE.moveSpeed, maxHp: PLAYER_BASE.maxHp,
     pierceBonus: 0, magnet: 0, projectileBonus: 0, crit: 0, lifesteal: 0,
+    detonate: 0, chill: 0, desperate: 0,
   };
   const ctx: GameContext = {
     world, player: 0, hash: new SpatialHash(40), fx: new FX(), audio: new AudioBus(),
     time: { elapsed: 0, hitStop: 0 }, director: { budget: 0, bossSpawned: false, bossDead: false },
-    stats, input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
+    stats, passives: new Map<string, number>(), input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
     rng: world.rng, camera: { x: 0, y: 0 }, screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: { gold: 0, charges: new Map(), buffs: new Map(), buffUndo: new Map(), shield: 0, deathDanceStacks: 0 },
@@ -41,7 +42,7 @@ describe('progression', () => {
   it('damage passive raises damageMul', () => {
     const ctx = makeCtx();
     const before = ctx.stats.damageMul;
-    applyChoice(ctx, { kind: 'passive', passive: { id: 'pow', name: 'x', desc: '', stat: 'damageMul', amount: 0.2 }, label: '', desc: '' });
+    applyChoice(ctx, { kind: 'passive', passive: { id: 'pow', name: 'x', desc: '', stat: 'damageMul', amount: 0.2, kind: 'stat' }, label: '', desc: '' });
     expect(ctx.stats.damageMul).toBeCloseTo(before + 0.2);
   });
 
@@ -49,7 +50,7 @@ describe('progression', () => {
     const ctx = makeCtx();
     const h = ctx.world.get(ctx.player, Health)!;
     const m = h.max;
-    applyChoice(ctx, { kind: 'passive', passive: { id: 'vest', name: 'x', desc: '', stat: 'maxHp', amount: 25 }, label: '', desc: '' });
+    applyChoice(ctx, { kind: 'passive', passive: { id: 'vest', name: 'x', desc: '', stat: 'maxHp', amount: 25, kind: 'stat' }, label: '', desc: '' });
     expect(h.max).toBe(m + 25);
   });
 

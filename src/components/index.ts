@@ -22,6 +22,8 @@ export interface EnemyRuntime {
   volleyCd: number; // boss radial bullet timer
   slamCd: number; // boss shockwave timer
   enraged: boolean; // boss phase-2 flag
+  chillUntil: number; // elapsed time at which the `chill` trait's slow wears off
+  chillMul: number; // speed multiplier while chilled (1 = unchilled)
   elite?: EliteAffix; // affix carried by elite variants
 }
 

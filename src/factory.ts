@@ -44,6 +44,8 @@ export function spawnEnemyAt(ctx: GameContext, def: EnemyDef, x: number, y: numb
     volleyCd: 2.2,
     slamCd: 6.5,
     enraged: false,
+    chillUntil: 0,
+    chillMul: 1,
     elite,
   });
   return e;

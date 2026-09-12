@@ -21,6 +21,9 @@ export interface HudData {
   kills: number;
   time: number;
   weapons: Array<{ name: string; level: number }>;
+  passives: Array<{ name: string; level: number; trait: boolean }>;
+  slots: { weapons: string; passives: string }; // "4/6" — the run's build budget
+  evoHint: string; // pending evolution requirement, '' when none
   bossHp: number | null; // 0..1 fraction, or null if no boss
   gold: number;
   items: Array<{ def: EquipDef; count: number; remain: number }>;
@@ -50,6 +53,11 @@ export interface RunSummary {
   achProgress: { unlocked: number; total: number };
   rescued: number;
   operative: { name: string; level: number; gained: number; leveledUp: boolean };
+  /** The build the player actually assembled — shown so a loss is legible. */
+  build: {
+    weapons: Array<{ name: string; level: number }>;
+    passives: Array<{ name: string; level: number }>;
+  };
 }
 
 /** Per-operative veterancy shown on the title cards. */
@@ -171,6 +179,10 @@ const STYLE = `
 #ui-overlay .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;justify-content:center}
 #ui-overlay .card{cursor:pointer;background:linear-gradient(180deg,rgba(22,48,43,.86),rgba(9,18,17,.9));border:1px solid var(--line);border-radius:16px;padding:14px 12px;transition:.12s;text-align:left;min-height:176px;box-shadow:0 8px 20px rgba(0,0,0,.22)}
 #ui-overlay .card:hover{background:rgba(28,66,59,.92);transform:translateY(-3px);box-shadow:0 14px 28px rgba(0,0,0,.28),0 0 18px rgba(97,229,222,.12)}
+#ui-overlay .card.evo-card{background:linear-gradient(180deg,rgba(80,58,16,.86),rgba(26,16,6,.92));border-color:rgba(255,209,102,.62);box-shadow:0 8px 20px rgba(0,0,0,.28),0 0 22px rgba(255,209,102,.22)}
+#ui-overlay .card.evo-card .k{color:#ffd166}
+#ui-overlay .card.trait-card{border-color:rgba(158,240,111,.42)}
+#ui-overlay .card.trait-card .k{color:#9ef06f}
 #ui-overlay .card.skill-card{background:linear-gradient(180deg,rgba(18,42,72,.72),rgba(9,18,28,.92));border-color:rgba(97,229,222,.3)}
 #ui-overlay .card.cantafford{opacity:.58;cursor:not-allowed}
 #ui-overlay .card .icon{text-align:center;margin-bottom:8px;min-height:54px}
@@ -185,6 +197,11 @@ const STYLE = `
 #ui-overlay .card .key{font-size:11px;color:#77a79a;margin-top:8px}
 #ui-overlay button.start{margin-top:8px;cursor:pointer;background:linear-gradient(90deg,var(--fire),#ffd46a);border:none;color:#231706;font-weight:900;font-size:16px;padding:12px 30px;border-radius:12px;letter-spacing:2px;box-shadow:0 8px 24px rgba(255,180,56,.2)}
 #ui-overlay .gold-display{font-size:16px;color:var(--fire);margin-bottom:14px}.gold-display b{color:#ffe66a}
+#ui-overlay .build-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 2px}
+#ui-overlay .build-row .chip{font-size:11px;padding:4px 9px;border-radius:999px;background:rgba(97,229,222,.1);border:1px solid var(--line);color:#cfeee5}
+#ui-overlay .build-row .chip.p{background:rgba(158,240,111,.1);border-color:rgba(158,240,111,.3);color:#d6f5c4}
+#ui-weapons .slots{margin-top:6px;padding-top:6px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
+#ui-weapons .evohint{color:#ffd166;font-size:11px;line-height:1.5}
 #ui-overlay .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0;text-align:left}
 #ui-overlay .summary div{padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px}.summary span{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}.summary b{color:var(--text)}
 #ui-overlay .shop-panel{width:min(1120px,96%);padding:24px 26px;overflow:hidden}
@@ -311,7 +328,12 @@ export class UI {
       <div class="bar"><i style="width:${Math.round(d.primaryWeapon.progress * 100)}%"></i></div>`;
     this.weaponsEl.innerHTML = d.weapons
       .map((w) => `<div><span class="w">${w.name}</span> <span class="lv">Lv.${w.level}</span></div>`)
-      .join('');
+      .join('')
+      + d.passives
+        .map((p) => `<div><span class="w" style="color:${p.trait ? '#9ef06f' : '#a8c7bd'}">${p.name}</span> <span class="lv">Lv.${p.level}</span></div>`)
+        .join('')
+      + `<div class="slots">武器 ${d.slots.weapons} · 强化 ${d.slots.passives}</div>`
+      + (d.evoHint ? `<div class="evohint">${d.evoHint}</div>` : '');
     if (d.bossHp === null) {
       this.bossWrap.style.display = 'none';
     } else {
@@ -523,14 +545,18 @@ export class UI {
     const cards = choices
       .map(
         (c, i) => {
-          const spriteKey = c.kind !== 'passive' ? c.sprite : undefined;
+          const spriteKey = 'sprite' in c ? c.sprite : undefined;
           const spriteImg = spriteKey
             ? `<img src="/assets/${spriteKey}.png" style="width:56px;height:56px;object-fit:contain;margin-bottom:4px;filter:drop-shadow(0 0 6px rgba(63,174,132,.5))" alt="">`
             : '';
-          const kind = c.kind === 'passive' ? '强化' : c.kind === 'weapon-new' ? '武器' : c.kind === 'weapon-evo' ? '进化' : '升级';
-          const upgradeLine = c.kind === 'weapon-up' ? '<div class="held-label">当前 → 下一等级</div>' : '';
+          const trait = c.kind === 'passive' && c.passive.kind === 'trait';
+          const kind = choiceKindLabel(c, trait);
+          const cls = c.kind === 'weapon-evo' ? ' evo-card' : trait ? ' trait-card' : '';
+          const upgradeLine = c.kind === 'weapon-up' || c.kind === 'passive-up'
+            ? '<div class="held-label">当前 → 下一等级</div>'
+            : '';
           return `
-        <div class="card" data-i="${i}" role="button" tabindex="0">
+        <div class="card${cls}" data-i="${i}" role="button" tabindex="0">
           ${spriteImg}
           <div class="k">${kind}</div>
           <div class="n">${c.label}</div>
@@ -642,6 +668,11 @@ export class UI {
           .join('')}</div>
          <p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">本局解锁 ${summary.newAchievements.length} 项成就 · 总进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`
       : `<p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">成就进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`;
+    const buildChips = [
+      ...summary.build.weapons.map((w) => `<span class="chip">${w.name} Lv.${w.level}</span>`),
+      ...summary.build.passives.map((p) => `<span class="chip p">${p.name} Lv.${p.level}</span>`),
+    ].join('');
+    const buildRow = buildChips ? `<div class="build-row">${buildChips}</div>` : '';
     const opLine = `<div class="op-line">${summary.operative.name} 经验 <b>+${summary.operative.gained}</b> · Lv.${summary.operative.level}${summary.operative.leveledUp ? '<span class="lvup">▲ 升级！</span>' : ''}</div>`;
     this.overlay.innerHTML = `
       <div class="panel">
@@ -649,6 +680,7 @@ export class UI {
         <p>${sub}</p>
         ${achRow}
         ${opLine}
+        ${buildRow}
         <div class="summary">
           <div><span>生存时间</span><b>${UI.fmt(summary.time)}</b></div>
           <div><span>击杀</span><b>${summary.kills}</b></div>
@@ -674,6 +706,17 @@ export class UI {
 
   hideEnd(): void {
     this.overlay.style.display = 'none';
+  }
+}
+
+function choiceKindLabel(c: Choice, trait: boolean): string {
+  switch (c.kind) {
+    case 'weapon-new': return '武器';
+    case 'weapon-evo': return '进化';
+    case 'weapon-up': return '升级';
+    case 'passive': return trait ? '特性' : '强化';
+    case 'passive-up': return '强化';
+    default: return '补给';
   }
 }
 
