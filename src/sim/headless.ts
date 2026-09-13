@@ -63,6 +63,8 @@ export interface SimResult {
   skills: string[];
   rerolls: number;
   banishes: number;
+  /** Which boss this run drew, so the report can tell the two fights apart. '' if none appeared. */
+  bossFought: string;
   cause: string;
 }
 
@@ -321,6 +323,7 @@ export function runHeadless(seed: number, maxSeconds: number, opts: SimOptions =
 
   const lo = world.get(ctx.player, Loadout);
   return {
+    bossFought: director.bossId ?? '',
     seed,
     operative: op.id,
     survivedSec: time.elapsed,

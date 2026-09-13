@@ -1,6 +1,6 @@
 import type { InputProvider } from '../input/provider';
 import type { GameContext } from '../ctx';
-import { Transform, Enemy, XPGem, GoldCoin, Health, Telegraph, Barrel } from '../components';
+import { Transform, Enemy, XPGem, GoldCoin, Health, Telegraph, Barrel, Hazard } from '../components';
 import { blockedAt, BARREL_RADIUS } from '../data/obstacles';
 
 /**
@@ -81,6 +81,12 @@ export class AiInput implements InputProvider {
       const tg = this.ctx.world.get(e, Telegraph)!;
       const d = Math.hypot(tg.x - x, tg.y - y);
       if (d <= tg.r + 20) sum += 0.35;
+    }
+    // Acid on the ground is exactly the kind of slow hazard a bot walks straight through.
+    for (const e of this.ctx.world.query(Hazard, Transform)) {
+      const hz = this.ctx.world.get(e, Hazard)!;
+      const t = this.ctx.world.get(e, Transform)!;
+      if (Math.hypot(t.x - x, t.y - y) <= hz.r) sum += 0.3;
     }
     // A lit barrel, likewise. Without this the bot cannot see the thing that kills it most
     // often — and a yardstick that is blind to a hazard cannot measure a change to it.

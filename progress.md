@@ -1,3 +1,43 @@
+## 2026-09-13 - Task: 第二个 Boss「腐蚀母株」与持续性地面危害
+
+### What was done
+
+- 整局原本是一条 4 分钟漏斗，终点只有母巢暴君，无尽模式也只是同一场仗乘血量。新增第二个 Boss，**开局由种子抽一个**，无尽模式两个轮流回归。
+- **腐蚀母株**（`behavior: 'siege'`）：几乎不动（移速 22），保持 260px 距离，靠夺取地面施压——
+  - **推进弹幕**：每 4.2 秒预警一串炮击，第一发打当前位置，其余沿玩家朝向每隔 105px（略大于爆炸半径，读起来是一条线而不是一坨）依次落下；预警 0.95 秒起，逐发错开 0.18 秒。**站着不动是唯一会吃满全部炮弹的走法。**
+  - **酸池**：每发落点留下持续 6 秒的 `Hazard`，每 0.5 秒结算一次伤害。
+  - **召唤盾卫**（而非疾跑者）：堵住你唯一的退路，让「直线走出酸池」不成立。
+  - 血量低于 50% 狂暴：炮弹 3 → 5 发，召唤 2 → 3 只。
+- 新增 `Hazard` 组件与 `hazardSystem`：按 tick 结算而非逐帧，既让"在酸里待半秒"是失误而不是暴毙，也让伤害与帧率无关（确定性模拟要求）。**只伤玩家**——尸群踩自己的酸会像 bug，Boss 毒死自己的援军更是。
+- 预警系统扩展：新增 `'acid'` 类型，并支持**标记实体**（`spawnTelegraphMarker`）——一个组件只能挂一个预警，标记实体让同一个攻击者可以同时在场上放多个圈；解析后标记自动销毁。
+- HUD 的 Boss 血条现在显示名字（此前硬编码「母巢暴君」）；`Director.bossId` 记录本局抽到谁。
+
+### 过程中修掉的两个真问题
+
+1. **酸池反而在保护玩家**。`damagePlayer` 无条件给 0.6 秒无敌帧，而酸池 tick 间隔 0.5 秒——站在酸里等于对丧尸免疫一半时间，和「地面封锁」的意图完全相反。`damagePlayer` 增加 `grantIFrames` 参数，持续伤害不再发放无敌帧（但仍然尊重已有的）。
+2. **机器人看不见酸池**（和上一轮油桶同一个教训）。补上后 Boss 击杀 6 → 9，中位存活不变——它现在会绕开，说明预警与池子边缘是可读的。
+
+### Testing
+
+- `npm test`：37 个测试文件 211 个测试全部通过（新增 `siegeBoss.test.ts` 10 项）。
+- `npm run build` 通过。
+- 关键用例：40 个种子抽满两个 Boss、显式 cycle 可确定性指定（测试与无尽模式都靠它）；弹幕开火即产生 N 个预警且**预警期间零伤害**；炮弹沿朝向铺开（落点 x 跨度 > 40px）而非叠在一点；落点生成酸池、标记实体自行销毁、酸池到期消失；召唤的是盾卫；酸池按 tick 结算（同一瞬间连续 20 帧不重复扣血）、**不发放无敌帧**、池外不掉血、不伤尸群。
+- 既有用例调整：两个 Boss 专属用例改为 `spawnBoss(ctx, 1, 0)` 显式指定暴君；无尽用例改为按实际抽到的 Boss 断言血量缩放，并新增「无尽会轮换两个 Boss」。
+- 浏览器实测：临时把 `bossAt` 调到 18s 取景，HUD 血条正确显示「腐蚀母株」，预警圈与酸池渲染可读，console 零报错；验收后已还原。
+- 平衡（14 种子 × 3 干员 × 300s）：抵达 Boss 32/42，**暴君击杀率 42%、母株 20%**——新 Boss 明显更难。样本太小（n=12 / n=20），**本轮不据此调数值**。
+
+### Notes
+
+- `src/systems/hazard.ts`、`tests/siegeBoss.test.ts`：新增。
+- `src/data/enemies.ts`：`siege` def + `SIEGE_*` / `ACID_POOL_*` 常量；`schemas.ts` behavior 枚举扩展。
+- `src/components/index.ts`：`Hazard`，`Telegraph.kind` 增加 `'acid'`。
+- `src/factory.ts`：`spawnHazard` / `spawnTelegraphMarker` / `BOSS_IDS`，`spawnBoss(ctx, hpMul, cycle?)` 记录 `director.bossId`。
+- `src/systems/enemyAI.ts`：siege 行为；`src/systems/telegraph.ts`：acid 类型与标记清理；`src/systems/combat.ts`：`grantIFrames`。
+- `src/sim/aiInput.ts`：机器人感知酸池；`src/sim/headless.ts`：`SimResult.bossFought`；`tools/balance.ts`：Boss 分项。
+- `src/game.ts`：`drawHazards`、HUD `bossName`；`src/ui/ui.ts`：`HudData.bossName`。
+- `README.md`、`README.zh-CN.md`：敌人表与特性说明。
+- 回滚方式：回退本任务对应提交（无存档格式变更）。
+
 ## 2026-09-13 - Task: 升级重抽与移除——同时解决进化不可达与金币无出口
 
 ### 起因

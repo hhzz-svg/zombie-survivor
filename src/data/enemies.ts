@@ -14,6 +14,8 @@ const raw = [
   { id: 'lasher',   name: '钩刺者',   behavior: 'lasher',   hp: 40,   speed: 64,  contactDmg: 8,  radius: 12, color: '#d98a3f', xp: 7,   cost: 7,   isBoss: false, sprite: 'runner' },
   { id: 'golden',   name: '黄金逃亡者', behavior: 'golden', hp: 46,   speed: 148, contactDmg: 0,  radius: 10, color: '#ffd700', xp: 10,  cost: 999, isBoss: false },
   { id: 'boss',     name: '母巢暴君', behavior: 'boss',     hp: 5200, speed: 42,  contactDmg: 42, radius: 46, color: '#9b3b6a', xp: 250, cost: 999, isBoss: true },
+  // A siege piece rather than a chaser: it barely moves, but it takes the ground away.
+  { id: 'siege',    name: '腐蚀母株', behavior: 'siege',    hp: 4600, speed: 22,  contactDmg: 38, radius: 44, color: '#6fae3f', xp: 250, cost: 999, isBoss: true, sprite: 'boss' },
 ];
 
 export const ENEMIES: Record<string, EnemyDef> = Object.fromEntries(
@@ -53,3 +55,19 @@ export const LASHER_DAMAGE = 12;
 
 /** How long the tyrant's ground slam is telegraphed before it lands. */
 export const BOSS_SLAM_WINDUP = 0.6;
+
+// --- Corrosion Matriarch (siege boss) ---------------------------------------
+// It denies ground instead of chasing: shells land where you are heading, and what they leave
+// behind stays. The counter is to keep taking new ground, which walks you into what it summoned.
+
+export const SIEGE_BARRAGE_INTERVAL = 4.2;
+export const SIEGE_BARRAGE_WINDUP = 0.95; // generous: the whole point is that it is dodgeable
+export const SIEGE_SHELLS = 3;
+export const SIEGE_SHELLS_ENRAGED = 5;
+export const SIEGE_SHELL_RADIUS = 92;
+export const SIEGE_SHELL_DAMAGE = 18;
+/** How far ahead of the player shells are aimed — it leads the target, so standing still loses. */
+export const SIEGE_LEAD = 105; // slightly more than one blast radius, so the shells read as a line
+export const SIEGE_SUMMON_INTERVAL = 7;
+export const ACID_POOL_SECONDS = 6;
+export const ACID_POOL_DPS = 9;

@@ -2,7 +2,7 @@ import type { GameContext } from '../ctx';
 import { Transform, Velocity, Enemy, Health } from '../components';
 import { speedScale, WAVE, activeSurge, SURGE_SPEED_MUL } from '../data/balance';
 import { ENEMIES } from '../data/enemies';
-import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet } from '../factory';
+import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet, spawnTelegraphMarker } from '../factory';
 import { SLOW_FACTOR, slowActive } from './skills';
 import { obstaclesNear, blockedAt, type Obstacle } from '../data/obstacles';
 import { startTelegraph } from './telegraph';
@@ -10,6 +10,8 @@ import {
   WARDEN_TURN_RATE, BROOD_INTERVAL, BROOD_LITTER,
   LASHER_MIN_RANGE, LASHER_MAX_RANGE, LASHER_INTERVAL, LASHER_WINDUP, LASHER_DAMAGE,
   BOSS_SLAM_WINDUP,
+  SIEGE_BARRAGE_INTERVAL, SIEGE_BARRAGE_WINDUP, SIEGE_SHELLS, SIEGE_SHELLS_ENRAGED,
+  SIEGE_SHELL_RADIUS, SIEGE_SHELL_DAMAGE, SIEGE_LEAD, SIEGE_SUMMON_INTERVAL,
 } from '../data/enemies';
 
 /** How close cover has to be before the horde starts steering around it. */
@@ -167,6 +169,61 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
       if (en.shootCd <= 0 && dist < 460) {
         en.shootCd = 2.4;
         spawnEnemyBullet(ctx, t.x, t.y, dx, dy);
+      }
+    } else if (en.def.behavior === 'siege') {
+      // Keeps its distance and shells the ground. Contact is still lethal, so it is not a
+      // turret to be ignored — but the fight is decided by who controls the floor.
+      if (dist < 260) {
+        mx = -dx + sx * 0.8;
+        my = -dy + sy * 0.8;
+      }
+      const bh = w.get(e, Health);
+      if (bh && !en.enraged && bh.hp / bh.max < 0.5) {
+        en.enraged = true;
+        ctx.audio.boss();
+        ctx.screen.shake = Math.max(ctx.screen.shake, 12);
+      }
+
+      en.volleyCd -= dt * slowMul;
+      if (en.volleyCd <= 0) {
+        en.volleyCd = SIEGE_BARRAGE_INTERVAL;
+        const shells = en.enraged ? SIEGE_SHELLS_ENRAGED : SIEGE_SHELLS;
+        const pv = w.get(ctx.player, Velocity);
+        for (let i = 0; i < shells; i++) {
+          // A creeping barrage: one shell on the player, the rest walking along their heading
+          // one blast radius apart, so standing still is the only way to eat every single one.
+          // Spacing them closer than SIEGE_SHELL_RADIUS would just make one large blob.
+          const lead = i * SIEGE_LEAD;
+          const jitterA = ctx.rng() * Math.PI * 2;
+          const jitter = i === 0 ? 0 : 40;
+          const vx = pv ? pv.x : 0;
+          const vy = pv ? pv.y : 0;
+          const vl = Math.hypot(vx, vy) || 1;
+          const tx = pt.x + (vx / vl) * lead + Math.cos(jitterA) * jitter;
+          const ty = pt.y + (vy / vl) * lead + Math.sin(jitterA) * jitter;
+          startTelegraph(ctx, spawnTelegraphMarker(ctx, tx, ty), {
+            kind: 'acid',
+            x: tx,
+            y: ty,
+            r: SIEGE_SHELL_RADIUS,
+            windup: SIEGE_BARRAGE_WINDUP + i * 0.18,
+            dmg: SIEGE_SHELL_DAMAGE,
+            color: '#8fe04a',
+            cause: '腐蚀母株炮击',
+          });
+        }
+        ctx.audio.boss();
+      }
+
+      en.summonCd -= dt * slowMul;
+      if (en.summonCd <= 0 && w.query(Enemy).length < WAVE.cap) {
+        en.summonCd = SIEGE_SUMMON_INTERVAL;
+        // Wardens, not runners: you cannot simply walk away from the acid in a straight line.
+        for (let i = 0; i < (en.enraged ? 3 : 2); i++) {
+          const a = ctx.rng() * Math.PI * 2;
+          spawnEnemyAt(ctx, ENEMIES['warden']!, t.x + Math.cos(a) * 70, t.y + Math.sin(a) * 70);
+        }
+        ctx.fx.shockwave(t.x, t.y, 60, '#8fe04a', 0.3);
       }
     } else if (en.def.behavior === 'boss') {
       const bh = w.get(e, Health);

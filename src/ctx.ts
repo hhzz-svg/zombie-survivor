@@ -71,6 +71,7 @@ export interface Director {
   nextSurvivorAt?: number; // next stranded-survivor spawn time
   activatedCells?: Set<string>; // obstacle cells whose barrels have already been materialised
   endless?: boolean; // post-victory endless mode
+  bossId?: string; // which boss this run drew — the fight survives the boss entity's death
   bossCycle?: number; // endless: how many tyrants have spawned so far
   nextBossAt?: number; // endless: next tyrant respawn time
 }

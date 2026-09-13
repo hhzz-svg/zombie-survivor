@@ -6,6 +6,7 @@ import { directorSystem } from './spawn';
 import { inputSystem } from './input';
 import { enemyAISystem } from './enemyAI';
 import { telegraphSystem } from './telegraph';
+import { hazardSystem } from './hazard';
 import { wingmanSystem } from './wingman';
 import { weaponSystem } from './weapons';
 import { bulletSystem } from './bullets';
@@ -47,6 +48,7 @@ export function runSystems(ctx: GameContext, dt: number): void {
   inputSystem(ctx);
   enemyAISystem(ctx, dt);
   telegraphSystem(ctx, dt);
+  hazardSystem(ctx, dt);
   wingmanSystem(ctx, dt);
   weaponSystem(ctx, dt);
   movementSystem(ctx.world, dt);

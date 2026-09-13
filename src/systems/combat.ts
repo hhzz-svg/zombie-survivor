@@ -15,7 +15,17 @@ import { CHILL_CAP, CHILL_SECONDS, DETONATE_DAMAGE, DETONATE_RADIUS } from '../d
 
 /** Shared damage resolution — used by bullets, nova, and explosions so the rules live in one place. */
 
-export function damagePlayer(ctx: GameContext, dmg: number, cause = '感染者近身攻击'): void {
+/**
+ * @param grantIFrames pass false for damage-over-time. A hazard that granted the usual 0.6s of
+ * immunity would protect the player from the horde for half the time they stood in it — the
+ * opposite of a denial mechanic.
+ */
+export function damagePlayer(
+  ctx: GameContext,
+  dmg: number,
+  cause = '感染者近身攻击',
+  grantIFrames = true,
+): void {
   const h = ctx.world.get(ctx.player, Health)!;
   if (h.invuln > 0 || h.hp <= 0) return;
   if (barrierAbsorb(ctx)) return;
@@ -31,7 +41,7 @@ export function damagePlayer(ctx: GameContext, dmg: number, cause = '感染者�
     return;
   }
   h.hp -= dmg;
-  h.invuln = 0.6;
+  if (grantIFrames) h.invuln = 0.6;
   h.flash = 0.2;
   resetCombo(ctx); // real HP damage breaks the kill chain
   if (ctx.run.firstHpHitAt === null) ctx.run.firstHpHitAt = ctx.time.elapsed;

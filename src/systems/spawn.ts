@@ -78,7 +78,8 @@ export function directorSystem(ctx: GameContext, dt: number): void {
   if (d.endless && d.nextBossAt !== undefined && ctx.time.elapsed >= d.nextBossAt) {
     d.nextBossAt = undefined; // re-armed by killEnemy when this tyrant dies
     d.bossCycle = (d.bossCycle ?? 0) + 1;
-    spawnBoss(ctx, ENDLESS_BOSS_HP_MUL ** d.bossCycle);
+    // Pass the cycle so endless alternates the two bosses instead of replaying one louder.
+    spawnBoss(ctx, ENDLESS_BOSS_HP_MUL ** d.bossCycle, d.bossCycle);
   }
 }
 

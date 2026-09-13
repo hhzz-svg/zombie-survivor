@@ -17,6 +17,9 @@ import { OPERATIVES } from '../src/data/operatives';
 import { WEAPONS } from '../src/data/weapons';
 import { PASSIVES } from '../src/data/passives';
 import { SKILLS } from '../src/data/skills';
+import { ENEMIES } from '../src/data/enemies';
+import { BOSS_IDS } from '../src/factory';
+import { WAVE } from '../src/data/balance';
 
 function arg(name: string, fallback: string): string {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -101,6 +104,22 @@ for (const p of PASSIVES) {
   const levels = held.map((r) => Number(r.passives.find((x) => x.startsWith(`${p.id}:`))!.split(':')[1]));
   lines.push(`| ${p.name} \`${p.id}\` | ${held.length === 0 ? '—' : pct(held.length, all.length)} `
     + `| ${held.length === 0 ? '—' : mean(levels).toFixed(1)} |`);
+}
+lines.push('');
+
+// --- bosses -----------------------------------------------------------------
+lines.push('## Boss');
+lines.push('');
+lines.push('一局抽一个 Boss，所以两场仗要分开看。');
+lines.push('');
+lines.push('| Boss | 抽到 | 打到它 | 击杀 | 击杀率（在打到它的局中） |');
+lines.push('|---|---|---|---|---|');
+for (const id of BOSS_IDS) {
+  const drew = all.filter((r) => r.bossFought === id);
+  const reached = drew.filter((r) => r.survivedSec >= WAVE.bossAt);
+  const killed = drew.filter((r) => r.bossDead);
+  lines.push(`| ${ENEMIES[id]!.name} \`${id}\` | ${drew.length} | ${reached.length} | ${killed.length} `
+    + `| ${reached.length === 0 ? '—' : pct(killed.length, reached.length)} |`);
 }
 lines.push('');
 

@@ -27,6 +27,7 @@ export interface HudData {
   slots: { weapons: string; passives: string }; // "4/6" — the run's build budget
   evoHint: string; // pending evolution requirement, '' when none
   bossHp: number | null; // 0..1 fraction, or null if no boss
+  bossName: string; // a run can draw either boss, so the bar has to say which
   gold: number;
   items: Array<{ def: EquipDef; count: number; remain: number }>;
   skills: Array<{ def: SkillDef; remain: number; active: boolean }>;
@@ -343,7 +344,7 @@ export class UI {
       <div id="ui-combo"><div class="cnum"></div><div class="cname"></div><div class="cbar"><i></i></div></div>
       <div id="ui-toast"><div class="t-name"></div><div class="t-desc"></div></div>
       <div id="ui-reveal"><div class="rv-kicker">空投补给</div><div class="rv-name"></div><div class="rv-desc"></div></div>
-      <div id="ui-boss"><div class="t">母巢暴君</div><i></i></div>
+      <div id="ui-boss"><div class="t"></div><i></i></div>
     `;
     document.body.appendChild(hud);
 
@@ -415,6 +416,8 @@ export class UI {
     } else {
       this.bossWrap.style.display = 'block';
       this.bossFill.style.width = `${Math.max(0, d.bossHp * 100)}%`;
+      const nameEl = this.bossWrap.querySelector('.t') as HTMLElement;
+      if (nameEl.textContent !== d.bossName) nameEl.textContent = d.bossName;
     }
 
     this.goldEl.innerHTML = `金币 <b>${d.gold}</b>`;

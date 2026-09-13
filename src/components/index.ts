@@ -61,11 +61,23 @@ export const Medkit = defineComponent<{ heal: number }>('Medkit');
 /** A supply crate: parachutes in until `landAt`, then sits collectable on the ground. */
 export const SupplyCrate = defineComponent<{ landAt: number }>('SupplyCrate');
 /**
+ * A lingering ground hazard — acid left behind by a barrage. Denies space rather than dealing
+ * burst damage, which is what makes the siege boss a different fight from a chaser.
+ */
+export const Hazard = defineComponent<{
+  r: number;
+  until: number; // elapsed time it evaporates
+  dps: number;
+  nextTick: number; // elapsed time of the next damage tick
+  color: string;
+}>('Hazard');
+
+/**
  * A wind-up the player can read and step out of. Telegraphed attacks are the difference
  * between "I got hit" and "I should have moved" — the horde had none before this.
  */
 export const Telegraph = defineComponent<{
-  kind: 'slam' | 'lash';
+  kind: 'slam' | 'lash' | 'acid';
   x: number; // where it will land (world space, fixed at wind-up time)
   y: number;
   r: number;

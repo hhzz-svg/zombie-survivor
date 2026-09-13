@@ -44,6 +44,7 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 - **Six weapon slots, six passive slots.** Both are capped and passives level to 5, so every level-up is a decision about what you give up — not a free stat handout. Three of the passives change how combat behaves rather than moving a number: corpses that cook off on kill, hits that freeze the horde, and damage that spikes while you are nearly dead.
 - **Auto-fire, all movement.** No reloading, no aiming clicks — your attention goes entirely into positioning and crowd control. Easy to start, hard to master.
 - **Attacks you can read.** Telegraphed wind-ups: the lasher's hook and the tyrant's ground slam both mark where they will land before they land. Nothing in the game was dodgeable before this — a hit just happened to you.
+- **Two bosses, and the run draws one.** The Hive Tyrant chases. The Corrosion Matriarch barely moves and takes the ground away instead — a creeping barrage that leaves acid behind it, and wardens summoned to block the way out. The seed decides which one you meet, and endless alternates them rather than replaying one fight louder.
 - **A boss with a kit — and it doesn't end there.** The Hive Tyrant volleys, slams, and summons. Beat it and you can enter the **endless horde**: the Tyrant returns every 110 seconds, tougher each cycle, with blood moons on rotation. See how far you get.
 - **Active skills you actually pilot.** Dash through a pack, burst the room, pop a barrier, or slow time. Bought from the shop mid-run, mapped to `Z` `X` `C` `V` with live cooldown slots.
 - **It feels good to play.** Scaled damage numbers, a combo counter with fever-glow screen edges, parachuting crates with reward toasts, blood-moon tint, screen shake, hit flashes, corpses and blood decals — all on plain Canvas 2D, all running smooth with a crowded screen.
@@ -62,7 +63,8 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | **Brood** | Hangs back and keeps hatching walkers. Ignore it and the field compounds on its own. |
 | **Lasher** | Hooks from mid range: a 0.75s warning line and landing ring, then it yanks you in. Break line of sight behind cover and it can't reach. |
 | **Golden runner** | Never attacks, only flees. Kill it before it escapes for a coin fountain. |
-| **Hive Tyrant** | The boss. Volleys, slams, and summons — survive it to win, then dare the endless horde. |
+| **Hive Tyrant** | One of two bosses. Volleys, a telegraphed ground slam, and summoned runners — a fight that chases you. |
+| **Corrosion Matriarch** | The other. Barely moves, but takes the floor away: a telegraphed creeping barrage that leaves acid pools for six seconds, plus summoned wardens to block the way out. |
 
 ## Controls
 

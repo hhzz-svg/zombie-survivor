@@ -1,8 +1,9 @@
 import type { GameContext } from '../ctx';
 import type { Entity } from '../ecs/world';
-import { Transform, Telegraph } from '../components';
+import { Transform, Telegraph, Enemy } from '../components';
 import { damagePlayer } from './combat';
-import { LASHER_PULL } from '../data/enemies';
+import { spawnHazard } from '../factory';
+import { ACID_POOL_DPS, ACID_POOL_SECONDS, LASHER_PULL } from '../data/enemies';
 
 /**
  * Telegraphed attacks: a wind-up is placed in the world, drawn as a filling ring, and only
@@ -16,7 +17,7 @@ export function startTelegraph(
   ctx: GameContext,
   e: Entity,
   data: {
-    kind: 'slam' | 'lash';
+    kind: 'slam' | 'lash' | 'acid';
     x: number;
     y: number;
     r: number;
@@ -49,6 +50,19 @@ export function telegraphSystem(ctx: GameContext, _dt: number): void {
     const tg = w.get(e, Telegraph)!;
     if (ctx.time.elapsed < tg.at) continue;
     w.remove(e, Telegraph);
+    // A barrage plants one marker entity per circle so several can be in the air at once;
+    // markers exist only to carry the wind-up, so they go when it resolves.
+    if (!w.has(e, Enemy)) w.destroy(e);
+
+    if (tg.kind === 'acid') {
+      ctx.fx.shockwave(tg.x, tg.y, tg.r, tg.color, 0.3);
+      ctx.fx.burst(tg.x, tg.y, 14, tg.color, 170, ctx.rng);
+      ctx.audio.explode();
+      const d = Math.hypot(pt.x - tg.x, pt.y - tg.y);
+      if (d <= tg.r + 12) damagePlayer(ctx, tg.dmg, tg.cause);
+      spawnHazard(ctx, tg.x, tg.y, tg.r, ACID_POOL_SECONDS, ACID_POOL_DPS);
+      continue;
+    }
 
     if (tg.kind === 'slam') {
       ctx.fx.shockwave(tg.x, tg.y, tg.r, tg.color, 0.38);

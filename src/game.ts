@@ -34,7 +34,7 @@ import { skillCooldownRemaining, useSkill } from './systems/skills';
 import { comboTier, freshRunState } from './systems/combo';
 import {
   Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity,
-  Lifetime, SupplyCrate, CurseAltar, Survivor, Wingman, Barrel, Telegraph, type WeaponInst,
+  Lifetime, SupplyCrate, CurseAltar, Survivor, Wingman, Barrel, Telegraph, Hazard, type WeaponInst,
 } from './components';
 import { obstaclesInRect, type Obstacle } from './data/obstacles';
 import { SURVIVOR_WAIT } from './data/wingmen';
@@ -838,6 +838,7 @@ export class Game {
     if (ctx) {
       this.blood.draw(r); // blood painted on the ground, never fades
       this.corpses.draw(r, this.assets); // corpses/afterimages sit under the living
+      this.drawHazards(ctx, r);
       this.drawTelegraphs(ctx, r);
       this.drawWorld(ctx, r);
       ctx.fx.draw(r);
@@ -954,6 +955,22 @@ export class Game {
       r.drawRect(o.x, cy - h * 0.32, w, h * 0.26, '#726e61'); // lit top
       r.drawRect(o.x, cy + h * 0.3, w, h * 0.2, '#3f3d36', 0.8); // shaded base
       r.drawRect(o.x, cy + h * 0.48, w, 3, '#26241f');
+    }
+  }
+
+  /** Acid pools: ground the player has lost, painted under everything that walks on it. */
+  private drawHazards(ctx: GameContext, r: Renderer): void {
+    const w = ctx.world;
+    const now = performance.now();
+    for (const e of w.query(Hazard, Transform)) {
+      const h = w.get(e, Hazard)!;
+      const t = w.get(e, Transform)!;
+      const left = Math.max(0, h.until - ctx.time.elapsed);
+      const fade = Math.min(1, left / 1.2); // thins out as it evaporates, so the edge is readable
+      const pulse = 0.5 + 0.5 * Math.sin(now / 260 + t.x * 0.05);
+      r.drawEllipse(t.x, t.y, h.r, h.r * 0.64, h.color, 0.2 * fade);
+      r.drawEllipse(t.x, t.y, h.r * 0.62, h.r * 0.4, h.color, 0.16 * fade);
+      r.drawRing(t.x, t.y, h.r, h.color, 2, (0.4 + pulse * 0.25) * fade);
     }
   }
 
@@ -1341,11 +1358,13 @@ export class Game {
         ? '按 B 打开商店，用金币购买装备补足生存能力'
         : '';
     let bossHp: number | null = null;
+    let bossName = '';
     for (const e of w.query(Enemy)) {
       const en = w.get(e, Enemy)!;
       if (en.def.isBoss) {
         const h = w.get(e, Health)!;
         bossHp = h.hp / h.max;
+        bossName = en.def.name;
         break;
       }
     }
@@ -1419,6 +1438,7 @@ export class Game {
       },
       evoHint: this.evoHint(ctx),
       bossHp,
+      bossName,
       gold: ctx.equip.gold,
       items,
       skills: SKILLS

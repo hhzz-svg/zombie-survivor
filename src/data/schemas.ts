@@ -11,7 +11,7 @@ export const EnemyDefSchema = z.object({
   name: z.string(),
   behavior: z.enum([
     'walker', 'runner', 'brute', 'spitter', 'exploder', 'boss', 'golden',
-    'warden', 'brood', 'lasher',
+    'warden', 'brood', 'lasher', 'siege',
   ]),
   hp: z.number().positive(),
   speed: z.number().nonnegative(),
