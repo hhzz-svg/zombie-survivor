@@ -30,11 +30,15 @@ describe('sim options', () => {
     expect(diverged).toBe(true);
   });
 
-  it('actually shops when the shop is enabled, and not otherwise', () => {
+  it('actually shops when the shop is enabled, and never otherwise', () => {
     // Gold held at the end is the wrong probe: the run that never shops dies earlier and so
     // earns less. Owned skills are direct evidence the purchase path ran.
-    expect(runHeadless(12, 200, { shop: true }).skills.length).toBeGreaterThan(0);
-    expect(runHeadless(12, 200, { shop: false }).skills).toEqual([]);
+    //
+    // Spread over several seeds rather than pinning one: any single run's build (and so how
+    // far it gets) shifts whenever the weapon pool changes, which is not what this asserts.
+    const seeds = [11, 12, 13, 14];
+    expect(seeds.some((s) => runHeadless(s, 220, { shop: true }).skills.length > 0)).toBe(true);
+    for (const s of seeds) expect(runHeadless(s, 220, { shop: false }).skills).toEqual([]);
   });
 
   it('applies talents to the run it reports on', () => {

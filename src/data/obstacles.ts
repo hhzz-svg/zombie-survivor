@@ -145,6 +145,26 @@ export function blockedAt(seed: number, x: number, y: number, r: number): boolea
 }
 
 /**
+ * How far a ray travels before cover stops it, up to `maxLen`. Sampled rather than analytic:
+ * obstacles are small and this is called a handful of times a frame, so exactness would buy
+ * nothing. Used by the beam weapon and by the lasher's line-of-sight check.
+ */
+export function rayReach(
+  seed: number,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  maxLen: number,
+  step = 14,
+): number {
+  for (let d = step; d <= maxLen; d += step) {
+    if (blockedAt(seed, x + dx * d, y + dy * d, 3)) return d - step;
+  }
+  return maxLen;
+}
+
+/**
  * Push a circle out of any cover it overlaps, along the shallowest axis, and report the
  * surface normal so the caller can slide velocity along the wall instead of sticking to it.
  */

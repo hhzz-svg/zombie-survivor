@@ -4,7 +4,7 @@ import { speedScale, WAVE, activeSurge, SURGE_SPEED_MUL } from '../data/balance'
 import { ENEMIES } from '../data/enemies';
 import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet, spawnTelegraphMarker } from '../factory';
 import { SLOW_FACTOR, slowActive } from './skills';
-import { obstaclesNear, blockedAt, type Obstacle } from '../data/obstacles';
+import { obstaclesNear, rayReach, type Obstacle } from '../data/obstacles';
 import { startTelegraph } from './telegraph';
 import {
   WARDEN_TURN_RATE, BROOD_INTERVAL, BROOD_LITTER,
@@ -29,17 +29,13 @@ function turnToward(en: { faceX: number; faceY: number }, tx: number, ty: number
   en.faceY = Math.sin(cur + step);
 }
 
-/**
- * Cheap segment test against cover — sampled, not analytic, which is plenty for deciding
- * whether a hook can reach. Ducking behind a container stops the lasher, same as bullets.
- */
+/** Ducking behind a container stops the lasher, same as it stops bullets and the beam. */
 function hasLineOfSight(ctx: GameContext, x1: number, y1: number, x2: number, y2: number): boolean {
-  const steps = 10;
-  for (let i = 1; i < steps; i++) {
-    const k = i / steps;
-    if (blockedAt(ctx.seed, x1 + (x2 - x1) * k, y1 + (y2 - y1) * k, 4)) return false;
-  }
-  return true;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return true;
+  return rayReach(ctx.seed, x1, y1, dx / len, dy / len, len) >= len;
 }
 
 /**

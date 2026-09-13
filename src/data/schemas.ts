@@ -29,7 +29,7 @@ export type EnemyDef = z.infer<typeof EnemyDefSchema>;
 export const WeaponDefSchema = z.object({
   id: z.string(),
   name: z.string(),
-  kind: z.enum(['aim', 'nova', 'orbit']),
+  kind: z.enum(['aim', 'nova', 'orbit', 'beam', 'chain']),
   cooldown: z.number().positive(), // seconds between shots
   damage: z.number().nonnegative(),
   projectiles: z.number().int().positive(),
@@ -42,6 +42,7 @@ export const WeaponDefSchema = z.object({
   sprite: z.string().optional(), // manifest key for sprite image
   bulletStyle: z.enum(['flame', 'rocket']).optional(), // non-default projectile rendering
   explodeRadius: z.number().positive().optional(), // splash radius on hit (rockets)
+  width: z.number().positive().optional(), // beam thickness in px (kind === 'beam')
 });
 export type WeaponDef = z.infer<typeof WeaponDefSchema>;
 

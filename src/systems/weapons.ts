@@ -2,6 +2,8 @@ import type { GameContext } from '../ctx';
 import type { WeaponInst } from '../components';
 import { Transform, Aim, Loadout, Health, Collider } from '../components';
 import { spawnBullet } from '../factory';
+import { rayReach } from '../data/obstacles';
+import type { WeaponDef } from '../data/schemas';
 import { DESPERATE_HP_FRAC } from '../data/balance';
 import { combatMuzzleOffset } from '../render/combatActor';
 import { damageEnemy } from './combat';
@@ -69,9 +71,110 @@ function updateOrbit(ctx: GameContext, wi: WeaponInst, px: number, py: number, d
   }
 }
 
+/**
+ * A continuous lance. Cover stops it, which is what makes it a positioning weapon: the beam
+ * wants a clean lane, so the terrain decides where you can stand rather than how hard you hit.
+ */
+function fireBeam(
+  ctx: GameContext,
+  def: WeaponDef,
+  base: number,
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+): void {
+  const width = def.width ?? 20;
+  const beams = def.projectiles;
+  const baseA = Math.atan2(ay, ax);
+  const neigh: number[] = [];
+
+  for (let b = 0; b < beams; b++) {
+    const a = baseA + (beams > 1 ? (b / (beams - 1) - 0.5) * def.spread : 0);
+    const dx = Math.cos(a);
+    const dy = Math.sin(a);
+    const len = rayReach(ctx.seed, px, py, dx, dy, def.range);
+    const ex = px + dx * len;
+    const ey = py + dy * len;
+
+    // One broad query over the beam's bounding circle, then an exact point-to-segment test.
+    ctx.hash.query((px + ex) / 2, (py + ey) / 2, len / 2 + width, neigh);
+    for (const o of neigh) {
+      const ot = ctx.world.get(o, Transform);
+      const oc = ctx.world.get(o, Collider);
+      if (!ot || !oc) continue;
+      const t = Math.max(0, Math.min(len, (ot.x - px) * dx + (ot.y - py) * dy));
+      const gap = Math.hypot(ot.x - (px + dx * t), ot.y - (py + dy * t));
+      if (gap > width / 2 + oc.r) continue;
+      const { dmg, crit } = rollDmg(ctx, base);
+      damageEnemy(ctx, o, dmg, dx, dy, def.knockback, crit, true);
+    }
+
+    ctx.fx.streak(px, py, ex, ey, '#9fe8ff');
+    ctx.fx.flash(ex, ey, width * 0.5, '#eaffff', '#5fd0ff', 0.08);
+  }
+}
+
+/**
+ * Lightning that hops between bodies. The opposite positioning problem to the beam: it wants
+ * the horde bunched together, so it rewards letting them close in.
+ */
+function fireChain(ctx: GameContext, def: WeaponDef, base: number, px: number, py: number): void {
+  const JUMP_RANGE = 150;
+  const FALLOFF = 0.82;
+  const hit = new Set<number>();
+  const neigh: number[] = [];
+  let fromX = px;
+  let fromY = py;
+  let damage = base;
+  let searchRadius = def.range;
+
+  for (let jump = 0; jump < def.projectiles; jump++) {
+    ctx.hash.query(fromX, fromY, searchRadius, neigh);
+    let best = -1;
+    let bestD = Infinity;
+    for (const o of neigh) {
+      if (hit.has(o)) continue;
+      const ot = ctx.world.get(o, Transform);
+      const oh = ctx.world.get(o, Health);
+      if (!ot || !oh || oh.hp <= 0) continue;
+      const d = Math.hypot(ot.x - fromX, ot.y - fromY);
+      if (d < bestD && d <= searchRadius) {
+        bestD = d;
+        best = o;
+      }
+    }
+    if (best < 0) break; // the chain dies out when the crowd thins — that is the trade
+
+    const ot = ctx.world.get(best, Transform)!;
+    const d = bestD || 1;
+    const { dmg, crit } = rollDmg(ctx, damage);
+    ctx.fx.streak(fromX, fromY, ot.x, ot.y, '#b9ecff');
+    ctx.fx.flash(ot.x, ot.y, 11, '#eaffff', '#7fd6ff', 0.1);
+    damageEnemy(ctx, best, dmg, (ot.x - fromX) / d, (ot.y - fromY) / d, def.knockback, crit);
+
+    hit.add(best);
+    fromX = ot.x;
+    fromY = ot.y;
+    damage *= FALLOFF;
+    searchRadius = JUMP_RANGE;
+  }
+  if (hit.size > 0) ctx.audio.nova();
+}
+
 function fire(ctx: GameContext, wi: WeaponInst, px: number, py: number, ax: number, ay: number, playerRadius: number): void {
   const def = wi.def;
   const base = def.damage * (1 + 0.25 * (wi.level - 1));
+
+  if (def.kind === 'beam') {
+    fireBeam(ctx, def, base, px, py, ax, ay);
+    return;
+  }
+
+  if (def.kind === 'chain') {
+    fireChain(ctx, def, base, px, py);
+    return;
+  }
 
   if (def.kind === 'nova') {
     const r = def.range;
