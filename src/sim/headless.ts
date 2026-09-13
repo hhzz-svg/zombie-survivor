@@ -9,6 +9,7 @@ import { createPlayer } from '../factory';
 import { runSystems } from '../systems/pipeline';
 import { freshRunState } from '../systems/combo';
 import { makeChoices, applyChoice, type Choice } from '../progression';
+import { evolutionFor, requiredPassiveLevel } from '../data/weapons';
 import { operativeById, applyOperative, applyOperativeLevel, DEFAULT_OPERATIVE } from '../data/operatives';
 import { talentEffects, applyTalents, type TalentLevels } from '../data/talents';
 import { currentShopOffers, purchaseOffer } from '../shop';
@@ -17,8 +18,15 @@ import { useSkill, skillCooldownRemaining } from '../systems/skills';
 import { Health, Loadout, Enemy, Transform } from '../components';
 import { AiInput, DEFAULT_BOT, type BotTuning } from './aiInput';
 
-/** How the scripted player picks its level-up rewards. */
-export type ChoicePolicy = 'first' | 'greedy';
+/**
+ * How the scripted player picks its level-up rewards.
+ *  - `first`   take whatever is in slot 1 (the original, kept so old numbers stay comparable)
+ *  - `greedy`  a rough stand-in for an average player: upgrade whatever is upgradable
+ *  - `focus`   plays deliberately toward one weapon's evolution, the way a player with a plan
+ *              would. The gap between `greedy` and `focus` is what separates "the recipe is
+ *              too expensive" from "the bot just never tried".
+ */
+export type ChoicePolicy = 'first' | 'greedy' | 'focus';
 
 export interface SimOptions {
   operative?: string;
@@ -101,8 +109,12 @@ function freshSkills(): SkillState {
 }
 
 /** Rank the offer list the way a competent player roughly would. */
-function pickChoice(choices: Choice[], policy: ChoicePolicy): Choice | undefined {
+function pickChoice(ctx: GameContext, choices: Choice[], policy: ChoicePolicy): Choice | undefined {
   if (policy === 'first' || choices.length === 0) return choices[0];
+  if (policy === 'focus') {
+    const focused = pickFocused(ctx, choices);
+    if (focused) return focused;
+  }
   const rank = (c: Choice): number => {
     switch (c.kind) {
       case 'weapon-evo': return 0;
@@ -114,6 +126,35 @@ function pickChoice(choices: Choice[], policy: ChoicePolicy): Choice | undefined
     }
   };
   return choices.slice().sort((a, b) => rank(a) - rank(b))[0];
+}
+
+/**
+ * Chase one weapon's evolution: keep the starting weapon, push it to max, and take the
+ * passive its recipe needs. Everything else is filler.
+ */
+function pickFocused(ctx: GameContext, choices: Choice[]): Choice | undefined {
+  const lo = ctx.world.get(ctx.player, Loadout);
+  const target = lo?.weapons[0];
+  if (!target) return undefined;
+  const recipe = evolutionFor(target.def.id);
+
+  const evo = choices.find((c) => c.kind === 'weapon-evo');
+  if (evo) return evo;
+  const up = choices.find((c) => c.kind === 'weapon-up' && c.weaponId === target.def.id);
+  if (up) return up;
+  if (recipe) {
+    const need = requiredPassiveLevel(recipe, ctx.stats.evoDiscount);
+    const have = ctx.passives.get(recipe.passive) ?? 0;
+    if (have < need) {
+      const passive = choices.find(
+        (c) => (c.kind === 'passive' && c.passive.id === recipe.passive)
+          || (c.kind === 'passive-up' && c.passiveId === recipe.passive),
+      );
+      if (passive) return passive;
+    }
+  }
+  // Nothing on-plan was offered: never widen the weapon pool, which only dilutes future offers.
+  return choices.find((c) => c.kind !== 'weapon-new');
 }
 
 /**
@@ -197,7 +238,7 @@ export function runHeadless(seed: number, maxSeconds: number, opts: SimOptions =
     screen: { shake: 0 },
     events: {
       onLevelUp: () => {
-        const pick = pickChoice(makeChoices(ctx), policy);
+        const pick = pickChoice(ctx, makeChoices(ctx), policy);
         if (pick) applyChoice(ctx, pick);
       },
       onDeath: () => {
