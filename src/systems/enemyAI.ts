@@ -11,7 +11,7 @@ import {
   LASHER_MIN_RANGE, LASHER_MAX_RANGE, LASHER_INTERVAL, LASHER_WINDUP, LASHER_DAMAGE,
   BOSS_SLAM_WINDUP,
   SIEGE_BARRAGE_INTERVAL, SIEGE_BARRAGE_WINDUP, SIEGE_SHELLS, SIEGE_SHELLS_ENRAGED,
-  SIEGE_SHELL_RADIUS, SIEGE_SHELL_DAMAGE, SIEGE_LEAD, SIEGE_SUMMON_INTERVAL,
+  SIEGE_SHELL_RADIUS, SIEGE_SHELL_DAMAGE, SIEGE_LEAD, SIEGE_SUMMON_INTERVAL, SIEGE_ENRAGE_AT,
 } from '../data/enemies';
 
 /** How close cover has to be before the horde starts steering around it. */
@@ -174,7 +174,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         my = -dy + sy * 0.8;
       }
       const bh = w.get(e, Health);
-      if (bh && !en.enraged && bh.hp / bh.max < 0.5) {
+      if (bh && !en.enraged && bh.hp / bh.max < SIEGE_ENRAGE_AT) {
         en.enraged = true;
         ctx.audio.boss();
         ctx.screen.shake = Math.max(ctx.screen.shake, 12);

@@ -68,6 +68,14 @@ export const SIEGE_SHELL_RADIUS = 92;
 export const SIEGE_SHELL_DAMAGE = 18;
 /** How far ahead of the player shells are aimed — it leads the target, so standing still loses. */
 export const SIEGE_LEAD = 105; // slightly more than one blast radius, so the shells read as a line
-export const SIEGE_SUMMON_INTERVAL = 7;
+/**
+ * Wardens are what stops the player simply walking out of the acid, so this interval is the
+ * dial on how much the two halves of the fight compound. At 7s the matriarch killed three
+ * times as often as the tyrant (20% vs 61% kill rate over 120 measured runs), and it was the
+ * stacking rather than any single element that did it.
+ */
+export const SIEGE_SUMMON_INTERVAL = 9.5;
+/** Fraction of max HP at which it enrages — later than the tyrant, so the hardest phase is shorter. */
+export const SIEGE_ENRAGE_AT = 0.35;
 export const ACID_POOL_SECONDS = 6;
 export const ACID_POOL_DPS = 9;
