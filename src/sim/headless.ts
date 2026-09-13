@@ -4,11 +4,11 @@ import { SpatialHash } from '../ecs/spatialHash';
 import { FX } from '../fx/fx';
 import { AudioBus } from '../audio/audio';
 import type { GameContext, PlayerStats, Director, TimeState, EquipmentState, SkillState } from '../ctx';
-import { PLAYER_BASE, xpToNext, currentRunStage } from '../data/balance';
+import { PLAYER_BASE, xpToNext, currentRunStage, rerollCost, banishCost } from '../data/balance';
 import { createPlayer } from '../factory';
 import { runSystems } from '../systems/pipeline';
 import { freshRunState } from '../systems/combo';
-import { makeChoices, applyChoice, type Choice } from '../progression';
+import { makeChoices, applyChoice, choiceKey, type Choice } from '../progression';
 import { evolutionFor, requiredPassiveLevel } from '../data/weapons';
 import { operativeById, applyOperative, applyOperativeLevel, DEFAULT_OPERATIVE } from '../data/operatives';
 import { talentEffects, applyTalents, type TalentLevels } from '../data/talents';
@@ -61,6 +61,8 @@ export interface SimResult {
   passives: string[];
   /** Active skills bought this run — the only direct evidence the shop was used. */
   skills: string[];
+  rerolls: number;
+  banishes: number;
   cause: string;
 }
 
@@ -132,29 +134,70 @@ function pickChoice(ctx: GameContext, choices: Choice[], policy: ChoicePolicy): 
  * Chase one weapon's evolution: keep the starting weapon, push it to max, and take the
  * passive its recipe needs. Everything else is filler.
  */
-function pickFocused(ctx: GameContext, choices: Choice[]): Choice | undefined {
+function onPlanChoice(ctx: GameContext, choices: Choice[]): Choice | undefined {
   const lo = ctx.world.get(ctx.player, Loadout);
   const target = lo?.weapons[0];
   if (!target) return undefined;
-  const recipe = evolutionFor(target.def.id);
 
   const evo = choices.find((c) => c.kind === 'weapon-evo');
   if (evo) return evo;
   const up = choices.find((c) => c.kind === 'weapon-up' && c.weaponId === target.def.id);
   if (up) return up;
-  if (recipe) {
-    const need = requiredPassiveLevel(recipe, ctx.stats.evoDiscount);
-    const have = ctx.passives.get(recipe.passive) ?? 0;
-    if (have < need) {
-      const passive = choices.find(
-        (c) => (c.kind === 'passive' && c.passive.id === recipe.passive)
-          || (c.kind === 'passive-up' && c.passiveId === recipe.passive),
-      );
-      if (passive) return passive;
-    }
-  }
+
+  const recipe = evolutionFor(target.def.id);
+  if (!recipe) return undefined;
+  const have = ctx.passives.get(recipe.passive) ?? 0;
+  if (have >= requiredPassiveLevel(recipe, ctx.stats.evoDiscount)) return undefined;
+  return choices.find(
+    (c) => (c.kind === 'passive' && c.passive.id === recipe.passive)
+      || (c.kind === 'passive-up' && c.passiveId === recipe.passive),
+  );
+}
+
+function pickFocused(ctx: GameContext, choices: Choice[]): Choice | undefined {
   // Nothing on-plan was offered: never widen the weapon pool, which only dilutes future offers.
-  return choices.find((c) => c.kind !== 'weapon-new');
+  return onPlanChoice(ctx, choices) ?? choices.find((c) => c.kind !== 'weapon-new');
+}
+
+/**
+ * Spend gold to shape the offer, the way a player chasing an evolution would: banish the
+ * cards that are dead weight to this plan (which narrows the pool for every future level-up),
+ * then reroll while nothing on-plan is showing. Returns the final table.
+ *
+ * Only the `focus` policy does this, which makes greedy-vs-focus a clean before/after on the
+ * feature itself rather than on playstyle alone.
+ */
+function shapeOffer(ctx: GameContext, initial: Choice[]): Choice[] {
+  let choices = initial;
+  const lo = ctx.world.get(ctx.player, Loadout);
+  const targetId = lo?.weapons[0]?.def.id;
+  const recipe = targetId ? evolutionFor(targetId) : undefined;
+  const keepKeys = new Set([`w:${targetId}`, recipe ? `p:${recipe.passive}` : '']);
+
+  for (let step = 0; step < 8; step++) {
+    // Banish dead weight first — it pays off on every later level-up, not just this one.
+    const bCost = banishCost(ctx.run.banishes);
+    if (ctx.equip.gold >= bCost * 3) {
+      const idx = choices.findIndex((c) => {
+        const k = choiceKey(c);
+        return k !== null && !keepKeys.has(k);
+      });
+      if (idx >= 0) {
+        ctx.equip.gold -= bCost;
+        ctx.run.banishes++;
+        ctx.run.banished.add(choiceKey(choices[idx]!)!);
+        choices = makeChoices(ctx, choices.filter((_, j) => j !== idx));
+        continue;
+      }
+    }
+    if (onPlanChoice(ctx, choices)) break;
+    const rCost = rerollCost(ctx.run.rerolls);
+    if (ctx.equip.gold < rCost) break;
+    ctx.equip.gold -= rCost;
+    ctx.run.rerolls++;
+    choices = makeChoices(ctx);
+  }
+  return choices;
 }
 
 /**
@@ -238,7 +281,9 @@ export function runHeadless(seed: number, maxSeconds: number, opts: SimOptions =
     screen: { shake: 0 },
     events: {
       onLevelUp: () => {
-        const pick = pickChoice(ctx, makeChoices(ctx), policy);
+        let choices = makeChoices(ctx);
+        if (policy === 'focus' && useShop) choices = shapeOffer(ctx, choices);
+        const pick = pickChoice(ctx, choices, policy);
         if (pick) applyChoice(ctx, pick);
       },
       onDeath: () => {
@@ -294,6 +339,8 @@ export function runHeadless(seed: number, maxSeconds: number, opts: SimOptions =
     weapons: (lo?.weapons ?? []).map((w) => `${w.def.id}:${w.level}`),
     passives: [...ctx.passives].map(([id, lv]) => `${id}:${lv}`),
     skills: [...ctx.skills.owned],
+    rerolls: ctx.run.rerolls,
+    banishes: ctx.run.banishes,
     cause: died ? cause : '存活到时间上限',
   };
 }

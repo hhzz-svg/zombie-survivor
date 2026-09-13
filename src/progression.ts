@@ -24,21 +24,52 @@ const BONUSES: ReadonlyArray<Extract<Choice, { kind: 'bonus' }>> = [
 ];
 
 /**
+ * Identity of a pool entry, for banishing. Keyed by the thing itself rather than by the card,
+ * so banishing "霰弹枪 Lv.2→3" removes the shotgun from the run entirely — which is the point:
+ * a narrower pool is a higher chance of drawing what you are actually building toward.
+ *
+ * Evolutions and consolation bonuses return null: they cannot be banished.
+ */
+export function choiceKey(c: Choice): string | null {
+  switch (c.kind) {
+    case 'weapon-new': return `w:${c.weapon.id}`;
+    case 'weapon-up': return `w:${c.weaponId}`;
+    case 'passive': return `p:${c.passive.id}`;
+    case 'passive-up': return `p:${c.passiveId}`;
+    default: return null;
+  }
+}
+
+/**
  * Builds three offers under the run's slot limits: new weapons/passives only while a slot is
  * free, upgrades for what is already owned, and — the moment a recipe is satisfied — the
  * evolution card, forced into the first position so it can never be rolled away.
+ *
+ * `keep` holds cards that must stay on the table (the two survivors of a banish), and anything
+ * the run has banished never enters the pool again.
  */
-export function makeChoices(ctx: GameContext): Choice[] {
+export function makeChoices(ctx: GameContext, keep: Choice[] = []): Choice[] {
   const lo = ctx.world.get(ctx.player, Loadout)!;
   const owned = new Set(lo.weapons.map((w) => w.def.id));
   const pool: Choice[] = [];
   const forced: Choice[] = [];
+  // Banished entries, plus whatever is already on the table, are off the menu.
+  const excluded = new Set<string>(ctx.run.banished);
+  for (const c of keep) {
+    const k = choiceKey(c);
+    if (k) excluded.add(k);
+  }
+  const allowed = (c: Choice): boolean => {
+    const k = choiceKey(c);
+    return k === null || !excluded.has(k);
+  };
 
   if (lo.weapons.length < WEAPON_SLOTS) {
     for (const id of Object.keys(WEAPONS)) {
       if (id.endsWith('-evo') || owned.has(id)) continue;
       const def = WEAPONS[id]!;
-      pool.push({ kind: 'weapon-new', weapon: def, label: `新武器 · ${def.name}`, desc: weaponDesc(def), sprite: def.sprite });
+      const card: Choice = { kind: 'weapon-new', weapon: def, label: `新武器 · ${def.name}`, desc: weaponDesc(def), sprite: def.sprite };
+      if (allowed(card)) pool.push(card);
     }
   }
 
@@ -67,34 +98,38 @@ export function makeChoices(ctx: GameContext): Choice[] {
   for (const wi of lo.weapons) {
     if (wi.level >= MAX_WEAPON_LEVEL) continue;
     const nearMax = wi.level + 1 === MAX_WEAPON_LEVEL && evolutionFor(wi.def.id);
-    pool.push({
+    const card: Choice = {
       kind: 'weapon-up',
       weaponId: wi.def.id,
       label: `${wi.def.name} Lv.${wi.level}→${wi.level + 1}`,
       desc: nearMax ? '+25% 伤害 · 满级，逼近进化' : '+25% 伤害',
       sprite: wi.def.sprite,
-    });
+    };
+    if (allowed(card)) pool.push(card);
   }
 
   if (ctx.passives.size < PASSIVE_SLOTS) {
     for (const p of PASSIVES) {
       if (ctx.passives.has(p.id)) continue;
-      pool.push({ kind: 'passive', passive: p, label: p.name, desc: withUnlock(p.desc, unlocks.get(p.id)) });
+      const card: Choice = { kind: 'passive', passive: p, label: p.name, desc: withUnlock(p.desc, unlocks.get(p.id)) };
+      if (allowed(card)) pool.push(card);
     }
   }
   for (const [id, level] of ctx.passives) {
     if (level >= MAX_PASSIVE_LEVEL) continue;
     const p = passiveById(id);
     if (!p) continue;
-    pool.push({
+    const card: Choice = {
       kind: 'passive-up',
       passiveId: id,
       label: `${p.name} Lv.${level}→${level + 1}`,
       desc: withUnlock(p.desc, unlocks.get(id)),
-    });
+    };
+    if (allowed(card)) pool.push(card);
   }
 
   const picks: Choice[] = forced.slice(0, 1);
+  picks.push(...keep.slice(0, 3 - picks.length));
   picks.push(...pickN(ctx, pool, 3 - picks.length));
   for (const b of BONUSES) {
     if (picks.length >= 3) break;

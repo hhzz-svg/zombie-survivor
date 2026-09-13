@@ -40,6 +40,7 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 - **20 achievements — every run makes progress.** Combo peaks, elite hunts, untouched openings, lifetime kill counts… unlocks pop live mid-run, with a persistent wall on the title screen and progress on the results screen.
 - **A comeback in your veins.** The first time HP dips under 20%, an adrenaline surge fires: heal, brief invulnerability, and a shockwave that throws the horde back — turning near-death into a highlight.
 - **Eight weapons, each with an evolution recipe.** Pistol, shotgun, SMG, magnum, nova, orbit blades — plus the flamethrower (close-range fire hose) and the rocket launcher (splash damage). Maxing a weapon is only half of it: each evolution also demands its paired passive at Lv.3, so "I need multi-shot to three" becomes a mid-run goal instead of something that just happens.
+- **The level-up offer is something you can pay to change.** Reroll the table, or spend more to **banish** an entry so it never appears again this run. A narrower pool is better odds on the card you are building toward, which turns "assemble this weapon's evolution" from luck into a plan — and it is the only real late-game sink for gold. Measured: a run that uses it evolves 28% of the time against 6% without, and ends holding 232 gold instead of 2470.
 - **Six weapon slots, six passive slots.** Both are capped and passives level to 5, so every level-up is a decision about what you give up — not a free stat handout. Three of the passives change how combat behaves rather than moving a number: corpses that cook off on kill, hits that freeze the horde, and damage that spikes while you are nearly dead.
 - **Auto-fire, all movement.** No reloading, no aiming clicks — your attention goes entirely into positioning and crowd control. Easy to start, hard to master.
 - **Attacks you can read.** Telegraphed wind-ups: the lasher's hook and the tyrant's ground slam both mark where they will land before they land. Nothing in the game was dodgeable before this — a hit just happened to you.
@@ -73,6 +74,8 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | Active skills | `Z` Dash · `X` Burst · `C` Barrier · `V` Time Slow |
 | Open shop | `B` |
 | Pick a level-up | `1` / `2` / `3` |
+| Reroll the offer | `R` (costs gold, dearer each time) |
+| Banish a card | Click `✕` on the card (costs gold; gone for the run) |
 | Pick operative / start / restart | Click + `Space` |
 | Pause / resume | `Esc` / `P` |
 | Settings (title / pause menu) | Click **Settings**; `Esc` goes back |

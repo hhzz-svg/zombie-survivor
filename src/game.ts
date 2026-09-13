@@ -16,7 +16,7 @@ import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx
 import {
   PLAYER_BASE, RUN_STAGES, currentRunStage, xpToNext,
   activeSurge, incomingSurge, COMBO_WINDOW, ENDLESS_BOSS_INTERVAL, SUPPLY_FALL_SECONDS,
-  WEAPON_SLOTS, PASSIVE_SLOTS,
+  WEAPON_SLOTS, PASSIVE_SLOTS, rerollCost, banishCost,
 } from './data/balance';
 import { MAX_WEAPON_LEVEL, evolutionHint, evolutionReady } from './data/weapons';
 import { PASSIVES, passiveById } from './data/passives';
@@ -38,7 +38,7 @@ import {
 } from './components';
 import { obstaclesInRect, type Obstacle } from './data/obstacles';
 import { SURVIVOR_WAIT } from './data/wingmen';
-import { makeChoices, applyChoice, type Choice } from './progression';
+import { makeChoices, applyChoice, choiceKey, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, purchaseOffer, type ShopOffer } from './shop';
 import { loadSettings, saveSettings, type Settings } from './settings';
@@ -450,7 +450,58 @@ export class Game {
     if (!this.ctx) return;
     this.state = 'levelup';
     this.choices = makeChoices(this.ctx);
-    this.ui.showLevelUp(this.choices, (i) => this.pick(i));
+    this.renderLevelUp();
+  }
+
+  /** Re-render the current offer. Reroll and banish both come back through here. */
+  private renderLevelUp(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    this.ui.showLevelUp(
+      this.choices,
+      {
+        gold: ctx.equip.gold,
+        rerollCost: rerollCost(ctx.run.rerolls),
+        banishCost: banishCost(ctx.run.banishes),
+        onReroll: () => this.reroll(),
+        onBanish: (i) => this.banish(i),
+      },
+      (i) => this.pick(i),
+    );
+  }
+
+  /** Pay to redraw the whole table. */
+  private reroll(): void {
+    const ctx = this.ctx;
+    if (this.state !== 'levelup' || !ctx) return;
+    const cost = rerollCost(ctx.run.rerolls);
+    if (ctx.equip.gold < cost) return;
+    ctx.equip.gold -= cost;
+    ctx.run.rerolls++;
+    this.choices = makeChoices(ctx);
+    this.audio.pickup();
+    this.renderLevelUp();
+  }
+
+  /**
+   * Pay to remove one card's subject from the rest of the run, then refill just that slot —
+   * the other two stay, so a banish is never a cheaper reroll.
+   */
+  private banish(i: number): void {
+    const ctx = this.ctx;
+    if (this.state !== 'levelup' || !ctx) return;
+    const target = this.choices[i];
+    const key = target ? choiceKey(target) : null;
+    if (!key) return;
+    const cost = banishCost(ctx.run.banishes);
+    if (ctx.equip.gold < cost) return;
+    ctx.equip.gold -= cost;
+    ctx.run.banishes++;
+    ctx.run.banished.add(key);
+    this.choices = makeChoices(ctx, this.choices.filter((_, j) => j !== i));
+    this.audio.pickup();
+    ctx.screen.shake = Math.max(ctx.screen.shake, 3);
+    this.renderLevelUp();
   }
 
   private pick(i: number): void {
@@ -462,7 +513,7 @@ export class Game {
     this.pendingLevels--;
     if (this.pendingLevels > 0) {
       this.choices = makeChoices(this.ctx);
-      this.ui.showLevelUp(this.choices, (j) => this.pick(j));
+      this.renderLevelUp();
     } else {
       this.ui.hideLevelUp();
       this.state = 'playing';
@@ -740,6 +791,7 @@ export class Game {
     } else if (this.state === 'levelup') {
       const i = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code);
       if (i >= 0) this.pick(i);
+      else if (e.code === 'KeyR') this.reroll();
     } else if (this.state === 'shop') {
       if (e.code === 'KeyB' || e.code === 'Escape') this.closeShop();
     } else if (this.state === 'playing') {

@@ -16,6 +16,24 @@ export const WEAPON_SLOTS = 6;
 export const PASSIVE_SLOTS = 6;
 export const MAX_PASSIVE_LEVEL = 5;
 
+// ---------------------------------------------------------------------------
+// Reroll & banish: paying gold to shape the level-up offer. This is the run's
+// only real late-game gold sink, and the only way to aim a build at a specific
+// evolution instead of waiting for the right card to show up.
+
+export const REROLL_BASE = 20;
+export const REROLL_STEP = 15; // linear: cheap enough to use often, never free
+export const BANISH_BASE = 60;
+export const BANISH_GROWTH = 1.7; // compounding: clearing the whole pool must stay out of reach
+
+export function rerollCost(used: number): number {
+  return REROLL_BASE + REROLL_STEP * used;
+}
+
+export function banishCost(used: number): number {
+  return Math.round(BANISH_BASE * BANISH_GROWTH ** used);
+}
+
 /** Below this fraction of max HP the `desperate` trait pays out. */
 export const DESPERATE_HP_FRAC = 0.4;
 

@@ -53,6 +53,10 @@ export interface RunState {
   revivesLeft: number; // remaining death saves from the 复活协议 talent
   curse: number; // blood-curse altar stacks accepted this run
   rescued: number; // survivors rescued into the squad this run
+  rerolls: number; // level-up rerolls bought this run (each one costs more)
+  banishes: number; // cards banished this run (each one costs much more)
+  /** Pool keys removed for the rest of the run — see `choiceKey`. */
+  banished: Set<string>;
 }
 
 export interface Director {

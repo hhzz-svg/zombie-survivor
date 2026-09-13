@@ -1,4 +1,4 @@
-import type { Choice } from '../progression';
+import { choiceKey, type Choice } from '../progression';
 import type { EquipDef } from '../data/equipment';
 import type { OperativeDef, SkillDef } from '../data/schemas';
 import type { AchievementDef } from '../data/achievements';
@@ -34,6 +34,15 @@ export interface HudData {
   combo: { count: number; name: string; color: string; frac: number };
   surge: { label: string; active: boolean } | null;
   squad: Array<{ name: string; color: string; hpFrac: number }>;
+}
+
+/** Gold-funded reshaping of a level-up offer. */
+export interface LevelUpShaping {
+  gold: number;
+  rerollCost: number;
+  banishCost: number;
+  onReroll?: () => void;
+  onBanish?: (i: number) => void;
 }
 
 export interface RunSummary {
@@ -201,6 +210,12 @@ const STYLE = `
 #ui-overlay .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;justify-content:center}
 #ui-overlay .card{cursor:pointer;background:linear-gradient(180deg,rgba(22,48,43,.86),rgba(9,18,17,.9));border:1px solid var(--line);border-radius:16px;padding:14px 12px;transition:.12s;text-align:left;min-height:176px;box-shadow:0 8px 20px rgba(0,0,0,.22)}
 #ui-overlay .card:hover{background:rgba(28,66,59,.92);transform:translateY(-3px);box-shadow:0 14px 28px rgba(0,0,0,.28),0 0 18px rgba(97,229,222,.12)}
+#ui-overlay .card{position:relative}
+#ui-overlay .card .banish{position:absolute;top:6px;right:6px;cursor:pointer;background:rgba(4,9,8,.72);border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:3px 7px;font-size:10px;letter-spacing:.5px;transition:.12s;z-index:1}
+#ui-overlay .card .banish:hover{border-color:var(--danger);color:#ffd7d3;background:rgba(255,90,79,.18)}
+#ui-overlay .card .banish.broke{opacity:.4;cursor:not-allowed}
+#ui-overlay button.quiet.broke{opacity:.45;cursor:not-allowed}
+#ui-overlay .shape-row{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:14px}
 #ui-overlay .card.evo-card{background:linear-gradient(180deg,rgba(80,58,16,.86),rgba(26,16,6,.92));border-color:rgba(255,209,102,.62);box-shadow:0 8px 20px rgba(0,0,0,.28),0 0 22px rgba(255,209,102,.22)}
 #ui-overlay .card.evo-card .k{color:#ffd166}
 #ui-overlay .card.trait-card{border-color:rgba(158,240,111,.42)}
@@ -763,7 +778,12 @@ export class UI {
     this.revealTimer = window.setTimeout(() => this.revealEl.classList.remove('show'), 1900);
   }
 
-  showLevelUp(choices: Choice[], onPick: (i: number) => void): void {
+  /**
+   * The level-up offer, plus the two ways to pay gold to change it: reroll the table, or
+   * banish one card's subject from the run. Banish is the one that actually aims a build —
+   * every entry it removes raises the odds of drawing what you are building toward.
+   */
+  showLevelUp(choices: Choice[], shape: LevelUpShaping, onPick: (i: number) => void): void {
     const cards = choices
       .map(
         (c, i) => {
@@ -777,8 +797,14 @@ export class UI {
           const upgradeLine = c.kind === 'weapon-up' || c.kind === 'passive-up'
             ? '<div class="held-label">当前 → 下一等级</div>'
             : '';
+          const canBanish = shape.onBanish && choiceKey(c) !== null;
+          const banishBtn = canBanish
+            ? `<button class="banish${shape.gold < shape.banishCost ? ' broke' : ''}" data-b="${i}"
+                 title="本局不再出现${c.label}">✕ ${shape.banishCost}</button>`
+            : '';
           return `
         <div class="card${cls}" data-i="${i}" role="button" tabindex="0">
+          ${banishBtn}
           ${spriteImg}
           <div class="k">${kind}</div>
           <div class="n">${c.label}</div>
@@ -789,7 +815,14 @@ export class UI {
         },
       )
       .join('');
-    this.overlay.innerHTML = `<div class="panel"><h1>升级</h1><p>选择一项强化</p><div class="cards">${cards}</div></div>`;
+    const shapeRow = shape.onReroll
+      ? `<div class="shape-row">
+           <button class="quiet${shape.gold < shape.rerollCost ? ' broke' : ''}" id="lv-reroll">重抽 · ${shape.rerollCost} 金币 (R)</button>
+           <span class="seed-note">金币 ${shape.gold} · ✕ 移除后本局不再出现该项，池子越窄越容易抽到你要的</span>
+         </div>`
+      : '';
+    this.overlay.innerHTML = `<div class="panel"><h1>升级</h1><p>选择一项强化</p>`
+      + `<div class="cards">${cards}</div>${shapeRow}</div>`;
     this.overlay.querySelectorAll('.card').forEach((el) => {
       const card = el as HTMLElement;
       card.onclick = () => onPick(Number(card.dataset.i));
@@ -797,6 +830,15 @@ export class UI {
         if (e.key === 'Enter' || e.key === ' ') onPick(Number(card.dataset.i));
       };
     });
+    this.overlay.querySelectorAll('.banish').forEach((el) => {
+      const btn = el as HTMLElement;
+      btn.onclick = (e) => {
+        e.stopPropagation(); // banishing a card must never also pick it
+        shape.onBanish?.(Number(btn.dataset.b));
+      };
+    });
+    const rerollEl = this.overlay.querySelector('#lv-reroll') as HTMLElement | null;
+    if (rerollEl && shape.onReroll) rerollEl.onclick = shape.onReroll;
     this.overlay.style.display = 'flex';
   }
 

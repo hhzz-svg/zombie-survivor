@@ -22,6 +22,9 @@ export function freshRunState(): RunState {
     revivesLeft: 0,
     curse: 0,
     rescued: 0,
+    rerolls: 0,
+    banishes: 0,
+    banished: new Set<string>(),
   };
 }
 
