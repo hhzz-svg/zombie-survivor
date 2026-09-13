@@ -197,7 +197,13 @@ export function resolveCircle(
 // different salt, and only in cells that carry no static cover.
 
 export const BARREL_HP = 30;
-export const BARREL_FUSE = 0.35;
+/**
+ * Long enough to actually clear the blast. At 0.35s the player could cover 60px before it
+ * went off while the blast reached 120px — escaping a barrel you lit at point-blank range
+ * needed 343 px/s against a base move speed of 172, i.e. it was impossible, and the balance
+ * report duly showed barrels causing 71% of all deaths.
+ */
+export const BARREL_FUSE = 0.8;
 export const BARREL_RADIUS = 120;
 export const BARREL_DAMAGE = 90;
 const BARREL_CHANCE = 0.16;

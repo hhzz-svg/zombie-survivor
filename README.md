@@ -97,6 +97,20 @@ Open the local URL Vite prints (defaults to `http://localhost:5173`).
 | `npm run build` | Type-check, then build to `dist/`. |
 | `npm run preview` | Serve the production build locally. |
 | `npm test` | Run the test suite (unit + a headless game simulation). |
+| `npm run balance` | Balance report: headless runs across many seeds and operatives — win rate, survival, weapon/passive pick rates, causes of death. |
+
+## Balance report
+
+The simulation is deterministic, so the same systems can replay whole runs in bulk with no browser — which turns this project's most distinctive asset into a tuning tool rather than just a regression net:
+
+```bash
+npm run balance                                   # 30 seeds × 3 operatives × 260s
+npm run balance -- --seeds=100 --seconds=300      # bigger sample
+npm run balance -- --ops=hunter --policy=first    # one operative / a different pick policy
+npm run balance -- --json=/tmp/runs.json          # also dump every run as raw data
+```
+
+It prints markdown: win rate and median survival per operative, pick rate and mean level for every weapon and passive, skill purchase rate, causes of death, and how far runs get. The numbers come from a scripted bot, not a human — use them to **compare versions and builds**, not as absolute difficulty.
 
 ## Built with
 

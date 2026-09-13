@@ -97,6 +97,20 @@ npm run dev
 | `npm run build` | 先类型检查，再构建到 `dist/`。 |
 | `npm run preview` | 本地预览生产构建。 |
 | `npm test` | 运行测试（单元测试 + 无头游戏模拟）。 |
+| `npm run balance` | 跑平衡报告：多种子 × 多干员的无头模拟，输出胜率、存活、武器/强化出场率与死亡原因。 |
+
+## 平衡报告
+
+整套模拟是确定性的，所以同一套系统可以脱离浏览器批量跑完整局——这是这个项目最独特的东西，它不只是回归测试，也是调数值的工具：
+
+```bash
+npm run balance                                   # 30 种子 × 3 干员 × 260s
+npm run balance -- --seeds=100 --seconds=300      # 更大的样本
+npm run balance -- --ops=hunter --policy=first    # 单个干员 / 换选牌策略
+npm run balance -- --json=/tmp/runs.json          # 同时导出每一局的原始数据
+```
+
+输出是一份 markdown：各干员胜率与中位存活、每把武器和每条强化的出场率与平均等级、主动技能购买率、死亡原因分布、各阶段抵达比例。数据来自脚本 AI 而非真人，用来**横向比较版本与 build**，不要当成绝对难度。
 
 ## 技术栈
 

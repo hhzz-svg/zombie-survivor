@@ -8,7 +8,8 @@ import { damageEnemy } from '../src/systems/combat';
 import { spawnBullet, spawnEnemyBullet, spawnBarrel, spawnEnemyAt } from '../src/factory';
 import { WEAPONS } from '../src/data/weapons';
 import { ENEMIES } from '../src/data/enemies';
-import { blockedAt, cellBarrel, BARREL_FUSE, OBSTACLE_CELL } from '../src/data/obstacles';
+import { blockedAt, cellBarrel, BARREL_FUSE, BARREL_RADIUS, OBSTACLE_CELL } from '../src/data/obstacles';
+import { PLAYER_BASE } from '../src/data/balance';
 import { Transform, Velocity, Bullet, Barrel, Health } from '../src/components';
 
 const SEED = 5; // the seed tests/helpers.ts builds its context with
@@ -120,10 +121,16 @@ describe('explosive barrels', () => {
     expect(ctx.world.get(barrel, Barrel)!.fuse).toBeCloseTo(BARREL_FUSE);
     expect(ctx.world.get(victim, Health)!.hp).toBe(before); // the fuse buys a moment to step away
 
-    for (let i = 0; i < 40; i++) barrelSystem(ctx, 1 / 60);
+    for (let i = 0; i < Math.ceil(BARREL_FUSE * 60) + 2; i++) barrelSystem(ctx, 1 / 60);
 
     expect(ctx.world.get(barrel, Barrel)).toBeUndefined();
     expect(ctx.world.get(victim, Health)!.hp).toBeLessThan(before);
+  });
+
+  it('leaves the player enough fuse to actually clear the blast', () => {
+    // The whole point of a barrel is that it is a tool. At 0.35s the reachable distance was
+    // 60px against a 120px blast, so lighting one at your feet was an unavoidable 90 damage.
+    expect(BARREL_FUSE * PLAYER_BASE.moveSpeed).toBeGreaterThan(BARREL_RADIUS);
   });
 
   it('does not take knockback or pop damage numbers like an enemy', () => {

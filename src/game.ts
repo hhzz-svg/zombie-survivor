@@ -29,8 +29,8 @@ import {
 import { ACHIEVEMENTS, evaluateAchievements, type AchieveSnapshot, type AchievementDef } from './data/achievements';
 import { createPlayer } from './factory';
 import { runSystems } from './systems/pipeline';
-import { useItem, startBuff } from './systems/equipment';
-import { buySkill, skillCooldownRemaining, useSkill } from './systems/skills';
+import { useItem } from './systems/equipment';
+import { skillCooldownRemaining, useSkill } from './systems/skills';
 import { comboTier, freshRunState } from './systems/combo';
 import {
   Transform, Health, Renderable, Enemy, Aim, Loadout, Medkit, Bullet, XPGem, GoldCoin, Velocity,
@@ -40,7 +40,7 @@ import { obstaclesInRect, type Obstacle } from './data/obstacles';
 import { SURVIVOR_WAIT } from './data/wingmen';
 import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
-import { currentShopOffers, type ShopOffer } from './shop';
+import { currentShopOffers, purchaseOffer, type ShopOffer } from './shop';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import {
   NO_TALENTS, talentEffects, applyTalents, salvageGain, buyState, nextCost, totalSpent, talentById,
@@ -514,39 +514,10 @@ export class Game {
 
   private buyOffer(offer: ShopOffer): boolean {
     if (!this.ctx) return false;
-    const eq = this.ctx.equip;
-    if (offer.type === 'skill') {
-      const ok = buySkill(this.ctx, offer.id);
-      if (!ok) return false;
-      this.audio.levelUp();
-      this.ctx.screen.shake = Math.max(this.ctx.screen.shake, 4);
-      this.renderShop();
-      return true;
-    }
-
-    const id = offer.id;
-    const def = EQUIPMENT.find((e) => e.id === id);
-    if (!def || eq.gold < def.cost) return false;
-
-    eq.gold -= def.cost;
-
-    switch (def.kind) {
-      case 'charge':
-        eq.charges.set(id, (eq.charges.get(id) ?? 0) + 1);
-        break;
-      case 'shield':
-        eq.shield++;
-        break;
-      case 'buff':
-        startBuff(this.ctx, id, def.duration ?? 30);
-        break;
-    }
-
+    if (!purchaseOffer(this.ctx, offer)) return false;
     this.audio.levelUp();
     this.ctx.screen.shake = Math.max(this.ctx.screen.shake, 4);
-
-    // Re-render shop with updated gold/holdings.
-    this.renderShop();
+    this.renderShop(); // re-render with updated gold/holdings
     return true;
   }
 
