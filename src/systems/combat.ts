@@ -40,25 +40,36 @@ export function damagePlayer(ctx: GameContext, dmg: number, cause = '感染者�
   ctx.audio.hurt();
   ctx.vfx?.onPlayerHit?.(cause);
   if (h.hp <= 0) {
+    // Revive protocol (a permanent talent): get back up once, right where you fell.
+    if (ctx.run.revivesLeft > 0) {
+      ctx.run.revivesLeft--;
+      h.hp = Math.max(1, Math.round(h.max * 0.5));
+      h.invuln = Math.max(h.invuln, 2);
+      const pt = ctx.world.get(ctx.player, Transform);
+      if (pt) {
+        knockBackAround(ctx, pt.x, pt.y, 260, 320);
+        ctx.fx.shockwave(pt.x, pt.y, 260, '#61e5de', 0.55);
+        ctx.fx.flash(pt.x, pt.y, 54, '#eafffb', '#61e5de', 0.26);
+        ctx.fx.text(pt.x, pt.y - 34, '复活协议！', '#61e5de', 20);
+      }
+      ctx.time.hitStop = Math.max(ctx.time.hitStop, 90);
+      ctx.screen.shake = Math.max(ctx.screen.shake, 16);
+      ctx.audio.levelUp();
+      ctx.vfx?.onAnnounce?.('复活协议', '倒下时原地复活 · 回复 50% 生命 · 2 秒无敌', 'adrenaline');
+      return;
+    }
     h.hp = 0;
     ctx.events.onDeath();
     return;
   }
-  // Adrenaline surge: the first time HP dips under 20%, buy the player one comeback.
-  if (!ctx.run.adrenalineUsed && h.hp < ctx.stats.maxHp * 0.2) {
-    ctx.run.adrenalineUsed = true;
+  // Adrenaline surge: dipping under 20% HP buys the player a comeback.
+  if (ctx.run.adrenalineLeft > 0 && h.hp < ctx.stats.maxHp * 0.2) {
+    ctx.run.adrenalineLeft--;
     h.hp = Math.min(h.max, h.hp + 15);
     h.invuln = Math.max(h.invuln, 1.5);
     const pt = ctx.world.get(ctx.player, Transform);
     if (pt) {
-      const neigh: number[] = [];
-      ctx.hash.query(pt.x, pt.y, 220, neigh);
-      for (const o of neigh) {
-        const ot = ctx.world.get(o, Transform);
-        if (!ot) continue;
-        const d = Math.hypot(ot.x - pt.x, ot.y - pt.y) || 1;
-        if (d <= 220) damageEnemy(ctx, o, 12, (ot.x - pt.x) / d, (ot.y - pt.y) / d, 320);
-      }
+      knockBackAround(ctx, pt.x, pt.y, 220, 320);
       ctx.fx.shockwave(pt.x, pt.y, 220, '#ffd166', 0.5);
       ctx.fx.flash(pt.x, pt.y, 46, '#fff6dd', '#ffb43c', 0.22);
       ctx.fx.burst(pt.x, pt.y, 30, '#ffd166', 320, ctx.rng);
@@ -68,6 +79,18 @@ export function damagePlayer(ctx: GameContext, dmg: number, cause = '感染者�
     ctx.screen.shake = Math.max(ctx.screen.shake, 14);
     ctx.audio.levelUp();
     ctx.vfx?.onAnnounce?.('肾上腺素爆发', '+15 生命 · 1.5 秒无敌 · 击退周围尸群（每局一次）', 'adrenaline');
+  }
+}
+
+/** Shove (and lightly hurt) everything around a point — the comeback saves both use it. */
+function knockBackAround(ctx: GameContext, x: number, y: number, radius: number, push: number): void {
+  const neigh: number[] = [];
+  ctx.hash.query(x, y, radius, neigh);
+  for (const o of neigh) {
+    const ot = ctx.world.get(o, Transform);
+    if (!ot) continue;
+    const d = Math.hypot(ot.x - x, ot.y - y) || 1;
+    if (d <= radius) damageEnemy(ctx, o, 12, (ot.x - x) / d, (ot.y - y) / d, push);
   }
 }
 

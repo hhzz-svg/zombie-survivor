@@ -19,6 +19,7 @@ export interface PlayerStats {
   pierceBonus: number;
   magnet: number; // multiplier on pickup range
   projectileBonus: number;
+  evoDiscount: number; // passive levels shaved off every evolution recipe (改装工坊)
   crit: number; // crit chance 0..1 (crit = 2× damage)
   lifesteal: number; // hp restored per kill
   // Trait passives — behaviour, not raw numbers. Each level adds one step.
@@ -48,7 +49,8 @@ export interface RunState {
   goldenKilled: number; // golden runners caught this run
   evolved: boolean; // any weapon evolved this run
   firstHpHitAt: number | null; // elapsed time of the first real HP hit (null = untouched)
-  adrenalineUsed: boolean; // the once-per-run low-HP save has fired
+  adrenalineLeft: number; // remaining low-HP saves (the 第二次呼吸 talent grants a second)
+  revivesLeft: number; // remaining death saves from the 复活协议 talent
   curse: number; // blood-curse altar stacks accepted this run
   rescued: number; // survivors rescued into the squad this run
 }

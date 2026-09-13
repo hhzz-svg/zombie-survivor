@@ -18,7 +18,8 @@ export function freshRunState(): RunState {
     goldenKilled: 0,
     evolved: false,
     firstHpHitAt: null,
-    adrenalineUsed: false,
+    adrenalineLeft: 1,
+    revivesLeft: 0,
     curse: 0,
     rescued: 0,
   };

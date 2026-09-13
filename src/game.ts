@@ -42,6 +42,9 @@ import { makeChoices, applyChoice, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, type ShopOffer } from './shop';
 import { loadSettings, saveSettings, type Settings } from './settings';
+import {
+  NO_TALENTS, talentEffects, applyTalents, salvageGain, buyState, nextCost, totalSpent, talentById,
+} from './data/talents';
 import { dailyKey, dailySeed, formatSeed, parseSeed, randomSeed } from './seed';
 
 type State = 'title' | 'playing' | 'paused' | 'levelup' | 'shop' | 'gameover' | 'victory';
@@ -79,6 +82,10 @@ export class Game {
   private runDailyKey: string | null = null; // set when this run IS today's daily
   private settingsBack: (() => void) | null = null; // non-null while the settings panel is open
   private dailyRecords: Record<string, { time: number; kills: number }>;
+  private salvage: number; // unspent meta currency
+  private talents: Record<string, number>; // talent id → owned level
+  private salvageCommitted = 0; // already banked for the run in progress
+  private lastSalvageGain = 0;
   private lastFootstep = 0; // player footfall index, to fire step dust exactly on contact
   private lastDamageCause = '尚未受到致命伤害';
   private lastOperative: string;
@@ -102,6 +109,8 @@ export class Game {
     this.lifetime = this.loadJson<LifetimeStats>('zs-life', { kills: 0, runs: 0, wins: 0 });
     this.opXp = this.loadJson<Record<string, number>>('zs-ops', {});
     this.dailyRecords = this.loadJson<Record<string, { time: number; kills: number }>>('zs-daily', {});
+    this.salvage = Math.max(0, this.loadJson<number>('zs-salvage', 0));
+    this.talents = this.loadJson<Record<string, number>>('zs-talents', {});
     this.settings = loadSettings();
     this.applySettings();
     void this.assets.load();
@@ -133,11 +142,47 @@ export class Game {
       progress,
       ach: { unlocked: this.unlockedAch.size, total: ACHIEVEMENTS.length },
       daily: { key, seed: formatSeed(dailySeed(key)), best: this.dailyRecords[key] ?? null },
+      salvage: this.salvage,
+      onShowTalents: () => this.openTalents(),
       onStart: (id, seed) => this.start(id, seed),
       onShowAchievements: () => this.ui.showAchievements(ACHIEVEMENTS, this.unlockedAch, () => this.showTitle()),
       onShowSettings: () => this.openSettings(() => this.showTitle()),
       parseSeed,
     });
+  }
+
+  /** The talent tree. Buying and refunding both re-render it in place. */
+  private openTalents(): void {
+    this.ui.showTalents(
+      this.talents,
+      this.salvage,
+      this.unlockedAch,
+      (id) => this.buyTalent(id),
+      () => this.refundTalents(),
+      () => this.showTitle(),
+    );
+  }
+
+  private buyTalent(id: string): void {
+    const def = talentById(id);
+    if (!def) return;
+    // Re-check here rather than trusting the click: the UI is a view, not the authority.
+    if (buyState(def, this.talents, this.salvage, this.unlockedAch).kind !== 'ok') return;
+    const cost = nextCost(def, this.talents)!;
+    this.salvage -= cost;
+    this.talents[id] = (this.talents[id] ?? 0) + 1;
+    this.saveMeta();
+    this.audio.resume();
+    this.audio.levelUp();
+    this.openTalents();
+  }
+
+  /** Full refund, no penalty — a build you can't undo is a build nobody experiments with. */
+  private refundTalents(): void {
+    this.salvage += totalSpent(this.talents);
+    this.talents = {};
+    this.saveMeta();
+    this.openTalents();
   }
 
   /** Settings are live: every change applies and persists immediately, then `back` returns. */
@@ -163,12 +208,13 @@ export class Game {
     this.fx.showNumbers = this.settings.damageNumbers;
   }
 
+  /** Owned talents, resolved and folded into the run's opening stats. */
   private freshStats(): PlayerStats {
     return {
       level: 1, xp: 0, xpToNext: xpToNext(1), kills: 0,
       damageMul: 1, fireRateMul: 1, moveSpeed: PLAYER_BASE.moveSpeed, maxHp: PLAYER_BASE.maxHp,
       pierceBonus: 0, magnet: 0, projectileBonus: 0, crit: 0, lifesteal: 0,
-      detonate: 0, chill: 0, desperate: 0,
+      detonate: 0, chill: 0, desperate: 0, evoDiscount: 0,
     };
   }
 
@@ -207,6 +253,12 @@ export class Game {
     const seed = seedOverride ?? randomSeed();
     this.runSeed = seed;
     this.runDailyKey = seed === dailySeed(dailyKey()) ? dailyKey() : null;
+    this.salvageCommitted = 0;
+    // The daily is a fair fight: everyone gets the same world AND the same character, so
+    // permanent power (talents and veterancy) is switched off for it. Otherwise the day's
+    // leaderboard would just rank how long people have been grinding.
+    const fair = this.runDailyKey !== null;
+    const talents = fair ? NO_TALENTS : talentEffects(this.talents);
     const world = new World(makeRng(seed));
     const ctx: GameContext = {
       world,
@@ -216,15 +268,18 @@ export class Game {
       audio: this.audio,
       time: { elapsed: 0, hitStop: 0 },
       director: { budget: 0, bossSpawned: false, bossDead: false },
-      stats: applyOperativeLevel(
-        applyOperative(this.freshStats(), op),
-        op,
-        opLevelFromXp(this.opXp[op.id] ?? 0).level,
+      stats: applyTalents(
+        applyOperativeLevel(
+          applyOperative(this.freshStats(), op),
+          op,
+          fair ? 1 : opLevelFromXp(this.opXp[op.id] ?? 0).level,
+        ),
+        talents,
       ),
       passives: new Map<string, number>(),
-      equip: this.freshEquip(),
+      equip: { ...this.freshEquip(), gold: talents.startGold, shield: talents.startShield },
       skills: this.freshSkills(),
-      run: freshRunState(),
+      run: { ...freshRunState(), adrenalineLeft: talents.adrenalineCharges, revivesLeft: talents.revives },
       input: new DomInput(this.keys, this.renderer),
       rng: world.rng,
       seed,
@@ -507,6 +562,7 @@ export class Game {
     this.saveBest();
     this.commitLifetime(false);
     this.saveDaily();
+    this.commitSalvage();
     this.ui.showEnd(
       this.buildRunSummary(false),
       () => this.start(),
@@ -521,6 +577,7 @@ export class Game {
     this.saveBest();
     this.commitLifetime(true);
     this.saveDaily();
+    this.commitSalvage();
     this.ui.showEnd(
       this.buildRunSummary(true),
       () => this.start(),
@@ -579,8 +636,8 @@ export class Game {
     if (!lo) return '';
     for (const wi of lo.weapons) {
       if (wi.level < MAX_WEAPON_LEVEL) continue;
-      if (evolutionReady(wi.def.id, wi.level, ctx.passives)) continue;
-      const hint = evolutionHint(wi.def.id, ctx.passives, (id) => passiveById(id)?.name ?? id);
+      if (evolutionReady(wi.def.id, wi.level, ctx.passives, ctx.stats.evoDiscount)) continue;
+      const hint = evolutionHint(wi.def.id, ctx.passives, (id) => passiveById(id)?.name ?? id, ctx.stats.evoDiscount);
       if (hint) return hint;
     }
     return '';
@@ -611,6 +668,7 @@ export class Game {
       rescued: ctx.run.rescued,
       seed: formatSeed(this.runSeed),
       daily: this.runDailyKey !== null,
+      salvage: this.runDailyKey !== null ? null : this.lastSalvageGain,
       build: {
         weapons: (lo?.weapons ?? []).map((wi) => ({ name: wi.def.name, level: wi.level })),
         passives: this.passiveList(ctx).map((pv) => ({ name: pv.name, level: pv.level })),
@@ -654,6 +712,35 @@ export class Game {
       localStorage.setItem('zs-daily', JSON.stringify(this.dailyRecords));
     } catch {
       // storage disabled — the record just doesn't persist
+    }
+  }
+
+  /**
+   * Salvage: every run pays out, win or lose. Banked as a delta because an endless run can
+   * reach the summary twice, and never on the daily, which runs without permanent power.
+   */
+  private commitSalvage(): void {
+    if (!this.ctx || this.runDailyKey !== null) return;
+    const total = salvageGain({
+      time: this.ctx.time.elapsed,
+      goldLeft: this.ctx.equip.gold,
+      elites: this.ctx.run.elitesKilled,
+      tyrants: this.ctx.run.tyrantsSlain,
+      victory: this.winCounted,
+    });
+    const delta = Math.max(0, total - this.salvageCommitted);
+    this.salvageCommitted = total;
+    this.lastSalvageGain = total;
+    this.salvage += delta;
+    this.saveMeta();
+  }
+
+  private saveMeta(): void {
+    try {
+      localStorage.setItem('zs-salvage', String(this.salvage));
+      localStorage.setItem('zs-talents', JSON.stringify(this.talents));
+    } catch {
+      // storage disabled — meta progress just doesn't persist
     }
   }
 

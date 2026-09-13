@@ -60,10 +60,16 @@ export function evolutionReady(
   weaponId: string,
   weaponLevel: number,
   passives: ReadonlyMap<string, number>,
+  discount = 0,
 ): boolean {
   const r = evolutionFor(weaponId);
   if (!r || weaponLevel < MAX_WEAPON_LEVEL) return false;
-  return (passives.get(r.passive) ?? 0) >= r.passiveLevel;
+  return (passives.get(r.passive) ?? 0) >= requiredPassiveLevel(r, discount);
+}
+
+/** The recipe's passive requirement after the 改装工坊 talent shaves levels off it. */
+export function requiredPassiveLevel(r: EvolutionRecipe, discount = 0): number {
+  return Math.max(1, r.passiveLevel - discount);
 }
 
 /** Human-readable requirement line, e.g. "进化需求：多重射击 Lv.3（当前 Lv.1）". */
@@ -71,9 +77,11 @@ export function evolutionHint(
   weaponId: string,
   passives: ReadonlyMap<string, number>,
   passiveName: (id: string) => string,
+  discount = 0,
 ): string {
   const r = evolutionFor(weaponId);
   if (!r) return '';
   const have = passives.get(r.passive) ?? 0;
-  return `进化需求：${passiveName(r.passive)} Lv.${r.passiveLevel}（当前 Lv.${have}）`;
+  const need = requiredPassiveLevel(r, discount);
+  return `进化需求：${passiveName(r.passive)} Lv.${need}（当前 Lv.${have}）`;
 }

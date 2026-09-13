@@ -1,3 +1,37 @@
+## 2026-09-13 - Task: 永久天赋树、残骸货币与公平的每日挑战
+
+### What was done
+
+- 新增元货币**残骸**：每局结算按 `存活×0.15 + 剩余金币×0.25 + 精英×3 + 暴君×60 + 胜利100` 产出，**输了也有**。按增量入账（无尽模式可能结算两次），存于 `zs-salvage`。此前金币局内清零、跨局只有干员经验与纯展示的成就墙——输了没有任何「下一局更强」的钩子。
+- 新增**永久天赋树**（`src/data/talents.ts`，三分支九节点，全部是纯数据 + 纯函数）：
+  - **战备**：前哨补给（起始生命 +10/级，5 级）→ 复合装甲（开局 1 层护盾/级，3 级）→ 战备金库（开局 25 金币/级，4 级）
+  - **火力**：口径升级（伤害 +6%/级，5 级）→ 神射手（暴击 +3%/级，4 级）→ 改装工坊（进化所需被动等级 -1）
+  - **生存**：拾荒者（拾取 +15%/级，4 级）→ 第二次呼吸（肾上腺素每局 2 次）→ 复活协议（每局一次原地复活，回 50% 生命 + 2s 无敌 + 震开尸群）
+  - 分支内**按顺序解锁**，价格逐级递增；两个终点节点还要求对应成就（改装工坊需「终极形态」、复活协议需「清道夫」）——成就墙终于绑定实际解锁，而不只是打勾。
+  - **全额退还**随时可用、无惩罚：不能撤销的 build 没人敢试。
+- **每日挑战改为公平对局**：不套用天赋，也不套用干员老兵加成，并且不产出残骸。否则当日榜单排的只是谁刷得久。标题页与结算页都写明。
+- `RunState.adrenalineUsed`（布尔）改为 `adrenalineLeft`（次数）并新增 `revivesLeft`，两处「翻盘」共用一个 `knockBackAround` 辅助函数。
+- 购买在 Game 层**重新校验**一次 `buyState`，不信任点击——UI 只是视图，不是权威。
+
+### Testing
+
+- `npm test`：32 个测试文件 177 个测试全部通过（新增 `talents.test.ts` 17 项）。
+- `npm run build`：TypeScript 与 Vite 产线构建通过。
+- 结构性用例（会在以后加节点时自动兜底）：每级都有价格且**价格单调递增**、前置指向真实节点、成就门指向真实成就 id、每条分支恰好一个无前置起点、**前置链无环**。
+- 行为用例：前置未满/成就未达/残骸不足/已满级四种拒绝路径各一条；退还金额恰等于投入；空树对属性零影响；等级正确折算进开局属性；改装工坊让进化需求降一级且**永不低于 Lv.1**；复活协议第一次致命伤复活、第二次致命伤真死、没买时照常死亡；残骸胜利恰好多 100、空局为 0。
+- 浏览器实测（Vite dev + Playwright）：0 残骸时九个节点全锁且理由正确；900 残骸时三个起点可买；连买两级后「持有 815 · 已投入 85」且 `zs-talents={"vanguard":2}`；全额退还回到 900 / `{}`；带 `{vanguard:5,plating:2,warchest:2}` 开局 HUD 为 **HP 150/150、金币 50、1 个护盾槽**，阵亡结算显示「残骸 +16」且 `zs-salvage` 400→416；**每日挑战开局为 HP 100/100、金币 0、无护盾**，结算显示「公平对局 · 不计永久升级」且残骸 400→400 不变；全程 console 零报错。
+
+### Notes
+
+- `src/data/talents.ts`、`tests/talents.test.ts`：新增。
+- `src/ctx.ts`：`RunState.adrenalineLeft/revivesLeft`、`PlayerStats.evoDiscount`；`systems/combo.ts` 的 `freshRunState` 同步。
+- `src/systems/combat.ts`：复活协议（致命伤前拦截）、肾上腺素改用次数、`knockBackAround` 提取。
+- `src/data/weapons.ts`：`evolutionReady` / `evolutionHint` 增加 `discount` 参数 + `requiredPassiveLevel`；`progression.ts`、`game.ts` 传入 `stats.evoDiscount`。
+- `src/game.ts`：`salvage` / `talents` / `commitSalvage` / `saveMeta` / `openTalents` / `buyTalent` / `refundTalents`，开局按 `fair` 决定是否套用天赋与老兵等级。
+- `src/ui/ui.ts`：`showTalents` 面板与样式、标题页「战备升级」入口、结算页残骸/公平对局芯片、`TitleData.salvage`、`RunSummary.salvage`。
+- 新增 localStorage 键：`zs-salvage`、`zs-talents`（可手动清除）。
+- 回滚方式：回退本任务对应提交。
+
 ## 2026-09-12 - Task: CI、三种施压型敌人与攻击预警系统
 
 ### What was done

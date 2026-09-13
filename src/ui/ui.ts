@@ -4,6 +4,7 @@ import type { OperativeDef, SkillDef } from '../data/schemas';
 import type { AchievementDef } from '../data/achievements';
 import type { ShopOffer } from '../shop';
 import type { Settings } from '../settings';
+import { TALENTS, BRANCH_NAMES, BRANCH_BLURB, buyState, nextCost, levelOf, totalSpent } from '../data/talents';
 
 export interface HudData {
   stage: number;
@@ -55,6 +56,7 @@ export interface RunSummary {
   rescued: number;
   seed: string; // the run's seed code, so a good run can be replayed or shared
   daily: boolean; // this run was today's daily challenge
+  salvage: number | null; // salvage banked by this run; null on the daily, which pays none
   operative: { name: string; level: number; gained: number; leveledUp: boolean };
   /** The build the player actually assembled — shown so a loss is legible. */
   build: {
@@ -71,6 +73,8 @@ export interface TitleData {
   progress?: Record<string, OperativeProgress>;
   ach?: { unlocked: number; total: number };
   daily: { key: string; seed: string; best: { time: number; kills: number } | null };
+  salvage: number;
+  onShowTalents?: () => void;
   onStart: (operativeId: string, seed?: number) => void;
   onShowAchievements?: () => void;
   onShowSettings?: () => void;
@@ -219,6 +223,27 @@ const STYLE = `
 #ui-overlay button.quiet.accent:hover{background:rgba(255,180,56,.2);color:#fff6dd}
 #ui-overlay button.start{margin-top:8px;cursor:pointer;background:linear-gradient(90deg,var(--fire),#ffd46a);border:none;color:#231706;font-weight:900;font-size:16px;padding:12px 30px;border-radius:12px;letter-spacing:2px;box-shadow:0 8px 24px rgba(255,180,56,.2)}
 #ui-overlay .gold-display{font-size:16px;color:var(--fire);margin-bottom:14px}.gold-display b{color:#ffe66a}
+#ui-overlay .panel.wide{max-width:min(1040px,94vw)}
+#ui-overlay .t-tree{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin:16px 0;text-align:left}
+#ui-overlay .t-branch h3{margin:0 0 2px;font-size:14px;color:var(--growth);letter-spacing:2px}
+#ui-overlay .t-branch>p{margin:0 0 10px;font-size:11px;color:var(--muted)}
+#ui-overlay .t-node{padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;transition:.12s}
+#ui-overlay .t-node.can{cursor:pointer;border-color:rgba(255,180,56,.4);background:rgba(255,180,56,.07)}
+#ui-overlay .t-node.can:hover{transform:translateY(-2px);background:rgba(255,180,56,.14)}
+#ui-overlay .t-node.locked{opacity:.55}
+#ui-overlay .t-node.maxed{border-color:rgba(97,229,222,.42);background:rgba(97,229,222,.07)}
+#ui-overlay .t-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#ui-overlay .t-head b{font-size:14px;color:#f2fffa}
+#ui-overlay .t-lv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+#ui-overlay .t-pips{display:flex;gap:3px;margin:6px 0}
+#ui-overlay .t-pips i{width:16px;height:4px;border-radius:2px;background:rgba(255,255,255,.14)}
+#ui-overlay .t-pips i.on{background:var(--growth)}
+#ui-overlay .t-desc{font-size:12px;color:#a8c7bd;line-height:1.45}
+#ui-overlay .t-desc em{font-style:normal;color:var(--muted);font-size:11px}
+#ui-overlay .t-foot{margin-top:6px;font-size:11px}
+#ui-overlay .t-cost{color:var(--fire);font-weight:800}
+#ui-overlay .t-lock{color:var(--muted)}
+#ui-overlay .t-max{color:var(--growth);font-weight:800}
 #ui-overlay .title-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
 #ui-overlay .seed-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px}
 #ui-overlay .seed-daily,#ui-overlay .seed-custom{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;min-width:240px}
@@ -473,6 +498,9 @@ export class UI {
       ? `<button class="quiet" id="ui-ach-btn">成就 ${ach.unlocked} / ${ach.total}</button>`
       : '';
     const setBtn = d.onShowSettings ? `<button class="quiet" id="ui-set-btn">设置</button>` : '';
+    const talentBtn = d.onShowTalents
+      ? `<button class="quiet accent" id="ui-talent-btn">战备升级 · 残骸 ${d.salvage}</button>`
+      : '';
     const dailyBest = d.daily.best
       ? `今日最佳 ${UI.fmt(d.daily.best.time)} · ${d.daily.best.kills} 击杀`
       : '今天还没打过';
@@ -480,7 +508,7 @@ export class UI {
       <div class="seed-row">
         <div class="seed-daily">
           <button class="quiet accent" id="ui-daily-btn">今日挑战 · ${d.daily.key}</button>
-          <span class="seed-note">全员同一张地图 · 种子 ${d.daily.seed} · ${dailyBest}</span>
+          <span class="seed-note">全员同一张地图 · 种子 ${d.daily.seed} · ${dailyBest}<br>公平对局：不计永久升级与老兵加成</span>
         </div>
         <div class="seed-custom">
           <input id="ui-seed-input" maxlength="7" placeholder="输入种子" aria-label="输入种子">
@@ -496,7 +524,7 @@ export class UI {
         <div class="ops">${cards}</div>
         <button class="start">出击 (Space)</button>
         ${seedRow}
-        <div class="title-btns">${achBtn}${setBtn}</div>
+        <div class="title-btns">${talentBtn}${achBtn}${setBtn}</div>
       </div>`;
     this.overlay.querySelectorAll('.op').forEach((el) => {
       const card = el as HTMLElement;
@@ -514,6 +542,8 @@ export class UI {
     if (achEl && d.onShowAchievements) achEl.onclick = d.onShowAchievements;
     const setEl = this.overlay.querySelector('#ui-set-btn') as HTMLElement | null;
     if (setEl && d.onShowSettings) setEl.onclick = d.onShowSettings;
+    const talentEl = this.overlay.querySelector('#ui-talent-btn') as HTMLElement | null;
+    if (talentEl && d.onShowTalents) talentEl.onclick = d.onShowTalents;
 
     (this.overlay.querySelector('#ui-daily-btn') as HTMLElement).onclick = () =>
       d.onStart(this.titleSelection, d.parseSeed(d.daily.seed) ?? undefined);
@@ -534,6 +564,66 @@ export class UI {
       e.stopPropagation(); // typing a seed must not trigger the global hotkeys
       if (e.key === 'Enter') launchSeed();
     };
+    this.overlay.style.display = 'flex';
+  }
+
+  /**
+   * The talent tree. Three branches, unlocked in order, paid for with salvage — the thing a
+   * lost run leaves behind. A full refund is always available so trying a branch is cheap.
+   */
+  showTalents(
+    levels: Readonly<Record<string, number>>,
+    salvage: number,
+    unlocked: ReadonlySet<string>,
+    onBuy: (id: string) => void,
+    onRefund: () => void,
+    onBack: () => void,
+  ): void {
+    const branches = (['kit', 'arms', 'survival'] as const).map((branch) => {
+      const nodes = TALENTS.filter((t) => t.branch === branch).map((def) => {
+        const lv = levelOf(levels, def.id);
+        const state = buyState(def, levels, salvage, unlocked);
+        const cost = nextCost(def, levels);
+        const pips = Array.from({ length: def.maxLevel }, (_, i) =>
+          `<i class="${i < lv ? 'on' : ''}"></i>`).join('');
+        const foot = state.kind === 'maxed' ? '<span class="t-max">已满级</span>'
+          : state.kind === 'requires' ? `<span class="t-lock">${state.text}</span>`
+          : state.kind === 'achievement' ? `<span class="t-lock">${state.text}</span>`
+          : state.kind === 'salvage' ? `<span class="t-lock">还差 ${state.short} 残骸</span>`
+          : `<span class="t-cost">${cost} 残骸</span>`;
+        const cls = state.kind === 'ok' ? ' can' : state.kind === 'maxed' ? ' maxed' : ' locked';
+        return `
+          <div class="t-node${cls}" data-t="${def.id}" ${state.kind === 'ok' ? 'role="button" tabindex="0"' : ''}>
+            <div class="t-head"><b>${def.name}</b><span class="t-lv">Lv.${lv}/${def.maxLevel}</span></div>
+            <div class="t-pips">${pips}</div>
+            <div class="t-desc">${def.desc}${def.maxLevel > 1 ? ' <em>（每级）</em>' : ''}</div>
+            <div class="t-foot">${foot}</div>
+          </div>`;
+      }).join('');
+      return `<div class="t-branch"><h3>${BRANCH_NAMES[branch]}</h3><p>${BRANCH_BLURB[branch]}</p>${nodes}</div>`;
+    }).join('');
+
+    const spent = totalSpent(levels);
+    this.overlay.innerHTML = `
+      <div class="panel wide">
+        <h1>战备升级</h1>
+        <p>残骸来自每一局——赢了输了都有。<b style="color:#61e5de">持有 ${salvage}</b> · 已投入 ${spent}</p>
+        <div class="t-tree">${branches}</div>
+        <button class="start" id="t-back">返回</button>
+        <div class="title-btns">${spent > 0 ? '<button class="quiet" id="t-refund">全部退还</button>' : ''}</div>
+      </div>`;
+
+    this.overlay.querySelectorAll('.t-node.can').forEach((el) => {
+      const node = el as HTMLElement;
+      const buy = () => onBuy(node.dataset.t ?? '');
+      node.onclick = buy;
+      node.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') buy();
+      };
+    });
+    (this.overlay.querySelector('#t-back') as HTMLElement).onclick = onBack;
+    const refundEl = this.overlay.querySelector('#t-refund') as HTMLElement | null;
+    if (refundEl) refundEl.onclick = onRefund;
     this.overlay.style.display = 'flex';
   }
 
@@ -810,7 +900,11 @@ export class UI {
       ...summary.build.passives.map((p) => `<span class="chip p">${p.name} Lv.${p.level}</span>`),
     ].join('');
     const buildRow = buildChips ? `<div class="build-row">${buildChips}</div>` : '';
-    const seedChip = `<div><span class="seed-chip">${summary.daily ? '今日挑战' : '种子'} ${summary.seed}</span></div>`;
+    const seedChip = `<div><span class="seed-chip">${summary.daily ? '今日挑战' : '种子'} ${summary.seed}</span>${
+      summary.salvage === null
+        ? '<span class="seed-chip">公平对局 · 不计永久升级</span>'
+        : `<span class="seed-chip" style="color:#ffe2a0;border-color:rgba(255,180,56,.4)">残骸 +${summary.salvage}</span>`
+    }</div>`;
     const sameSeedBtn = onSameSeed ? '<button class="quiet" id="end-sameseed">同种子再来</button>' : '';
     const opLine = `<div class="op-line">${summary.operative.name} 经验 <b>+${summary.operative.gained}</b> · Lv.${summary.operative.level}${summary.operative.leveledUp ? '<span class="lvup">▲ 升级！</span>' : ''}</div>`;
     this.overlay.innerHTML = `

@@ -37,6 +37,7 @@ function freshStats(): PlayerStats {
     detonate: 0,
     chill: 0,
     desperate: 0,
+    evoDiscount: 0,
   };
 }
 

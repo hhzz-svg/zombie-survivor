@@ -2,7 +2,7 @@ import type { GameContext } from './ctx';
 import type { WeaponDef, PassiveDef } from './data/schemas';
 import { Loadout, Health } from './components';
 import {
-  WEAPONS, MAX_WEAPON_LEVEL, evolutionFor, evolutionReady,
+  WEAPONS, MAX_WEAPON_LEVEL, evolutionFor, evolutionReady, requiredPassiveLevel,
 } from './data/weapons';
 import { PASSIVES, passiveById } from './data/passives';
 import { WEAPON_SLOTS, PASSIVE_SLOTS, MAX_PASSIVE_LEVEL } from './data/balance';
@@ -47,7 +47,7 @@ export function makeChoices(ctx: GameContext): Choice[] {
   for (const wi of lo.weapons) {
     const recipe = evolutionFor(wi.def.id);
     if (!recipe) continue;
-    if (evolutionReady(wi.def.id, wi.level, ctx.passives)) {
+    if (evolutionReady(wi.def.id, wi.level, ctx.passives, ctx.stats.evoDiscount)) {
       const evoDef = WEAPONS[recipe.evo];
       if (evoDef) {
         forced.push({
@@ -59,7 +59,7 @@ export function makeChoices(ctx: GameContext): Choice[] {
           sprite: evoDef.sprite,
         });
       }
-    } else if ((ctx.passives.get(recipe.passive) ?? 0) < recipe.passiveLevel) {
+    } else if ((ctx.passives.get(recipe.passive) ?? 0) < requiredPassiveLevel(recipe, ctx.stats.evoDiscount)) {
       unlocks.set(recipe.passive, wi.def.name);
     }
   }

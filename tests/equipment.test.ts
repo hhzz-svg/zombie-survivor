@@ -16,7 +16,7 @@ function freshStats(): PlayerStats {
     level: 1, xp: 0, xpToNext: xpToNext(1), kills: 0,
     damageMul: 1, fireRateMul: 1, moveSpeed: PLAYER_BASE.moveSpeed, maxHp: PLAYER_BASE.maxHp,
     pierceBonus: 0, magnet: 0, projectileBonus: 0, crit: 0, lifesteal: 0,
-    detonate: 0, chill: 0, desperate: 0,
+    detonate: 0, chill: 0, desperate: 0, evoDiscount: 0,
   };
 }
 

@@ -35,6 +35,7 @@ function makeCtx(): GameContext {
     detonate: 0,
     chill: 0,
     desperate: 0,
+    evoDiscount: 0,
   };
   const equip: EquipmentState = {
     gold: 0,
