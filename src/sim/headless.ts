@@ -187,7 +187,7 @@ function shapeOffer(ctx: GameContext, initial: Choice[]): Choice[] {
       if (idx >= 0) {
         ctx.equip.gold -= bCost;
         ctx.run.banishes++;
-        ctx.run.banished.add(choiceKey(choices[idx]!)!);
+        ctx.run.banished.add(choiceKey(choices[idx])!);
         choices = makeChoices(ctx, choices.filter((_, j) => j !== idx));
         continue;
       }

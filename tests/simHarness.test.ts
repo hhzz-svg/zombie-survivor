@@ -65,7 +65,7 @@ describe('scripted player', () => {
     // Momentum and loot off: this asserts the threat field itself, not the shipped policy.
     ai.tuning = { momentum: 0, loot: 0, soften: 900 };
     ai.ctx = ctx;
-    spawnEnemyAt(ctx, ENEMIES['walker']!, 60, 0);
+    spawnEnemyAt(ctx, ENEMIES['walker'], 60, 0);
     rebuildEnemyHash(ctx);
 
     const dir = ai.axis();
@@ -80,7 +80,7 @@ describe('scripted player', () => {
     const ctx = makeCtx();
     const ai = new AiInput();
     ai.ctx = ctx;
-    for (let i = -3; i <= 3; i++) spawnEnemyAt(ctx, ENEMIES['walker']!, 180, i * 40);
+    for (let i = -3; i <= 3; i++) spawnEnemyAt(ctx, ENEMIES['walker'], 180, i * 40);
     rebuildEnemyHash(ctx);
 
     const first = ai.axis();
@@ -97,8 +97,8 @@ describe('scripted player', () => {
     const ctx = makeCtx();
     const ai = new AiInput();
     ai.ctx = ctx;
-    spawnEnemyAt(ctx, ENEMIES['walker']!, 40, 0);
-    spawnEnemyAt(ctx, ENEMIES['boss']!, -300, 0);
+    spawnEnemyAt(ctx, ENEMIES['walker'], 40, 0);
+    spawnEnemyAt(ctx, ENEMIES['boss'], -300, 0);
     rebuildEnemyHash(ctx);
 
     expect(ai.aim(0, 0).x).toBeLessThan(0);

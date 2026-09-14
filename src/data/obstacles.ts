@@ -79,7 +79,7 @@ function buildCellObstacle(seed: number, cx: number, cy: number): Obstacle | nul
   if (unit(seed, cx, cy, 1) >= DENSITY) return null;
 
   let roll = unit(seed, cx, cy, 2) * SHAPE_TOTAL;
-  let shape = SHAPES[SHAPES.length - 1]!;
+  let shape = SHAPES[SHAPES.length - 1];
   for (const s of SHAPES) {
     roll -= s.weight;
     if (roll <= 0) {

@@ -51,7 +51,7 @@ describe('terrain collision', () => {
   it('stops player bullets at cover', () => {
     const ctx = makeCtx();
     const { o } = findObstacle(SEED);
-    const b = spawnBullet(ctx, o.x, o.y, 1, 0, WEAPONS['pistol']!, 9, 0);
+    const b = spawnBullet(ctx, o.x, o.y, 1, 0, WEAPONS['pistol'], 9, 0);
     rebuildEnemyHash(ctx);
 
     bulletSystem(ctx, 1 / 60);
@@ -72,7 +72,7 @@ describe('terrain collision', () => {
 
   it('lets bullets through open ground', () => {
     const ctx = makeCtx();
-    const b = spawnBullet(ctx, 0, 0, 1, 0, WEAPONS['pistol']!, 9, 0);
+    const b = spawnBullet(ctx, 0, 0, 1, 0, WEAPONS['pistol'], 9, 0);
     rebuildEnemyHash(ctx);
 
     bulletSystem(ctx, 1 / 60);
@@ -113,7 +113,7 @@ describe('explosive barrels', () => {
     const ctx = makeCtx();
     ctx.director.activatedCells = new Set(); // keep procedural barrels out of this test
     const barrel = spawnBarrel(ctx, 300, 0);
-    const victim = spawnEnemyAt(ctx, ENEMIES['brute']!, 340, 0);
+    const victim = spawnEnemyAt(ctx, ENEMIES['brute'], 340, 0);
     rebuildEnemyHash(ctx);
     const before = ctx.world.get(victim, Health)!.hp;
 

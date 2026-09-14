@@ -13,8 +13,8 @@ describe('trait passives', () => {
   it('detonate cooks off the corpse and damages neighbours', () => {
     const ctx = makeCtx();
     ctx.stats.detonate = 1; // always fires, so the assertion is deterministic
-    const victim = spawnEnemyAt(ctx, ENEMIES['walker']!, 200, 0);
-    const bystander = spawnEnemyAt(ctx, ENEMIES['brute']!, 230, 0);
+    const victim = spawnEnemyAt(ctx, ENEMIES['walker'], 200, 0);
+    const bystander = spawnEnemyAt(ctx, ENEMIES['brute'], 230, 0);
     rebuildEnemyHash(ctx);
     const before = ctx.world.get(bystander, Health)!.hp;
 
@@ -28,7 +28,7 @@ describe('trait passives', () => {
     const ctx = makeCtx();
     ctx.stats.detonate = 1;
     const ph = ctx.world.get(ctx.player, Health)!;
-    const e = spawnEnemyAt(ctx, ENEMIES['walker']!, 20, 0); // point-blank
+    const e = spawnEnemyAt(ctx, ENEMIES['walker'], 20, 0); // point-blank
     rebuildEnemyHash(ctx);
 
     damageEnemy(ctx, e, 9999, 1, 0, 0);
@@ -39,7 +39,7 @@ describe('trait passives', () => {
   it('chill slows an enemy on hit and wears off', () => {
     const ctx = makeCtx();
     ctx.stats.chill = 0.12;
-    const e = spawnEnemyAt(ctx, ENEMIES['brute']!, 200, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['brute'], 200, 0);
     rebuildEnemyHash(ctx);
 
     damageEnemy(ctx, e, 1, 1, 0, 0);
@@ -55,7 +55,7 @@ describe('trait passives', () => {
   it('chill is capped no matter how many levels are stacked', () => {
     const ctx = makeCtx();
     ctx.stats.chill = 5;
-    const e = spawnEnemyAt(ctx, ENEMIES['brute']!, 200, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['brute'], 200, 0);
     rebuildEnemyHash(ctx);
     damageEnemy(ctx, e, 1, 1, 0, 0);
     expect(ctx.world.get(e, Enemy)!.chillMul).toBeGreaterThan(0.4);
@@ -77,5 +77,5 @@ function firedDamage(hpFrac: number): number {
   weaponSystem(ctx, 1);
   const bullets = ctx.world.query(Bullet, Transform);
   expect(bullets.length).toBeGreaterThan(0);
-  return ctx.world.get(bullets[0]!, Bullet)!.dmg;
+  return ctx.world.get(bullets[0], Bullet)!.dmg;
 }

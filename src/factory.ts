@@ -16,7 +16,7 @@ import { SURVIVOR_WAIT, type WingmanDef } from './data/wingmen';
 export function createPlayer(ctx: GameContext, weaponId: string = STARTER_WEAPON): Entity {
   const w = ctx.world;
   const e = w.create();
-  const weapon = WEAPONS[weaponId] ?? WEAPONS[STARTER_WEAPON]!;
+  const weapon = WEAPONS[weaponId] ?? WEAPONS[STARTER_WEAPON];
   w.add(e, Transform, { x: 0, y: 0, rot: 0 });
   w.add(e, Velocity, { x: 0, y: 0 });
   w.add(e, Health, { hp: ctx.stats.maxHp, max: ctx.stats.maxHp, invuln: 0, flash: 0 });
@@ -78,9 +78,9 @@ export function spawnBoss(ctx: GameContext, hpMul = 1, cycle?: number): Entity {
   const pt = ctx.world.get(ctx.player, Transform)!;
   const a = ctx.rng() * Math.PI * 2;
   const id = cycle === undefined
-    ? BOSS_IDS[Math.floor(ctx.rng() * BOSS_IDS.length)]!
-    : BOSS_IDS[cycle % BOSS_IDS.length]!;
-  const boss = ENEMIES[id]!;
+    ? BOSS_IDS[Math.floor(ctx.rng() * BOSS_IDS.length)]
+    : BOSS_IDS[cycle % BOSS_IDS.length];
+  const boss = ENEMIES[id];
   ctx.director.bossId = id;
   ctx.audio.boss();
   ctx.screen.shake = Math.max(ctx.screen.shake, 14);
@@ -95,7 +95,7 @@ export function spawnBoss(ctx: GameContext, hpMul = 1, cycle?: number): Entity {
 
 /** The golden runner: flees the player and despawns (no rewards) if not hunted down in time. */
 export function spawnGoldenRunner(ctx: GameContext): Entity {
-  const e = spawnEnemyRing(ctx, ENEMIES['golden']!);
+  const e = spawnEnemyRing(ctx, ENEMIES['golden']);
   ctx.world.add(e, Lifetime, { t: 12 });
   return e;
 }

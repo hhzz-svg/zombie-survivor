@@ -22,7 +22,7 @@ function installStorage(): { store: Map<string, string>; setFailing: (on: boolea
     clear: () => store.clear(),
     key: () => null,
     length: 0,
-  } as Storage;
+  };
   return { store, setFailing: (on: boolean) => { failing = on; } };
 }
 

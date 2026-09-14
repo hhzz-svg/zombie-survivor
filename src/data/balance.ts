@@ -67,7 +67,7 @@ export const RUN_STAGES: readonly RunStage[] = [
 ];
 
 export function currentRunStage(t: number): RunStage {
-  let stage = RUN_STAGES[0]!;
+  let stage = RUN_STAGES[0];
   for (const s of RUN_STAGES) {
     if (t >= s.from) stage = s;
     else break;

@@ -556,11 +556,11 @@ export class UI {
       };
     });
     (this.overlay.querySelector('.start') as HTMLElement).onclick = () => d.onStart(this.titleSelection);
-    const achEl = this.overlay.querySelector('#ui-ach-btn') as HTMLElement | null;
+    const achEl = this.overlay.querySelector('#ui-ach-btn');
     if (achEl && d.onShowAchievements) achEl.onclick = d.onShowAchievements;
-    const setEl = this.overlay.querySelector('#ui-set-btn') as HTMLElement | null;
+    const setEl = this.overlay.querySelector('#ui-set-btn');
     if (setEl && d.onShowSettings) setEl.onclick = d.onShowSettings;
-    const talentEl = this.overlay.querySelector('#ui-talent-btn') as HTMLElement | null;
+    const talentEl = this.overlay.querySelector('#ui-talent-btn');
     if (talentEl && d.onShowTalents) talentEl.onclick = d.onShowTalents;
 
     (this.overlay.querySelector('#ui-daily-btn') as HTMLElement).onclick = () =>
@@ -640,7 +640,7 @@ export class UI {
       };
     });
     (this.overlay.querySelector('#t-back') as HTMLElement).onclick = onBack;
-    const refundEl = this.overlay.querySelector('#t-refund') as HTMLElement | null;
+    const refundEl = this.overlay.querySelector('#t-refund');
     if (refundEl) refundEl.onclick = onRefund;
     this.overlay.style.display = 'flex';
   }
@@ -740,7 +740,7 @@ export class UI {
       </div>`;
     (this.overlay.querySelector('#pause-resume') as HTMLElement).onclick = onResume;
     (this.overlay.querySelector('#pause-restart') as HTMLElement).onclick = onRestart;
-    const setEl = this.overlay.querySelector('#pause-settings') as HTMLElement | null;
+    const setEl = this.overlay.querySelector('#pause-settings');
     if (setEl && onSettings) setEl.onclick = onSettings;
     this.overlay.style.display = 'flex';
   }
@@ -840,7 +840,7 @@ export class UI {
         shape.onBanish?.(Number(btn.dataset.b));
       };
     });
-    const rerollEl = this.overlay.querySelector('#lv-reroll') as HTMLElement | null;
+    const rerollEl = this.overlay.querySelector('#lv-reroll');
     if (rerollEl && shape.onReroll) rerollEl.onclick = shape.onReroll;
     this.overlay.style.display = 'flex';
   }
@@ -979,9 +979,9 @@ export class UI {
         <div class="title-btns">${sameSeedBtn}</div>
       </div>`;
     (this.overlay.querySelector('.start') as HTMLElement).onclick = onRestart;
-    const endlessEl = this.overlay.querySelector('#end-endless') as HTMLElement | null;
+    const endlessEl = this.overlay.querySelector('#end-endless');
     if (endlessEl && onEndless) endlessEl.onclick = onEndless;
-    const seedEl = this.overlay.querySelector('#end-sameseed') as HTMLElement | null;
+    const seedEl = this.overlay.querySelector('#end-sameseed');
     if (seedEl && onSameSeed) seedEl.onclick = onSameSeed;
     this.overlay.style.display = 'flex';
   }

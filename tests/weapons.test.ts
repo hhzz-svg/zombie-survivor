@@ -60,8 +60,8 @@ describe('weapon handling', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
     lo.weapons = [
-      { def: WEAPONS.pistol!, level: 1, cd: 10 },
-      { def: WEAPONS.nova!, level: 1, cd: 0 },
+      { def: WEAPONS.pistol, level: 1, cd: 10 },
+      { def: WEAPONS.nova, level: 1, cd: 0 },
     ];
     lo.activeWeapon = 'pistol';
 
@@ -73,13 +73,13 @@ describe('weapon handling', () => {
   it('aimed bullets start at the weapon muzzle instead of the player center', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
-    lo.weapons = [{ def: WEAPONS.pistol!, level: 1, cd: 0 }];
+    lo.weapons = [{ def: WEAPONS.pistol, level: 1, cd: 0 }];
 
     weaponSystem(ctx, 0);
 
     const bullets = ctx.world.query(Bullet, Transform);
     expect(bullets).toHaveLength(1);
-    const bt = ctx.world.get(bullets[0]!, Transform)!;
+    const bt = ctx.world.get(bullets[0], Transform)!;
     expect(bt.x).toBeGreaterThan(PLAYER_BASE.radius);
     expect(bt.y).toBeLessThan(-PLAYER_BASE.radius * 3);
   });
@@ -88,8 +88,8 @@ describe('weapon handling', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
     lo.weapons = [
-      { def: WEAPONS.pistol!, level: 1, cd: 0 },
-      { def: WEAPONS.shotgun!, level: 1, cd: 10 },
+      { def: WEAPONS.pistol, level: 1, cd: 0 },
+      { def: WEAPONS.shotgun, level: 1, cd: 10 },
     ];
     lo.activeWeapon = 'shotgun';
 

@@ -18,7 +18,7 @@ describe('supply drops', () => {
     const ctx = makeCtx();
     ctx.time.elapsed = SUPPLY_FIRST_AT;
     supplyDropSystem(ctx, 1 / 60);
-    const crate = ctx.world.query(SupplyCrate)[0]!;
+    const crate = ctx.world.query(SupplyCrate)[0];
     // teleport the crate onto the player so only the fall timer gates pickup
     const ct = ctx.world.get(crate, Transform)!;
     ct.x = 0;
@@ -79,7 +79,7 @@ describe('supply drops', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
     applyCrateReward(ctx, 'weaponUp');
-    expect(lo.weapons[0]!.level).toBe(2);
+    expect(lo.weapons[0].level).toBe(2);
 
     lo.weapons.forEach((w) => {
       w.level = 6;

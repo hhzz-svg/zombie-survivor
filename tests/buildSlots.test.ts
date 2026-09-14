@@ -12,7 +12,7 @@ function fillWeapons(ctx: GameContext, ids: string[]): void {
   const lo = ctx.world.get(ctx.player, Loadout)!;
   for (const id of ids) {
     if (lo.weapons.some((w) => w.def.id === id)) continue;
-    lo.weapons.push({ def: WEAPONS[id]!, level: 1, cd: 0 });
+    lo.weapons.push({ def: WEAPONS[id], level: 1, cd: 0 });
   }
 }
 
@@ -67,9 +67,9 @@ describe('evolution recipes', () => {
   it('needs the weapon maxed AND the paired passive at its required level', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
-    const recipe = EVOLUTIONS['pistol']!;
+    const recipe = EVOLUTIONS['pistol'];
 
-    lo.weapons[0]!.level = MAX_WEAPON_LEVEL;
+    lo.weapons[0].level = MAX_WEAPON_LEVEL;
     expect(evolutionReady('pistol', MAX_WEAPON_LEVEL, ctx.passives)).toBe(false);
     for (let i = 0; i < 10; i++) {
       expect(makeChoices(ctx).some((c) => c.kind === 'weapon-evo')).toBe(false);
@@ -82,25 +82,25 @@ describe('evolution recipes', () => {
   it('forces the evolution into the first card so it cannot be rolled away', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
-    lo.weapons[0]!.level = MAX_WEAPON_LEVEL;
-    grant(ctx, EVOLUTIONS['pistol']!.passive, EVOLUTIONS['pistol']!.passiveLevel);
+    lo.weapons[0].level = MAX_WEAPON_LEVEL;
+    grant(ctx, EVOLUTIONS['pistol'].passive, EVOLUTIONS['pistol'].passiveLevel);
 
     for (let i = 0; i < 10; i++) {
       const choices = makeChoices(ctx);
-      expect(choices[0]!.kind).toBe('weapon-evo');
+      expect(choices[0].kind).toBe('weapon-evo');
     }
 
-    const evo = makeChoices(ctx)[0]!;
+    const evo = makeChoices(ctx)[0];
     applyChoice(ctx, evo);
-    expect(lo.weapons[0]!.def.id).toBe('pistol-evo');
-    expect(lo.weapons[0]!.level).toBe(1);
+    expect(lo.weapons[0].def.id).toBe('pistol-evo');
+    expect(lo.weapons[0].level).toBe(1);
     expect(ctx.run.evolved).toBe(true);
   });
 
   it('an evolved weapon never re-enters the evolution pool', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
-    lo.weapons[0]! = { def: WEAPONS['pistol-evo']!, level: MAX_WEAPON_LEVEL, cd: 0 };
+    lo.weapons[0] = { def: WEAPONS['pistol-evo'], level: MAX_WEAPON_LEVEL, cd: 0 };
     grant(ctx, 'rof', MAX_PASSIVE_LEVEL);
     for (let i = 0; i < 10; i++) {
       expect(makeChoices(ctx).some((c) => c.kind === 'weapon-evo')).toBe(false);

@@ -26,5 +26,5 @@ export const ELITE_AFFIXES: readonly EliteAffix[] = [
 export const TOXIC_DEATH_BOLTS = 10;
 
 export function rollEliteAffix(rng: () => number): EliteAffix {
-  return ELITE_AFFIXES[Math.floor(rng() * ELITE_AFFIXES.length)]!;
+  return ELITE_AFFIXES[Math.floor(rng() * ELITE_AFFIXES.length)];
 }

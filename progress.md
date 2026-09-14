@@ -1,3 +1,31 @@
+## 2026-09-14 - Task: 接入 ESLint——规则挑那些真能拦住 bug 的
+
+### What was done
+
+- 仓库此前**完全没有 lint**（`devDependencies` 里连 eslint 都没有），只有 `tsc --noEmit`。接入 `eslint` + `typescript-eslint` 的 `recommendedTypeChecked`（类型感知规则才值这个钱——这个代码库里可能出事的是漂移的 promise 和静默的 any，不是格式）。
+- **三条针对这个项目的规则，才是重点**：
+  - `src/` 的模拟层禁用 `Math.random` / `Date.now` / `performance.now`。整套无头测量、种子分享、每日挑战都建立在「模拟是种子的纯函数」之上；某个系统里混进一个 `Math.random` 会同时废掉这三样，而且是静默的，通常要很久之后以「某个测试偶尔挂」的形式才暴露。渲染 / UI / 音频 / FX / `game.ts` / `seed.ts` 在豁免列表里——它们本来就该读时钟。
+  - `save.ts` 之外禁止直接访问 `localStorage`。理由和上一轮合并存档一样：九个入口的持久化没有版本故事可言。
+  - `no-console`（tools 与 tests 除外）、`eqeqeq`。
+- 调整 TS 工程结构：主工程（`src` + `tests`）保持**浏览器专用**（`types: ["vite/client"]`），新增 `tsconfig.tools.json` 给 `tools/` 与 `vite.config.ts` 加 node 类型。这样游戏代码在类型层面就够不到 node API。`npm run typecheck` 两个工程都查，`npm run build` 依赖它。
+- CI 新增 Lint 步骤（在 typecheck 之前）。
+- `npx eslint . --fix` 清掉 163 处自动可修问题（绝大多数是测试里多余的 `!` 断言）。
+
+### Testing
+
+- `npm run lint`：0 错 0 警。
+- `npm run typecheck`：两个工程均通过。
+- `npm test`：36 个测试文件 234 个测试全部通过（自动修复未改变任何行为）。
+- **验证了三条自定义规则确实会拦**：在 `movement.ts` 里植入 `Math.random()` 与 `Date.now()`、在 `progression.ts` 里植入 `localStorage.getItem`，eslint 报出 3 条对应错误并带上各自的解释；验证后已还原，`eslint .` 重新为 0。
+
+### Notes
+
+- `eslint.config.js`、`tsconfig.tools.json`：新增。
+- `package.json`：`lint` 脚本、`typecheck` 覆盖两个工程、`build` 依赖 `typecheck`；新增 devDependencies `eslint` / `@eslint/js` / `typescript-eslint` / `@types/node`。
+- `.github/workflows/ci.yml`：Lint 步骤。
+- 多个测试文件：自动修复移除多余类型断言。
+- 回滚方式：回退本任务对应提交。
+
 ## 2026-09-14 - Task: 存档版本化——单一入口、逐字段降级、迁移与备份
 
 ### 起因

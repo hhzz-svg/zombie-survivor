@@ -46,7 +46,7 @@ export const OPERATIVES: readonly OperativeDef[] = z.array(OperativeDefSchema).p
 export const DEFAULT_OPERATIVE = 'ranger';
 
 export function operativeById(id: string): OperativeDef {
-  return OPERATIVES.find((o) => o.id === id) ?? OPERATIVES[0]!;
+  return OPERATIVES.find((o) => o.id === id) ?? OPERATIVES[0];
 }
 
 /** Apply an operative's mods to freshly-built base stats (mutates and returns them). */

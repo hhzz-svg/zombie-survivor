@@ -67,7 +67,7 @@ export function makeChoices(ctx: GameContext, keep: Choice[] = []): Choice[] {
   if (lo.weapons.length < WEAPON_SLOTS) {
     for (const id of Object.keys(WEAPONS)) {
       if (id.endsWith('-evo') || owned.has(id)) continue;
-      const def = WEAPONS[id]!;
+      const def = WEAPONS[id];
       const card: Choice = { kind: 'weapon-new', weapon: def, label: `新武器 · ${def.name}`, desc: weaponDesc(def), sprite: def.sprite };
       if (allowed(card)) pool.push(card);
     }
@@ -147,7 +147,7 @@ function pickN(ctx: GameContext, arr: Choice[], n: number): Choice[] {
   const out: Choice[] = [];
   while (out.length < n && copy.length > 0) {
     const i = Math.floor(ctx.rng() * copy.length);
-    out.push(copy.splice(i, 1)[0]!);
+    out.push(copy.splice(i, 1)[0]);
   }
   return out;
 }

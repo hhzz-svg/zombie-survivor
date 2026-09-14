@@ -34,7 +34,7 @@ export function rollCrateReward(rng: () => number): CrateReward {
     roll -= r.weight;
     if (roll <= 0) return r;
   }
-  return CRATE_REWARDS[CRATE_REWARDS.length - 1]!;
+  return CRATE_REWARDS[CRATE_REWARDS.length - 1];
 }
 
 export function supplyDropSystem(ctx: GameContext, _dt: number): void {
@@ -128,7 +128,7 @@ export function applyCrateReward(ctx: GameContext, id: CrateReward['id']): strin
         ctx.equip.gold += 25;
         return '武器已全部满级，折算 25 金币';
       }
-      const wi = upgradable[Math.floor(ctx.rng() * upgradable.length)]!;
+      const wi = upgradable[Math.floor(ctx.rng() * upgradable.length)];
       wi.level++;
       return `${wi.def.name} 升至 Lv.${wi.level}`;
     }

@@ -429,7 +429,7 @@ export class Game {
     this.opXpCommitted = gainTotal;
     this.opXp[op.id] = (this.opXp[op.id] ?? 0) + delta;
     this.persist();
-    const after = opLevelFromXp(this.opXp[op.id]!).level;
+    const after = opLevelFromXp(this.opXp[op.id]).level;
     this.lastOpProgress = { name: op.name, level: after, gained: gainTotal, leveledUp: after > before };
   }
 
@@ -731,7 +731,7 @@ export class Game {
   private primaryWeapon(lo?: { weapons: WeaponInst[]; activeWeapon?: string }): WeaponInst {
     return lo?.weapons.find((wi) => wi.def.id === lo.activeWeapon)
       ?? lo?.weapons.find((wi) => wi.def.kind === 'aim')
-      ?? lo!.weapons[0]!;
+      ?? lo!.weapons[0];
   }
 
   /** Today's daily keeps its own best, since every player got the exact same world. */

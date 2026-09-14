@@ -22,7 +22,7 @@ export const WINGMEN: readonly WingmanDef[] = [
 ];
 
 export function rollWingman(rng: () => number): WingmanDef {
-  return WINGMEN[Math.floor(rng() * WINGMEN.length)]!;
+  return WINGMEN[Math.floor(rng() * WINGMEN.length)];
 }
 
 export const MAX_SQUAD = 2;

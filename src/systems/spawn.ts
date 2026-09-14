@@ -85,13 +85,13 @@ export function directorSystem(ctx: GameContext, dt: number): void {
 
 function pickEnemy(ctx: GameContext): EnemyDef | null {
   const t = ctx.time.elapsed;
-  const eligible = SPAWN_TABLE.filter((s) => t >= s.from && ENEMIES[s.id]!.cost <= ctx.director.budget);
+  const eligible = SPAWN_TABLE.filter((s) => t >= s.from && ENEMIES[s.id].cost <= ctx.director.budget);
   if (eligible.length === 0) return null;
   const total = eligible.reduce((a, s) => a + s.weight, 0);
   let r = ctx.rng() * total;
   for (const s of eligible) {
     r -= s.weight;
-    if (r <= 0) return ENEMIES[s.id]!;
+    if (r <= 0) return ENEMIES[s.id];
   }
-  return ENEMIES[eligible[eligible.length - 1]!.id]!;
+  return ENEMIES[eligible[eligible.length - 1].id];
 }

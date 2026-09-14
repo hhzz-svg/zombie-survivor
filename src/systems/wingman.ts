@@ -88,7 +88,7 @@ export function wingmanSystem(ctx: GameContext, dt: number): void {
     if (h.flash > 0) h.flash -= dt;
 
     // follow the assigned slot, drifting gently around the player
-    const ang = SLOT_BASE[wm.slot % SLOT_BASE.length]! + Math.sin(ctx.time.elapsed * 0.6 + wm.slot * 2.1) * 0.22;
+    const ang = SLOT_BASE[wm.slot % SLOT_BASE.length] + Math.sin(ctx.time.elapsed * 0.6 + wm.slot * 2.1) * 0.22;
     const tx = pt.x + Math.cos(ang) * SLOT_DIST;
     const ty = pt.y + Math.sin(ang) * SLOT_DIST;
     v.x = Math.max(-MAX_FOLLOW_SPEED, Math.min(MAX_FOLLOW_SPEED, (tx - t.x) * FOLLOW_GAIN));
@@ -160,13 +160,13 @@ export function wingmanSystem(ctx: GameContext, dt: number): void {
     if (wm.def.id === 'gunner') {
       const jitter = (ctx.rng() - 0.5) * 0.08;
       const a = Math.atan2(by / len, bx / len) + jitter;
-      spawnBullet(ctx, t.x, t.y, Math.cos(a), Math.sin(a), WEAPONS['smg']!, dmg, 0);
+      spawnBullet(ctx, t.x, t.y, Math.cos(a), Math.sin(a), WEAPONS['smg'], dmg, 0);
       ctx.fx.flash(t.x, t.y, 6, '#fffaf0', wm.def.color, 0.06);
     } else {
       const base = Math.atan2(by / len, bx / len);
       for (let i = -1; i <= 1; i++) {
         const a = base + i * 0.16 + (ctx.rng() - 0.5) * 0.06;
-        spawnBullet(ctx, t.x, t.y, Math.cos(a), Math.sin(a), WEAPONS['flamer']!, dmg, 1);
+        spawnBullet(ctx, t.x, t.y, Math.cos(a), Math.sin(a), WEAPONS['flamer'], dmg, 1);
       }
       ctx.fx.flash(t.x, t.y, 7, '#fff3b0', '#ff6b1a', 0.07);
     }

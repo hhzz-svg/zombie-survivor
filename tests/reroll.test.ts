@@ -26,7 +26,7 @@ describe('prices', () => {
 
 describe('choiceKey', () => {
   it('keys a weapon by the weapon, so banishing an upgrade banishes the weapon', () => {
-    const asNew: Choice = { kind: 'weapon-new', weapon: WEAPONS['nova']!, label: '', desc: '' };
+    const asNew: Choice = { kind: 'weapon-new', weapon: WEAPONS['nova'], label: '', desc: '' };
     const asUp: Choice = { kind: 'weapon-up', weaponId: 'nova', label: '', desc: '' };
     expect(choiceKey(asNew)).toBe(choiceKey(asUp));
   });
@@ -55,7 +55,7 @@ describe('banishing', () => {
     const ctx = makeCtx();
     const before = makeChoices(ctx);
     const kept = before.filter((_, j) => j !== 0);
-    ctx.run.banished.add(choiceKey(before[0]!)!);
+    ctx.run.banished.add(choiceKey(before[0])!);
 
     const after = makeChoices(ctx, kept);
 
@@ -96,13 +96,13 @@ describe('banishing', () => {
   it('cannot remove a ready evolution from the first slot', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
-    lo.weapons[0]!.level = MAX_WEAPON_LEVEL;
-    grant(ctx, EVOLUTIONS['pistol']!.passive, EVOLUTIONS['pistol']!.passiveLevel);
+    lo.weapons[0].level = MAX_WEAPON_LEVEL;
+    grant(ctx, EVOLUTIONS['pistol'].passive, EVOLUTIONS['pistol'].passiveLevel);
     ctx.run.banished.add('w:pistol'); // banishing the weapon must not hide its evolution
 
     const choices = makeChoices(ctx);
 
-    expect(choices[0]!.kind).toBe('weapon-evo');
+    expect(choices[0].kind).toBe('weapon-evo');
   });
 
   it('a banished passive stops climbing even if already owned', () => {

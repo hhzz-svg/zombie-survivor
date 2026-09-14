@@ -120,7 +120,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         en.abilityCd = BROOD_INTERVAL;
         for (let i = 0; i < BROOD_LITTER; i++) {
           const a = ctx.rng() * Math.PI * 2;
-          spawnEnemyAt(ctx, ENEMIES['walker']!, t.x + Math.cos(a) * 34, t.y + Math.sin(a) * 34);
+          spawnEnemyAt(ctx, ENEMIES['walker'], t.x + Math.cos(a) * 34, t.y + Math.sin(a) * 34);
         }
         ctx.fx.shockwave(t.x, t.y, 42, '#c79bf0', 0.26);
         ctx.fx.burst(t.x, t.y, 14, '#c79bf0', 150, ctx.rng);
@@ -217,7 +217,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         // Wardens, not runners: you cannot simply walk away from the acid in a straight line.
         for (let i = 0; i < (en.enraged ? 3 : 2); i++) {
           const a = ctx.rng() * Math.PI * 2;
-          spawnEnemyAt(ctx, ENEMIES['warden']!, t.x + Math.cos(a) * 70, t.y + Math.sin(a) * 70);
+          spawnEnemyAt(ctx, ENEMIES['warden'], t.x + Math.cos(a) * 70, t.y + Math.sin(a) * 70);
         }
         ctx.fx.shockwave(t.x, t.y, 60, '#8fe04a', 0.3);
       }
@@ -234,7 +234,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         const count = en.enraged ? 4 : 3;
         for (let i = 0; i < count; i++) {
           const a = ctx.rng() * Math.PI * 2;
-          spawnEnemyAt(ctx, ENEMIES['runner']!, t.x + Math.cos(a) * 60, t.y + Math.sin(a) * 60);
+          spawnEnemyAt(ctx, ENEMIES['runner'], t.x + Math.cos(a) * 60, t.y + Math.sin(a) * 60);
         }
       }
       en.volleyCd -= dt * slowMul;

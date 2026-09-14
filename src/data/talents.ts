@@ -95,7 +95,7 @@ export function levelOf(levels: TalentLevels, id: string): number {
 /** Cost of the next level, or null when it is already maxed. */
 export function nextCost(def: TalentDef, levels: TalentLevels): number | null {
   const lv = levelOf(levels, def.id);
-  return lv >= def.maxLevel ? null : def.costs[lv]!;
+  return lv >= def.maxLevel ? null : def.costs[lv];
 }
 
 export type LockReason =
@@ -130,7 +130,7 @@ export function totalSpent(levels: TalentLevels): number {
   let sum = 0;
   for (const def of TALENTS) {
     const lv = levelOf(levels, def.id);
-    for (let i = 0; i < lv; i++) sum += def.costs[i]!;
+    for (let i = 0; i < lv; i++) sum += def.costs[i];
   }
   return sum;
 }

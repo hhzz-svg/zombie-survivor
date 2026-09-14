@@ -40,7 +40,7 @@ const median = (xs: number[]) => {
   if (xs.length === 0) return 0;
   const s = [...xs].sort((a, b) => a - b);
   const m = s.length >> 1;
-  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 const mean = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -89,7 +89,7 @@ lines.push('|---|---|---|');
 for (const id of Object.keys(WEAPONS)) {
   const held = all.filter((r) => r.weapons.some((w) => w.startsWith(`${id}:`)));
   const levels = held.map((r) => Number(r.weapons.find((w) => w.startsWith(`${id}:`))!.split(':')[1]));
-  lines.push(`| ${WEAPONS[id]!.name} \`${id}\` | ${held.length === 0 ? '—' : pct(held.length, all.length)} `
+  lines.push(`| ${WEAPONS[id].name} \`${id}\` | ${held.length === 0 ? '—' : pct(held.length, all.length)} `
     + `| ${held.length === 0 ? '—' : mean(levels).toFixed(1)} |`);
 }
 lines.push('');
@@ -118,7 +118,7 @@ for (const id of BOSS_IDS) {
   const drew = all.filter((r) => r.bossFought === id);
   const reached = drew.filter((r) => r.survivedSec >= WAVE.bossAt);
   const killed = drew.filter((r) => r.bossDead);
-  lines.push(`| ${ENEMIES[id]!.name} \`${id}\` | ${drew.length} | ${reached.length} | ${killed.length} `
+  lines.push(`| ${ENEMIES[id].name} \`${id}\` | ${drew.length} | ${reached.length} | ${killed.length} `
     + `| ${reached.length === 0 ? '—' : pct(killed.length, reached.length)} |`);
 }
 lines.push('');

@@ -120,14 +120,14 @@ describe('active skills', () => {
   it('burst damages nearby enemies only', () => {
     const ctx = makeCtx();
     ctx.skills.owned.add('burst');
-    const near = spawnEnemyAt(ctx, ENEMIES.walker!, 80, 0);
-    const far = spawnEnemyAt(ctx, ENEMIES.brute!, 260, 0);
+    const near = spawnEnemyAt(ctx, ENEMIES.walker, 80, 0);
+    const far = spawnEnemyAt(ctx, ENEMIES.brute, 260, 0);
     rebuildEnemyHash(ctx);
 
     expect(useSkill(ctx, 'KeyX')).toBe(true);
 
-    expect(ctx.world.get(near, Health)?.hp ?? 0).toBeLessThan(ENEMIES.walker!.hp);
-    expect(ctx.world.get(far, Health)!.hp).toBeCloseTo(ENEMIES.brute!.hp);
+    expect(ctx.world.get(near, Health)?.hp ?? 0).toBeLessThan(ENEMIES.walker.hp);
+    expect(ctx.world.get(far, Health)!.hp).toBeCloseTo(ENEMIES.brute.hp);
   });
 
   it('barrier absorbs damage with temporary layers', () => {
@@ -149,7 +149,7 @@ describe('active skills', () => {
   it('slow expires and reduces enemy movement while active', () => {
     const ctx = makeCtx();
     ctx.skills.owned.add('slow');
-    const enemy = spawnEnemyAt(ctx, ENEMIES.runner!, 100, 0);
+    const enemy = spawnEnemyAt(ctx, ENEMIES.runner, 100, 0);
     rebuildEnemyHash(ctx);
 
     enemyAISystem(ctx, 1 / 60);

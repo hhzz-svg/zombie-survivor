@@ -64,7 +64,7 @@ describe('obstacle field', () => {
     const seed = 11;
     const { o } = findObstacle(seed);
     for (const [dx, dy] of [[0, 0], [o.hw - 2, 0], [0, o.hh - 2], [-o.hw, -o.hh]]) {
-      const res = resolveCircle(seed, o.x + dx!, o.y + dy!, 12);
+      const res = resolveCircle(seed, o.x + dx, o.y + dy, 12);
       expect(res.hit).toBe(true);
       expect(blockedAt(seed, res.x, res.y, 12 - 0.01)).toBe(false);
     }

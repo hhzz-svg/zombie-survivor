@@ -18,7 +18,7 @@ describe('talent tree shape', () => {
       expect(t.costs.length).toBe(t.maxLevel);
       expect(t.costs.every((c) => c > 0)).toBe(true);
       // Prices climb, so late levels are a real commitment.
-      for (let i = 1; i < t.costs.length; i++) expect(t.costs[i]!).toBeGreaterThan(t.costs[i - 1]!);
+      for (let i = 1; i < t.costs.length; i++) expect(t.costs[i]).toBeGreaterThan(t.costs[i - 1]);
       if (t.requires) expect(talentById(t.requires.id)).toBeDefined();
     }
   });
@@ -62,7 +62,7 @@ describe('buying', () => {
   it('refuses a node the player cannot afford, and says by how much', () => {
     const def = talentById('vanguard')!;
     const state = buyState(def, {}, 10, ALL);
-    expect(state).toEqual({ kind: 'salvage', short: def.costs[0]! - 10 });
+    expect(state).toEqual({ kind: 'salvage', short: def.costs[0] - 10 });
   });
 
   it('reports maxed nodes instead of charging for a level that does not exist', () => {
@@ -75,8 +75,8 @@ describe('buying', () => {
   it('refunds exactly what was spent', () => {
     const def = talentById('caliber')!;
     const levels = { caliber: 3, scavenger: 2 };
-    const expected = def.costs[0]! + def.costs[1]! + def.costs[2]!
-      + talentById('scavenger')!.costs[0]! + talentById('scavenger')!.costs[1]!;
+    const expected = def.costs[0] + def.costs[1] + def.costs[2]
+      + talentById('scavenger')!.costs[0] + talentById('scavenger')!.costs[1];
     expect(totalSpent(levels)).toBe(expected);
   });
 });
@@ -100,7 +100,7 @@ describe('effects', () => {
   });
 
   it('the refit talent shaves a level off every evolution recipe', () => {
-    const recipe = EVOLUTIONS['shotgun']!;
+    const recipe = EVOLUTIONS['shotgun'];
     const passives = new Map([[recipe.passive, recipe.passiveLevel - 1]]);
     expect(evolutionReady('shotgun', MAX_WEAPON_LEVEL, passives, 0)).toBe(false);
     expect(evolutionReady('shotgun', MAX_WEAPON_LEVEL, passives, 1)).toBe(true);
@@ -108,7 +108,7 @@ describe('effects', () => {
   });
 
   it('never discounts a recipe below Lv.1', () => {
-    const recipe = EVOLUTIONS['pistol']!;
+    const recipe = EVOLUTIONS['pistol'];
     const passives = new Map([[recipe.passive, 1]]);
     expect(evolutionReady('pistol', MAX_WEAPON_LEVEL, passives, 99)).toBe(true);
   });

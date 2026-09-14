@@ -15,7 +15,7 @@ import { Enemy, Health, Transform, Telegraph } from '../src/components';
 describe('warden — the shield forces a flank', () => {
   it('mostly blocks fire that lands inside the frontal arc', () => {
     const ctx = makeCtx();
-    const e = spawnEnemyAt(ctx, ENEMIES['warden']!, 200, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['warden'], 200, 0);
     const en = ctx.world.get(e, Enemy)!;
     en.faceX = -1; // facing the player at the origin
     en.faceY = 0;
@@ -30,7 +30,7 @@ describe('warden — the shield forces a flank', () => {
 
   it('takes full damage from behind', () => {
     const ctx = makeCtx();
-    const e = spawnEnemyAt(ctx, ENEMIES['warden']!, 200, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['warden'], 200, 0);
     const en = ctx.world.get(e, Enemy)!;
     en.faceX = -1;
     en.faceY = 0;
@@ -44,7 +44,7 @@ describe('warden — the shield forces a flank', () => {
 
   it('turns too slowly to simply face whoever is shooting it', () => {
     const ctx = makeCtx();
-    const e = spawnEnemyAt(ctx, ENEMIES['warden']!, 200, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['warden'], 200, 0);
     const en = ctx.world.get(e, Enemy)!;
     en.faceX = 1; // pointing away from the player
     en.faceY = 0;
@@ -61,7 +61,7 @@ describe('warden — the shield forces a flank', () => {
 
   it('other enemies are unaffected by the arc check', () => {
     const ctx = makeCtx();
-    const e = spawnEnemyAt(ctx, ENEMIES['brute']!, 200, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['brute'], 200, 0);
     const h = ctx.world.get(e, Health)!;
     const before = h.hp;
     damageEnemy(ctx, e, 50, 1, 0, 0);
@@ -72,7 +72,7 @@ describe('warden — the shield forces a flank', () => {
 describe('brood — ignore it and the field floods', () => {
   it('hatches a litter on its own timer', () => {
     const ctx = makeCtx();
-    const e = spawnEnemyAt(ctx, ENEMIES['brood']!, 400, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['brood'], 400, 0);
     ctx.world.get(e, Enemy)!.abilityCd = 0;
     rebuildEnemyHash(ctx);
     const before = ctx.world.query(Enemy).length;
@@ -85,7 +85,7 @@ describe('brood — ignore it and the field floods', () => {
 
   it('does not hatch again until the timer comes round', () => {
     const ctx = makeCtx();
-    const e = spawnEnemyAt(ctx, ENEMIES['brood']!, 400, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['brood'], 400, 0);
     ctx.world.get(e, Enemy)!.abilityCd = 0;
     rebuildEnemyHash(ctx);
     enemyAISystem(ctx, 1 / 60);
@@ -100,7 +100,7 @@ describe('brood — ignore it and the field floods', () => {
 describe('lasher — standing still at range is no longer safe', () => {
   function armedLasher(dist: number) {
     const ctx = makeCtx();
-    const e = spawnEnemyAt(ctx, ENEMIES['lasher']!, dist, 0);
+    const e = spawnEnemyAt(ctx, ENEMIES['lasher'], dist, 0);
     ctx.world.get(e, Enemy)!.abilityCd = 0;
     rebuildEnemyHash(ctx);
     return { ctx, e };

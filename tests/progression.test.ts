@@ -71,14 +71,14 @@ describe('progression', () => {
     const lo = ctx.world.get(ctx.player, Loadout)!;
     applyChoice(ctx, {
       kind: 'weapon-new',
-      weapon: WEAPONS.shotgun!,
+      weapon: WEAPONS.shotgun,
       label: '', desc: '',
     });
     expect(lo.activeWeapon).toBe('shotgun');
 
     applyChoice(ctx, {
       kind: 'weapon-new',
-      weapon: WEAPONS.nova!,
+      weapon: WEAPONS.nova,
       label: '', desc: '',
     });
     expect(lo.activeWeapon).toBe('shotgun');
