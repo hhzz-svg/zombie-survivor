@@ -352,27 +352,27 @@ export class UI {
     overlay.id = 'ui-overlay';
     document.body.appendChild(overlay);
 
-    this.xpFill = hud.querySelector('#ui-xp > i') as HTMLElement;
-    this.stageEl = hud.querySelector('#ui-stage') as HTMLElement;
-    this.timeEl = hud.querySelector('#ui-time') as HTMLElement;
-    this.threatEl = hud.querySelector('#ui-threat') as HTMLElement;
-    this.stageBannerEl = hud.querySelector('#ui-stage-banner') as HTMLElement;
-    this.tutorialEl = hud.querySelector('#ui-tutorial') as HTMLElement;
-    this.hpFill = hud.querySelector('#ui-hp > i') as HTMLElement;
-    this.hpLabel = hud.querySelector('#ui-hplabel') as HTMLElement;
-    this.primaryWeaponEl = hud.querySelector('#ui-weapon-primary') as HTMLElement;
-    this.weaponsEl = hud.querySelector('#ui-weapons') as HTMLElement;
-    this.bossWrap = hud.querySelector('#ui-boss') as HTMLElement;
-    this.bossFill = hud.querySelector('#ui-boss > i') as HTMLElement;
+    this.xpFill = hud.querySelector<HTMLElement>('#ui-xp > i')!;
+    this.stageEl = hud.querySelector<HTMLElement>('#ui-stage')!;
+    this.timeEl = hud.querySelector<HTMLElement>('#ui-time')!;
+    this.threatEl = hud.querySelector<HTMLElement>('#ui-threat')!;
+    this.stageBannerEl = hud.querySelector<HTMLElement>('#ui-stage-banner')!;
+    this.tutorialEl = hud.querySelector<HTMLElement>('#ui-tutorial')!;
+    this.hpFill = hud.querySelector<HTMLElement>('#ui-hp > i')!;
+    this.hpLabel = hud.querySelector<HTMLElement>('#ui-hplabel')!;
+    this.primaryWeaponEl = hud.querySelector<HTMLElement>('#ui-weapon-primary')!;
+    this.weaponsEl = hud.querySelector<HTMLElement>('#ui-weapons')!;
+    this.bossWrap = hud.querySelector<HTMLElement>('#ui-boss')!;
+    this.bossFill = hud.querySelector<HTMLElement>('#ui-boss > i')!;
     this.overlay = overlay;
-    this.goldEl = hud.querySelector('#ui-gold') as HTMLElement;
-    this.shopBtn = hud.querySelector('#ui-shopbtn') as HTMLElement;
-    this.itemsBar = hud.querySelector('#ui-items') as HTMLElement;
-    this.comboEl = hud.querySelector('#ui-combo') as HTMLElement;
-    this.surgeEl = hud.querySelector('#ui-surge') as HTMLElement;
-    this.toastEl = hud.querySelector('#ui-toast') as HTMLElement;
-    this.revealEl = hud.querySelector('#ui-reveal') as HTMLElement;
-    this.squadEl = hud.querySelector('#ui-squad') as HTMLElement;
+    this.goldEl = hud.querySelector<HTMLElement>('#ui-gold')!;
+    this.shopBtn = hud.querySelector<HTMLElement>('#ui-shopbtn')!;
+    this.itemsBar = hud.querySelector<HTMLElement>('#ui-items')!;
+    this.comboEl = hud.querySelector<HTMLElement>('#ui-combo')!;
+    this.surgeEl = hud.querySelector<HTMLElement>('#ui-surge')!;
+    this.toastEl = hud.querySelector<HTMLElement>('#ui-toast')!;
+    this.revealEl = hud.querySelector<HTMLElement>('#ui-reveal')!;
+    this.squadEl = hud.querySelector<HTMLElement>('#ui-squad')!;
 
     this.shopBtn.addEventListener('click', () => {
       if (this.onShopOpen) this.onShopOpen();
@@ -416,7 +416,7 @@ export class UI {
     } else {
       this.bossWrap.style.display = 'block';
       this.bossFill.style.width = `${Math.max(0, d.bossHp * 100)}%`;
-      const nameEl = this.bossWrap.querySelector('.t') as HTMLElement;
+      const nameEl = this.bossWrap.querySelector<HTMLElement>('.t')!;
       if (nameEl.textContent !== d.bossName) nameEl.textContent = d.bossName;
     }
 
@@ -427,9 +427,9 @@ export class UI {
     this.comboEl.classList.toggle('show', combo.count >= 3);
     if (combo.count >= 3) {
       this.comboEl.style.color = combo.color;
-      (this.comboEl.querySelector('.cnum') as HTMLElement).textContent = `x${combo.count}`;
-      (this.comboEl.querySelector('.cname') as HTMLElement).textContent = combo.name || '连锁击杀';
-      (this.comboEl.querySelector('.cbar > i') as HTMLElement).style.width = `${Math.round(combo.frac * 100)}%`;
+      this.comboEl.querySelector<HTMLElement>('.cnum')!.textContent = `x${combo.count}`;
+      this.comboEl.querySelector<HTMLElement>('.cname')!.textContent = combo.name || '连锁击杀';
+      this.comboEl.querySelector<HTMLElement>('.cbar > i')!.style.width = `${Math.round(combo.frac * 100)}%`;
       if (combo.count !== this.lastComboCount) {
         this.comboEl.classList.remove('pulse');
         void this.comboEl.offsetWidth; // restart the pop animation
@@ -555,19 +555,19 @@ export class UI {
         if (e.key === 'Enter' || e.key === ' ') select();
       };
     });
-    (this.overlay.querySelector('.start') as HTMLElement).onclick = () => d.onStart(this.titleSelection);
-    const achEl = this.overlay.querySelector('#ui-ach-btn');
+    this.overlay.querySelector<HTMLElement>('.start')!.onclick = () => d.onStart(this.titleSelection);
+    const achEl = this.overlay.querySelector<HTMLElement>('#ui-ach-btn');
     if (achEl && d.onShowAchievements) achEl.onclick = d.onShowAchievements;
-    const setEl = this.overlay.querySelector('#ui-set-btn');
+    const setEl = this.overlay.querySelector<HTMLElement>('#ui-set-btn');
     if (setEl && d.onShowSettings) setEl.onclick = d.onShowSettings;
-    const talentEl = this.overlay.querySelector('#ui-talent-btn');
+    const talentEl = this.overlay.querySelector<HTMLElement>('#ui-talent-btn');
     if (talentEl && d.onShowTalents) talentEl.onclick = d.onShowTalents;
 
-    (this.overlay.querySelector('#ui-daily-btn') as HTMLElement).onclick = () =>
+    this.overlay.querySelector<HTMLElement>('#ui-daily-btn')!.onclick = () =>
       d.onStart(this.titleSelection, d.parseSeed(d.daily.seed) ?? undefined);
 
-    const input = this.overlay.querySelector('#ui-seed-input') as HTMLInputElement;
-    const note = this.overlay.querySelector('#ui-seed-note') as HTMLElement;
+    const input = this.overlay.querySelector<HTMLInputElement>('#ui-seed-input')!;
+    const note = this.overlay.querySelector<HTMLElement>('#ui-seed-note')!;
     const launchSeed = () => {
       const seed = d.parseSeed(input.value);
       if (seed === null) {
@@ -577,7 +577,7 @@ export class UI {
       }
       d.onStart(this.titleSelection, seed);
     };
-    (this.overlay.querySelector('#ui-seed-btn') as HTMLElement).onclick = launchSeed;
+    this.overlay.querySelector<HTMLElement>('#ui-seed-btn')!.onclick = launchSeed;
     input.onkeydown = (e) => {
       e.stopPropagation(); // typing a seed must not trigger the global hotkeys
       if (e.key === 'Enter') launchSeed();
@@ -639,8 +639,8 @@ export class UI {
         if (e.key === 'Enter' || e.key === ' ') buy();
       };
     });
-    (this.overlay.querySelector('#t-back') as HTMLElement).onclick = onBack;
-    const refundEl = this.overlay.querySelector('#t-refund');
+    this.overlay.querySelector<HTMLElement>('#t-back')!.onclick = onBack;
+    const refundEl = this.overlay.querySelector<HTMLElement>('#t-refund');
     if (refundEl) refundEl.onclick = onRefund;
     this.overlay.style.display = 'flex';
   }
@@ -676,15 +676,15 @@ export class UI {
 
     const next = { ...current };
     const push = () => onChange({ ...next });
-    const vol = this.overlay.querySelector('#set-vol') as HTMLInputElement;
-    const volV = this.overlay.querySelector('#set-vol-v') as HTMLElement;
+    const vol = this.overlay.querySelector<HTMLInputElement>('#set-vol')!;
+    const volV = this.overlay.querySelector<HTMLElement>('#set-vol-v')!;
     vol.oninput = () => {
       next.volume = Number(vol.value) / 100;
       volV.textContent = `${vol.value}%`;
       push();
     };
-    const shake = this.overlay.querySelector('#set-shake') as HTMLInputElement;
-    const shakeV = this.overlay.querySelector('#set-shake-v') as HTMLElement;
+    const shake = this.overlay.querySelector<HTMLInputElement>('#set-shake')!;
+    const shakeV = this.overlay.querySelector<HTMLElement>('#set-shake-v')!;
     shake.oninput = () => {
       next.shake = Number(shake.value) / 100;
       shakeV.textContent = `${shake.value}%`;
@@ -700,7 +700,7 @@ export class UI {
     bind('#set-mute', 'muted');
     bind('#set-flash', 'reduceFlashing');
     bind('#set-num', 'damageNumbers');
-    (this.overlay.querySelector('#set-back') as HTMLElement).onclick = onBack;
+    this.overlay.querySelector<HTMLElement>('#set-back')!.onclick = onBack;
     this.overlay.style.display = 'flex';
   }
 
@@ -722,7 +722,7 @@ export class UI {
         <div class="ach-grid">${cells}</div>
         <button class="start" id="ach-back">返回</button>
       </div>`;
-    (this.overlay.querySelector('#ach-back') as HTMLElement).onclick = onBack;
+    this.overlay.querySelector<HTMLElement>('#ach-back')!.onclick = onBack;
     this.overlay.style.display = 'flex';
   }
 
@@ -738,9 +738,9 @@ export class UI {
           ${onSettings ? '<button class="quiet" id="pause-settings">设置</button>' : ''}
         </div>
       </div>`;
-    (this.overlay.querySelector('#pause-resume') as HTMLElement).onclick = onResume;
-    (this.overlay.querySelector('#pause-restart') as HTMLElement).onclick = onRestart;
-    const setEl = this.overlay.querySelector('#pause-settings');
+    this.overlay.querySelector<HTMLElement>('#pause-resume')!.onclick = onResume;
+    this.overlay.querySelector<HTMLElement>('#pause-restart')!.onclick = onRestart;
+    const setEl = this.overlay.querySelector<HTMLElement>('#pause-settings');
     if (setEl && onSettings) setEl.onclick = onSettings;
     this.overlay.style.display = 'flex';
   }
@@ -760,8 +760,8 @@ export class UI {
 
   /** Transient bottom-center announcement, tinted by kind. */
   toast(name: string, desc: string, kind: 'gold' | 'curse' | 'achieve' | 'adrenaline' = 'gold'): void {
-    (this.toastEl.querySelector('.t-name') as HTMLElement).textContent = name;
-    (this.toastEl.querySelector('.t-desc') as HTMLElement).textContent = desc;
+    this.toastEl.querySelector<HTMLElement>('.t-name')!.textContent = name;
+    this.toastEl.querySelector<HTMLElement>('.t-desc')!.textContent = desc;
     this.toastEl.classList.remove('v-curse', 'v-achieve');
     if (kind === 'curse') this.toastEl.classList.add('v-curse');
     if (kind === 'achieve') this.toastEl.classList.add('v-achieve');
@@ -772,8 +772,8 @@ export class UI {
 
   /** Center-screen supply-crate reveal: a short pop ceremony, no game pause. */
   reveal(name: string, desc: string): void {
-    (this.revealEl.querySelector('.rv-name') as HTMLElement).textContent = name;
-    (this.revealEl.querySelector('.rv-desc') as HTMLElement).textContent = desc;
+    this.revealEl.querySelector<HTMLElement>('.rv-name')!.textContent = name;
+    this.revealEl.querySelector<HTMLElement>('.rv-desc')!.textContent = desc;
     this.revealEl.classList.remove('show');
     void this.revealEl.offsetWidth; // restart the pop-in animation
     this.revealEl.classList.add('show');
@@ -840,7 +840,7 @@ export class UI {
         shape.onBanish?.(Number(btn.dataset.b));
       };
     });
-    const rerollEl = this.overlay.querySelector('#lv-reroll');
+    const rerollEl = this.overlay.querySelector<HTMLElement>('#lv-reroll');
     if (rerollEl && shape.onReroll) rerollEl.onclick = shape.onReroll;
     this.overlay.style.display = 'flex';
   }
@@ -907,7 +907,7 @@ export class UI {
         if (e.key === 'Enter' || e.key === ' ') buy();
       };
     });
-    (this.overlay.querySelector('#shop-close') as HTMLElement).onclick = onClose;
+    this.overlay.querySelector<HTMLElement>('#shop-close')!.onclick = onClose;
     this.overlay.style.display = 'flex';
   }
 
@@ -978,10 +978,10 @@ export class UI {
         ${endlessBtn}
         <div class="title-btns">${sameSeedBtn}</div>
       </div>`;
-    (this.overlay.querySelector('.start') as HTMLElement).onclick = onRestart;
-    const endlessEl = this.overlay.querySelector('#end-endless');
+    this.overlay.querySelector<HTMLElement>('.start')!.onclick = onRestart;
+    const endlessEl = this.overlay.querySelector<HTMLElement>('#end-endless');
     if (endlessEl && onEndless) endlessEl.onclick = onEndless;
-    const seedEl = this.overlay.querySelector('#end-sameseed');
+    const seedEl = this.overlay.querySelector<HTMLElement>('#end-sameseed');
     if (seedEl && onSameSeed) seedEl.onclick = onSameSeed;
     this.overlay.style.display = 'flex';
   }

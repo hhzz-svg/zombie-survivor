@@ -1,3 +1,30 @@
+## 2026-09-14 - Task: 修复 ESLint --fix 造成的编译失败
+
+### What happened
+
+上一个提交（`869f3cd`）**推上去时是编译不过的**。`eslint --fix` 把 `ui.ts` 里 8 处 `querySelector(...) as HTMLElement | null` 当成「多余断言」删掉了——但 `querySelector` 返回的是 `Element | null`，那个断言是真实的收窄，删掉之后 `.onclick` 不存在于 `Element` 上。
+
+我没发现，是因为我把校验命令写成了 `npm run typecheck 2>&1 | tail -2 && git commit ...`：**管道的退出码是 `tail` 的，永远是 0**，于是 `&&` 链照常往下走，把一个 8 处编译错误的提交推了上去。
+
+### What was done
+
+- 把 `ui.ts` 里全部 44 处 `querySelector` 改成泛型形式 `querySelector<HTMLElement>('...')`：比类型断言更干净，编译器拿到需要的元素类型，规则也没有断言可挑剔。其中 8 处可选查询（`#ui-ach-btn` / `#ui-set-btn` / `#ui-talent-btn` / `#t-refund` / `#pause-settings` / `#lv-reroll` / `#end-endless` / `#end-sameseed`）保留 `| null` 语义不加 `!`。
+
+### Testing
+
+- `npm run typecheck`、`npx eslint .`、`npm run build`：**各自单独执行并检查退出码**，均为 0。
+- `npm test`：36 个测试文件 234 个测试通过。
+- 浏览器实测被改动的 8 个可选 handler 全部可用：成就页、设置页、天赋页、天赋购买与「全部退还」（并确认 `zs-save` 中 `talents` 被清空）、暂停页设置入口、暂停→设置往返；console 零报错。
+
+### 教训
+
+**不要把构建/校验命令通过管道塞进 `&&` 链**——管道退出码属于最后一个命令。校验要单独跑并显式检查 `$?`，或者开 `set -o pipefail`。这次是 lint 自动修复引入的问题，恰恰被我用来确认「没问题」的那条命令掩盖了。
+
+### Notes
+
+- `src/ui/ui.ts`：44 处 querySelector 改泛型。
+- 回滚方式：回退本任务对应提交。
+
 ## 2026-09-14 - Task: 接入 ESLint——规则挑那些真能拦住 bug 的
 
 ### What was done
