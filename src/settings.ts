@@ -1,18 +1,14 @@
+import { z } from 'zod';
+
 /**
  * Player-facing options. Purely presentational — nothing here touches the simulation, so a
  * run stays reproducible whatever the settings are (which is what lets a shared seed mean
  * the same thing on two different machines).
+ *
+ * Persistence lives in `save.ts`; this module only owns the shape and its defaults.
  */
-export interface Settings {
-  volume: number; // 0..1 master gain
-  muted: boolean;
-  shake: number; // 0..1 screen-shake scale; 0 disables it entirely
-  /** Dampens the blood-moon pulse, combo glow and low-HP vignette — a photosensitivity guard. */
-  reduceFlashing: boolean;
-  damageNumbers: boolean;
-}
 
-export const DEFAULT_SETTINGS: Settings = {
+export const DEFAULT_SETTINGS = {
   volume: 0.8,
   muted: false,
   shake: 1,
@@ -20,33 +16,20 @@ export const DEFAULT_SETTINGS: Settings = {
   damageNumbers: true,
 };
 
-const KEY = 'zs-settings';
+const unit = () => z.number().min(0).max(1);
 
-export function loadSettings(): Settings {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<Settings>;
-    return {
-      volume: clamp01(parsed.volume ?? DEFAULT_SETTINGS.volume),
-      muted: !!parsed.muted,
-      shake: clamp01(parsed.shake ?? DEFAULT_SETTINGS.shake),
-      reduceFlashing: !!parsed.reduceFlashing,
-      damageNumbers: parsed.damageNumbers !== false,
-    };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
+/**
+ * Every field clamps or falls back rather than rejecting: a hand-edited or partially written
+ * settings blob should cost the player one option, never their whole profile.
+ */
+export const SettingsSchema = z.object({
+  volume: unit().catch(DEFAULT_SETTINGS.volume),
+  muted: z.boolean().catch(DEFAULT_SETTINGS.muted),
+  /** 0 disables screen shake entirely. */
+  shake: unit().catch(DEFAULT_SETTINGS.shake),
+  /** Dampens the blood-moon pulse, combo glow and low-HP vignette — a photosensitivity guard. */
+  reduceFlashing: z.boolean().catch(DEFAULT_SETTINGS.reduceFlashing),
+  damageNumbers: z.boolean().catch(DEFAULT_SETTINGS.damageNumbers),
+}).catch({ ...DEFAULT_SETTINGS });
 
-export function saveSettings(s: Settings): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(s));
-  } catch {
-    // storage disabled — settings just don't persist
-  }
-}
-
-function clamp01(n: number): number {
-  return Math.max(0, Math.min(1, Number.isFinite(n) ? n : 1));
-}
+export type Settings = z.infer<typeof SettingsSchema>;

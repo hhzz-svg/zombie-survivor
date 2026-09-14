@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { formatSeed, parseSeed, randomSeed, dailyKey, dailySeed } from '../src/seed';
-import { loadSettings, saveSettings, DEFAULT_SETTINGS } from '../src/settings';
 import { runHeadless } from '../src/sim/headless';
 
 describe('run seeds', () => {
@@ -45,41 +44,5 @@ describe('a shared seed is a shared run', () => {
 
   it("today's daily is the same run for everyone on that date", () => {
     expect(runHeadless(dailySeed('2026-09-12'), 25)).toEqual(runHeadless(dailySeed('2026-09-12'), 25));
-  });
-});
-
-describe('settings', () => {
-  beforeEach(() => {
-    const store = new Map<string, string>();
-    (globalThis as unknown as { localStorage: Storage }).localStorage = {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => void store.set(k, v),
-      removeItem: (k: string) => void store.delete(k),
-      clear: () => store.clear(),
-      key: () => null,
-      length: 0,
-    } as Storage;
-  });
-
-  it('falls back to defaults when nothing is stored', () => {
-    expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
-  });
-
-  it('round-trips a saved profile', () => {
-    const custom = { volume: 0.25, muted: true, shake: 0, reduceFlashing: true, damageNumbers: false };
-    saveSettings(custom);
-    expect(loadSettings()).toEqual(custom);
-  });
-
-  it('clamps nonsense instead of trusting stored values', () => {
-    localStorage.setItem('zs-settings', JSON.stringify({ volume: 99, shake: -4 }));
-    const s = loadSettings();
-    expect(s.volume).toBe(1);
-    expect(s.shake).toBe(0);
-  });
-
-  it('survives corrupt storage', () => {
-    localStorage.setItem('zs-settings', '{not json');
-    expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
   });
 });

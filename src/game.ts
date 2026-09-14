@@ -41,7 +41,8 @@ import { SURVIVOR_WAIT } from './data/wingmen';
 import { makeChoices, applyChoice, choiceKey, type Choice } from './progression';
 import { UI, type RunSummary } from './ui/ui';
 import { currentShopOffers, purchaseOffer, type ShopOffer } from './shop';
-import { loadSettings, saveSettings, type Settings } from './settings';
+import type { Settings } from './settings';
+import { loadSave, writeSave, SAVE_VERSION } from './save';
 import {
   NO_TALENTS, talentEffects, applyTalents, salvageGain, buyState, nextCost, totalSpent, talentById,
 } from './data/talents';
@@ -103,15 +104,17 @@ export class Game {
   private winCounted = false;
 
   constructor(private readonly renderer: Renderer) {
-    this.best = Number(localStorage.getItem('zs-best') || '0') || 0;
-    this.lastOperative = localStorage.getItem('zs-operative') || DEFAULT_OPERATIVE;
-    this.unlockedAch = new Set(this.loadJson<string[]>('zs-ach', []));
-    this.lifetime = this.loadJson<LifetimeStats>('zs-life', { kills: 0, runs: 0, wins: 0 });
-    this.opXp = this.loadJson<Record<string, number>>('zs-ops', {});
-    this.dailyRecords = this.loadJson<Record<string, { time: number; kills: number }>>('zs-daily', {});
-    this.salvage = Math.max(0, this.loadJson<number>('zs-salvage', 0));
-    this.talents = this.loadJson<Record<string, number>>('zs-talents', {});
-    this.settings = loadSettings();
+    // One read of one versioned, validated profile — see save.ts for why it is not nine keys.
+    const save = loadSave();
+    this.best = save.best;
+    this.lastOperative = save.operative || DEFAULT_OPERATIVE;
+    this.unlockedAch = new Set(save.achievements);
+    this.lifetime = { ...save.lifetime };
+    this.opXp = { ...save.operativeXp };
+    this.dailyRecords = { ...save.daily };
+    this.salvage = save.salvage;
+    this.talents = { ...save.talents };
+    this.settings = save.settings;
     this.applySettings();
     void this.assets.load();
     this.showTitle();
@@ -119,13 +122,23 @@ export class Game {
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
-  private loadJson<T>(key: string, fallback: T): T {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T) : fallback;
-    } catch {
-      return fallback;
-    }
+  /**
+   * Write the whole profile. Everything that used to touch localStorage directly now goes
+   * through here, so there is exactly one place that knows the on-disk shape.
+   */
+  private persist(): void {
+    writeSave({
+      version: SAVE_VERSION,
+      best: this.best,
+      operative: this.lastOperative,
+      achievements: [...this.unlockedAch],
+      lifetime: this.lifetime,
+      operativeXp: this.opXp,
+      daily: this.dailyRecords,
+      salvage: this.salvage,
+      talents: this.talents,
+      settings: this.settings,
+    });
   }
 
   private showTitle(): void {
@@ -196,7 +209,7 @@ export class Game {
       (next) => {
         this.settings = next;
         this.applySettings();
-        saveSettings(next);
+        this.persist();
       },
       () => this.settingsBack?.(),
     );
@@ -243,7 +256,7 @@ export class Game {
   start(operativeId?: string, seedOverride?: number): void {
     const op = operativeById(operativeId ?? this.lastOperative);
     this.lastOperative = op.id;
-    localStorage.setItem('zs-operative', op.id);
+    this.persist();
     this.audio.resume();
     this.fx.clear();
     this.corpses.clear();
@@ -382,7 +395,7 @@ export class Game {
       if (pt) this.ctx.fx.text(pt.x, pt.y - 46, `成就 · ${a.name}`, '#61e5de', 15);
     }
     this.ctx.audio.levelUp();
-    localStorage.setItem('zs-ach', JSON.stringify([...this.unlockedAch]));
+    this.persist();
   }
 
   /** Fold run progress into lifetime totals (safe to call at each end screen). */
@@ -399,7 +412,7 @@ export class Game {
       this.lifetime.wins += 1;
       this.winCounted = true;
     }
-    localStorage.setItem('zs-life', JSON.stringify(this.lifetime));
+    this.persist();
     this.checkAchievements(victory); // lifetime goals with the committed totals
 
     // Operative veterancy: bank the run's XP as a delta (endless can end twice).
@@ -415,7 +428,7 @@ export class Game {
     const delta = Math.max(0, gainTotal - this.opXpCommitted);
     this.opXpCommitted = gainTotal;
     this.opXp[op.id] = (this.opXp[op.id] ?? 0) + delta;
-    localStorage.setItem('zs-ops', JSON.stringify(this.opXp));
+    this.persist();
     const after = opLevelFromXp(this.opXp[op.id]!).level;
     this.lastOpProgress = { name: op.name, level: after, gained: gainTotal, leveledUp: after > before };
   }
@@ -730,11 +743,7 @@ export class Game {
     const prev = this.dailyRecords[key];
     if (prev && prev.time >= time) return;
     this.dailyRecords[key] = { time, kills };
-    try {
-      localStorage.setItem('zs-daily', JSON.stringify(this.dailyRecords));
-    } catch {
-      // storage disabled — the record just doesn't persist
-    }
+    this.persist();
   }
 
   /**
@@ -758,12 +767,7 @@ export class Game {
   }
 
   private saveMeta(): void {
-    try {
-      localStorage.setItem('zs-salvage', String(this.salvage));
-      localStorage.setItem('zs-talents', JSON.stringify(this.talents));
-    } catch {
-      // storage disabled — meta progress just doesn't persist
-    }
+    this.persist();
   }
 
   private saveBest(): void {
@@ -771,7 +775,7 @@ export class Game {
     const t = Math.floor(this.ctx.time.elapsed);
     if (t > this.best) {
       this.best = t;
-      localStorage.setItem('zs-best', String(t));
+      this.persist();
     }
   }
 
