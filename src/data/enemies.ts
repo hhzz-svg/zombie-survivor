@@ -69,13 +69,17 @@ export const SIEGE_SHELL_DAMAGE = 18;
 /** How far ahead of the player shells are aimed — it leads the target, so standing still loses. */
 export const SIEGE_LEAD = 105; // slightly more than one blast radius, so the shells read as a line
 /**
- * Wardens are what stops the player simply walking out of the acid, so this interval is the
- * dial on how much the two halves of the fight compound. At 7s the matriarch killed three
- * times as often as the tyrant (20% vs 61% kill rate over 120 measured runs), and it was the
- * stacking rather than any single element that did it.
+ * Wardens are what stops the player simply walking out of the acid.
+ *
+ * These two were briefly softened (9.5s / 0.35) to close what looked like a three-to-one
+ * difficulty gap against the tyrant. That gap was a measurement artifact: the harness capped
+ * runs at 300s against a boss that arrives at 240s, so "slow to kill" was being scored as
+ * "lost". Splitting the failures showed the matriarch kills the player once in twenty fights,
+ * exactly as often as the tyrant does — she was never the more lethal boss, and softening her
+ * was aimed at a problem that did not exist. Reverted to the designed values.
  */
-export const SIEGE_SUMMON_INTERVAL = 9.5;
-/** Fraction of max HP at which it enrages — later than the tyrant, so the hardest phase is shorter. */
-export const SIEGE_ENRAGE_AT = 0.35;
+export const SIEGE_SUMMON_INTERVAL = 7;
+/** Fraction of max HP at which it enrages. Same threshold as the tyrant. */
+export const SIEGE_ENRAGE_AT = 0.5;
 export const ACID_POOL_SECONDS = 6;
 export const ACID_POOL_DPS = 9;
