@@ -10,11 +10,12 @@ import { LANGUAGES, detectLanguage, type Lang } from './i18n';
  */
 
 export const DEFAULT_SETTINGS: {
-  volume: number; muted: boolean; shake: number;
+  volume: number; musicVolume: number; muted: boolean; shake: number;
   reduceFlashing: boolean; damageNumbers: boolean; language: Lang;
 } = {
   language: detectLanguage(),
   volume: 0.8,
+  musicVolume: 0.6,
   muted: false,
   shake: 1,
   reduceFlashing: false,
@@ -34,6 +35,8 @@ export const SettingsSchema = z.object({
    */
   language: z.enum(LANGUAGES).catch(() => detectLanguage()),
   volume: unit().catch(DEFAULT_SETTINGS.volume),
+  /** Music is its own slider: wanting the SFX without the soundtrack is a common preference. */
+  musicVolume: unit().catch(DEFAULT_SETTINGS.musicVolume),
   muted: z.boolean().catch(DEFAULT_SETTINGS.muted),
   /** 0 disables screen shake entirely. */
   shake: unit().catch(DEFAULT_SETTINGS.shake),

@@ -1,3 +1,34 @@
+## 2026-09-15 - Task: 分层 BGM——四条程序化音轨，跟着战况走
+
+### What was done
+
+之前根本没有音乐：只有 7 个 SFX 采样，加一条 55Hz 锯齿底噪，音量跟着屏幕上的敌人数走。
+
+- **`src/audio/music.ts`（新）——纯逻辑，和 Web Audio 完全分开。** `layerMix(state)` 是纯函数：给它 `{ pressure, surge, boss }`，返回四条音轨各自的目标增益。节奏型、Boss riff、音高换算、确定性噪声填充也都在这里。这样拆的两个理由：一是 Node 里没有 Web Audio（无头模拟跑在那儿），纯函数才能测；二是「现在该响什么」和「怎么让锯齿波发出那个声音」是两个问题。
+- **四条音轨**：`bed`（一直在的低频底噪）/ `pulse`（十六分音符的底鼓 + 高通噪声 hi-hat，跟尸群压力走）/ `dread`（小二度拍频 + 颤音，血月专属，故意难听）/ `boss`（小调五声 riff，Boss 存活时）。全部交叉淡入淡出（τ=1.1s），不硬切。
+- **没有音乐素材文件**，全程序化生成。零下载体积，而且能连续跟着战况走——循环音轨做不到这件事，只能在片段之间硬切。
+- 音符时间来自音频时钟，`setInterval` 只负责给一个 0.28 秒的队列续杯（Web Audio 的标准 lookahead 调度），所以掉帧不会让节奏抖。标签页切走太久会重新对时，而不是一口气补放一串音符。
+- 设置里加了独立的**音乐音量**滑杆——想要音效不想要音乐是很常见的偏好。
+- 上一轮把 `src/audio/**` 从 eslint 确定性豁免列表里拿掉了，所以这里不能用 `Math.random`。噪声缓冲改成本地 LCG 填充——**规则逼出来的设计反而更好**：噪声每次启动都一样。
+
+### Testing
+
+- `npx eslint .`、两个 TS 工程、`npm run i18n:audit`、`npm run build`：各自单独执行，退出码均为 0。
+- `npm test`：38 个文件 266 个测试（新增 13 个）。覆盖：任意输入（含 NaN / Infinity / 负数压力）下四条增益都在 [0,1]；安静时只有 bed；`pulse` 随压力单调上升；血月即使屏幕空也有驱动力；Boss 时 bed 被压低但不会消失；节奏型互不重叠且正好一小节；`midiToFreq` 对准 A440；噪声确定性；**以及没有 Web Audio 时 `AudioBus` 全程静默不抛异常**——无头模拟依赖这一条。
+- **浏览器实测是拿 AnalyserNode 接在 master 上量真实输出**，不是看我自己设的增益值。这一步抓到了一个真 bug：颤音振荡器原本是直接 sum 进 `dread` 的 mix gain 的，而 AudioParam 上的振荡是**叠加**在 `setTargetAtTime` 目标值之上的——于是这条音轨在「增益为 0」时依然在响（实测 stopped 状态 peak 0.343，和播放时一样）。改成颤音调制它自己的节点后，stopped 的 peak 降到 0.0011。**只看代码看不出这个问题。**
+- 量到的分层（peak / 频段能量）：安静 0.033、尸群 0.081、血月 0.095（高频 +70dB，颤音上来了）、Boss 中频 +13dB。暂停后 4 秒淡到 0.002，音乐音量拉到 0 是精确的 0。
+- 又单独验了一遍**由游戏自己驱动**（不是手动调 `setMusic`）：开局只有 bed；时间跳到血月 + Boss 后四条全开；按 Esc 暂停全部淡出。
+
+### 顺带修掉的一个崩溃
+
+上面那次插桩运行里 console 报了 `The radius provided (-1.63425e-13) is negative`。定位在 `drawTelegraphs`：`k = 1 - left / tg.total`，而 `left` 是两个累加浮点数的差，可能比 `total` 大出一个 ulp，于是 k ≈ -2e-16，`tg.r * k` 成了负半径，canvas 直接在渲染循环里抛异常。已加钳制。这是个真实可达的 bug（不是时间跳跃才有的），而且**只有插桩跑起来才会看见**。
+
+### Notes
+
+- 新增：`src/audio/music.ts`、`tests/music.test.ts`。改动：`src/audio/audio.ts`（`setIntensity` → `setMusic`）、`src/game.ts`（`musicState()`，并在死亡 / 胜利 / 暂停 / 标题页停掉音乐）、`src/settings.ts` + `src/ui/ui.ts`（音乐音量）、`src/render/worldRenderer.ts`（上面那个钳制）、两个 README。
+- `LAYER_TRIM` 单独一张表：`music.ts` 给的是「什么时候响」的音乐意图（0..1），响度配平放在音频层，调音量不用去动那个纯函数。
+- 回滚方式：回退本任务对应提交。
+
 ## 2026-09-15 - Task: 英文 UI——329 处硬编码中文，外加一条不让它退回去的审计
 
 ### 架构选择（先说为什么不是 key 表）

@@ -58,6 +58,7 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | **Spitter** | Ranged acid; forces you to keep moving. |
 | **Exploder** | Rushes in and detonates. Pop it early or pay for it. |
 | **Brute** | A wall of HP that shrugs off knockback. |
+| **Layered adaptive score** | Four procedural Web Audio layers — bed / rhythm / dread / boss — crossfading against horde pressure, blood moons and boss fights. No music asset, so it follows the fight continuously instead of cutting between clips. Music has its own volume slider. |
 | **Bilingual UI** | Every user-facing string is a `tr(zh, en)` pair — Chinese and English, switchable in Settings. A CI audit fails the build if a new string is added in one language only. |
 | **Elite mutations** | Swift / Mighty / Toxic affixes with auras, name tags and colour-independent badges. Multiplied rewards; Toxic bursts acid on death. |
 | **Warden** | Shield up front: fire inside its arc is 82% blocked. The shield swings slowly — get around it, through the horde. |

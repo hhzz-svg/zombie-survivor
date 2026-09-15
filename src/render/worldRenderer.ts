@@ -251,7 +251,10 @@ export class WorldRenderer {
     for (const e of w.query(Telegraph)) {
       const tg = w.get(e, Telegraph)!;
       const left = Math.max(0, tg.at - ctx.time.elapsed);
-      const k = 1 - left / tg.total; // 0 → just started, 1 → landing
+      // Clamped because `left` is a difference of two accumulated floats and can come out a
+      // hair above `total`, making k ~-2e-16 — which canvas rejects as a negative radius and
+      // throws, inside the render loop. Caught by an instrumented run, not by reading it.
+      const k = Math.max(0, Math.min(1, 1 - left / tg.total)); // 0 → just started, 1 → landing
       if (tg.kind === 'lash') {
         const st = w.get(e, Transform);
         if (st) {

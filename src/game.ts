@@ -5,11 +5,12 @@ import { FX } from './fx/fx';
 import { AudioBus } from './audio/audio';
 import type { Renderer } from './render/renderer';
 import { WorldRenderer } from './render/worldRenderer';
+import type { MusicState } from './audio/music';
 import { Input } from './input/input';
 import { DomInput } from './input/provider';
 import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx';
 import {
-  PLAYER_BASE, currentRunStage, xpToNext, ENDLESS_BOSS_INTERVAL, rerollCost, banishCost,
+  PLAYER_BASE, currentRunStage, xpToNext, ENDLESS_BOSS_INTERVAL, rerollCost, banishCost, activeSurge,
 } from './data/balance';
 import { EQUIPMENT } from './data/equipment';
 import { SKILLS } from './data/skills';
@@ -122,6 +123,7 @@ export class Game {
   }
 
   private showTitle(): void {
+    this.audio.setMusic(null);
     const progress: Record<string, { level: number; into: number; next: number; bonus: string }> = {};
     for (const op of OPERATIVES) {
       const lv = opLevelFromXp(this.opXp[op.id] ?? 0);
@@ -198,6 +200,7 @@ export class Game {
   private applySettings(): void {
     this.audio.setVolume(this.settings.volume);
     this.audio.setMuted(this.settings.muted);
+    this.audio.setMusicVolume(this.settings.musicVolume);
     this.fx.showNumbers = this.settings.damageNumbers;
   }
 
@@ -321,7 +324,7 @@ export class Game {
     }
     runSystems(this.ctx, dt);
     this.world.update(dt);
-    this.audio.setIntensity(Math.min(1, this.ctx.world.query(Enemy).length / 120));
+    this.audio.setMusic(this.musicState());
 
     // Handle just-pressed keys for items (during playing state)
     this.handleItemKeys();
@@ -335,6 +338,22 @@ export class Game {
     }
 
     if (this.state === 'playing' && this.pendingLevels > 0) this.enterLevelUp();
+  }
+
+  /**
+   * What the music layers should be doing. One pass over the enemies gives both the horde
+   * pressure and whether a boss is up, so the music costs no extra query.
+   */
+  private musicState(): MusicState | null {
+    const ctx = this.ctx;
+    if (!ctx || this.state === 'title') return null;
+    let count = 0;
+    let boss = false;
+    for (const e of ctx.world.query(Enemy)) {
+      count++;
+      if (!boss && ctx.world.get(e, Enemy)!.def.isBoss) boss = true;
+    }
+    return { pressure: Math.min(1, count / 120), surge: activeSurge(ctx.time.elapsed) !== null, boss };
   }
 
   private achieveSnapshot(victory: boolean): AchieveSnapshot {
@@ -573,6 +592,7 @@ export class Game {
   private die(): void {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'gameover';
+    this.audio.setMusic(null);
     this.saveBest();
     this.commitLifetime(false);
     this.saveDaily();
@@ -588,6 +608,7 @@ export class Game {
   private win(): void {
     if (this.state !== 'playing' || !this.ctx) return;
     this.state = 'victory';
+    this.audio.setMusic(null);
     this.saveBest();
     this.commitLifetime(true);
     this.saveDaily();
@@ -603,6 +624,8 @@ export class Game {
   private pause(): void {
     if (this.state !== 'playing') return;
     this.state = 'paused';
+    // The layers fade rather than cut, so pausing does not clip the tail off a note.
+    this.audio.setMusic(null);
     this.showPausePanel();
   }
 

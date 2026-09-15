@@ -675,6 +675,9 @@ export class UI {
           <label class="srow"><span>${tr('音量', 'Volume')}</span>
             <input type="range" id="set-vol" min="0" max="100" value="${pct(current.volume)}">
             <b id="set-vol-v">${pct(current.volume)}%</b></label>
+          <label class="srow"><span>${tr('音乐', 'Music')}</span>
+            <input type="range" id="set-music" min="0" max="100" value="${pct(current.musicVolume)}">
+            <b id="set-music-v">${pct(current.musicVolume)}%</b></label>
           <label class="srow"><span>${tr('静音', 'Mute')}</span>
             <input type="checkbox" id="set-mute" ${current.muted ? 'checked' : ''}><b></b></label>
           <label class="srow"><span>${tr('屏幕震动', 'Screen shake')}</span>
@@ -702,6 +705,13 @@ export class UI {
     vol.oninput = () => {
       next.volume = Number(vol.value) / 100;
       volV.textContent = `${vol.value}%`;
+      push();
+    };
+    const music = this.overlay.querySelector<HTMLInputElement>('#set-music')!;
+    const musicV = this.overlay.querySelector<HTMLElement>('#set-music-v')!;
+    music.oninput = () => {
+      next.musicVolume = Number(music.value) / 100;
+      musicV.textContent = `${music.value}%`;
       push();
     };
     const shake = this.overlay.querySelector<HTMLInputElement>('#set-shake')!;
