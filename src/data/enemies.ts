@@ -1,21 +1,22 @@
 import { z } from 'zod';
 import { EnemyDefSchema, type EnemyDef } from './schemas';
+import { tr } from '../i18n';
 
 // Validated at module load — bad data throws immediately instead of failing mysteriously mid-game.
 const raw = [
-  { id: 'walker',   name: '行尸',     behavior: 'walker',   hp: 12,   speed: 46,  contactDmg: 8,  radius: 11, color: '#7a9a5b', xp: 1,   cost: 1,   isBoss: false },
-  { id: 'runner',   name: '疾跑者',   behavior: 'runner',   hp: 7,    speed: 122, contactDmg: 6,  radius: 9,  color: '#c9a23f', xp: 2,   cost: 2,   isBoss: false },
-  { id: 'spitter',  name: '喷吐者',   behavior: 'spitter',  hp: 22,   speed: 38,  contactDmg: 6,  radius: 12, color: '#6fc36f', xp: 5,   cost: 6,   isBoss: false },
-  { id: 'exploder', name: '自爆体',   behavior: 'exploder', hp: 16,   speed: 74,  contactDmg: 30, radius: 13, color: '#d46a9f', xp: 4,   cost: 5,   isBoss: false },
-  { id: 'brute',    name: '壮汉',     behavior: 'brute',    hp: 150,  speed: 32,  contactDmg: 24, radius: 20, color: '#b5552f', xp: 8,   cost: 10,  isBoss: false },
+  { id: 'walker',   name: tr('行尸', 'Walker'),     behavior: 'walker',   hp: 12,   speed: 46,  contactDmg: 8,  radius: 11, color: '#7a9a5b', xp: 1,   cost: 1,   isBoss: false },
+  { id: 'runner',   name: tr('疾跑者', 'Runner'),   behavior: 'runner',   hp: 7,    speed: 122, contactDmg: 6,  radius: 9,  color: '#c9a23f', xp: 2,   cost: 2,   isBoss: false },
+  { id: 'spitter',  name: tr('喷吐者', 'Spitter'),   behavior: 'spitter',  hp: 22,   speed: 38,  contactDmg: 6,  radius: 12, color: '#6fc36f', xp: 5,   cost: 6,   isBoss: false },
+  { id: 'exploder', name: tr('自爆体', 'Bomber'),   behavior: 'exploder', hp: 16,   speed: 74,  contactDmg: 30, radius: 13, color: '#d46a9f', xp: 4,   cost: 5,   isBoss: false },
+  { id: 'brute',    name: tr('壮汉', 'Brute'),     behavior: 'brute',    hp: 150,  speed: 32,  contactDmg: 24, radius: 20, color: '#b5552f', xp: 8,   cost: 10,  isBoss: false },
   // Pressure archetypes: each one punishes a habit instead of just walking at you.
-  { id: 'warden',   name: '盾卫',     behavior: 'warden',   hp: 120,  speed: 52,  contactDmg: 18, radius: 16, color: '#6f7f93', xp: 9,   cost: 9,   isBoss: false, sprite: 'brute' },
-  { id: 'brood',    name: '孵化体',   behavior: 'brood',    hp: 170,  speed: 30,  contactDmg: 10, radius: 18, color: '#9a6fc3', xp: 14,  cost: 12,  isBoss: false, sprite: 'spitter' },
-  { id: 'lasher',   name: '钩刺者',   behavior: 'lasher',   hp: 40,   speed: 64,  contactDmg: 8,  radius: 12, color: '#d98a3f', xp: 7,   cost: 7,   isBoss: false, sprite: 'runner' },
-  { id: 'golden',   name: '黄金逃亡者', behavior: 'golden', hp: 46,   speed: 148, contactDmg: 0,  radius: 10, color: '#ffd700', xp: 10,  cost: 999, isBoss: false },
-  { id: 'boss',     name: '母巢暴君', behavior: 'boss',     hp: 5200, speed: 42,  contactDmg: 42, radius: 46, color: '#9b3b6a', xp: 250, cost: 999, isBoss: true },
+  { id: 'warden',   name: tr('盾卫', 'Warden'),     behavior: 'warden',   hp: 120,  speed: 52,  contactDmg: 18, radius: 16, color: '#6f7f93', xp: 9,   cost: 9,   isBoss: false, sprite: 'brute' },
+  { id: 'brood',    name: tr('孵化体', 'Brooder'),   behavior: 'brood',    hp: 170,  speed: 30,  contactDmg: 10, radius: 18, color: '#9a6fc3', xp: 14,  cost: 12,  isBoss: false, sprite: 'spitter' },
+  { id: 'lasher',   name: tr('钩刺者', 'Lasher'),   behavior: 'lasher',   hp: 40,   speed: 64,  contactDmg: 8,  radius: 12, color: '#d98a3f', xp: 7,   cost: 7,   isBoss: false, sprite: 'runner' },
+  { id: 'golden',   name: tr('黄金逃亡者', 'Golden Runner'), behavior: 'golden', hp: 46,   speed: 148, contactDmg: 0,  radius: 10, color: '#ffd700', xp: 10,  cost: 999, isBoss: false },
+  { id: 'boss',     name: tr('母巢暴君', 'Hive Tyrant'), behavior: 'boss',     hp: 5200, speed: 42,  contactDmg: 42, radius: 46, color: '#9b3b6a', xp: 250, cost: 999, isBoss: true },
   // A siege piece rather than a chaser: it barely moves, but it takes the ground away.
-  { id: 'siege',    name: '腐蚀母株', behavior: 'siege',    hp: 4600, speed: 22,  contactDmg: 38, radius: 44, color: '#6fae3f', xp: 250, cost: 999, isBoss: true, sprite: 'boss' },
+  { id: 'siege',    name: tr('腐蚀母株', 'Rotting Matriarch'), behavior: 'siege',    hp: 4600, speed: 22,  contactDmg: 38, radius: 44, color: '#6fae3f', xp: 250, cost: 999, isBoss: true, sprite: 'boss' },
 ];
 
 export const ENEMIES: Record<string, EnemyDef> = Object.fromEntries(

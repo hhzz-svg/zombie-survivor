@@ -2,6 +2,7 @@ import type { GameContext } from '../ctx';
 import type { Entity } from '../ecs/world';
 import { Transform, Renderable, CurseAltar } from '../components';
 import { findFreeSpot } from '../factory';
+import { tr } from '../i18n';
 
 /**
  * Blood-curse altars: one rises per stage from stage 2 on. Walking into one
@@ -57,13 +58,16 @@ export function curseAltarSystem(ctx: GameContext, _dt: number): void {
     ctx.run.curse++;
     ctx.fx.shockwave(t.x, t.y, 120, '#ff4d5e', 0.5);
     ctx.fx.burst(t.x, t.y, 22, '#c22b3d', 260, ctx.rng);
-    ctx.fx.text(t.x, t.y - 30, `血怨 ×${ctx.run.curse}`, '#ff5a6a', 18);
+    ctx.fx.text(t.x, t.y - 30, tr(`血怨 ×${ctx.run.curse}`, `Blood curse ×${ctx.run.curse}`), '#ff5a6a', 18);
     ctx.screen.shake = Math.max(ctx.screen.shake, 8);
     ctx.time.hitStop = Math.max(ctx.time.hitStop, 35);
     ctx.audio.boss();
     ctx.vfx?.onAnnounce?.(
-      `血怨诅咒 ×${ctx.run.curse}`,
-      `刷怪 +${Math.round(ctx.run.curse * CURSE_SPAWN_PER_STACK * 100)}% · 精英 +${Math.round(ctx.run.curse * CURSE_ELITE_PER_STACK * 100)}% ⇄ 经验 +${Math.round(ctx.run.curse * CURSE_XP_PER_STACK * 100)}% · 金币 +${Math.round(ctx.run.curse * CURSE_GOLD_PER_STACK * 100)}%`,
+      tr(`血怨诅咒 ×${ctx.run.curse}`, `Blood Curse ×${ctx.run.curse}`),
+      tr(
+        `刷怪 +${Math.round(ctx.run.curse * CURSE_SPAWN_PER_STACK * 100)}% · 精英 +${Math.round(ctx.run.curse * CURSE_ELITE_PER_STACK * 100)}% ⇄ 经验 +${Math.round(ctx.run.curse * CURSE_XP_PER_STACK * 100)}% · 金币 +${Math.round(ctx.run.curse * CURSE_GOLD_PER_STACK * 100)}%`,
+        `Spawns +${Math.round(ctx.run.curse * CURSE_SPAWN_PER_STACK * 100)}% · Elites +${Math.round(ctx.run.curse * CURSE_ELITE_PER_STACK * 100)}% ⇄ XP +${Math.round(ctx.run.curse * CURSE_XP_PER_STACK * 100)}% · Gold +${Math.round(ctx.run.curse * CURSE_GOLD_PER_STACK * 100)}%`,
+      ),
       'curse',
     );
   }

@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tools.json",
     "test": "vitest run",
     "balance": "vite-node tools/balance.ts",
+    "i18n:audit": "vite-node tools/i18nAudit.ts",
     "lint": "eslint ."
   },
   "devDependencies": {

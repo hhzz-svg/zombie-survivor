@@ -1,3 +1,42 @@
+## 2026-09-15 - Task: 英文 UI——329 处硬编码中文，外加一条不让它退回去的审计
+
+### 架构选择（先说为什么不是 key 表）
+
+常规做法是 key 表（`t('hud.threat.high')`）。这个项目不合适，理由有两条：
+
+1. **key 表的失效模式是运行时的**。少写一条 key，代码照常编译、照常上线，只在没人读的那种语言下露出来。而这套数据表里「名字 + 描述」有 146 条，漏一条太容易。
+2. **key 会把数据表读废**。`name: 'weapon.pistol.name'` 之后，`src/data/weapons.ts` 就不再是一张能一眼看懂的数值表了，而它现在是。
+
+所以用的是**成对写法**：`tr('威胁：高', 'Threat: High')`。没有 key 命名空间（少一样要同步的东西），两种语言就在调用点上，**编译器保证两半都在**，中文留在数据表里该在的位置，而且可以直接 grep。
+
+代价只有一条：数据表在模块作用域就调用了 `tr()`，所以语言必须在游戏模块被 import **之前**定好。`src/main.ts` 因此先读存档、`setLanguage()`、再动态 import 游戏；换语言 = 重载页面。对一个游戏来说这很正常，而且它换来了**其余每一个调用点都不需要订阅、不需要重渲染管线**。（`main.ts` 用的是 async 函数而不是顶层 await——构建目标比顶层 await 早，这一点是 `npm run build` 抓出来的，dev 服务器完全正常。）
+
+函数名从 `t` 改成了 `tr`：这个代码库里有七个文件把 Transform 的局部变量叫 `t`，`t` 是个必然打架的名字。
+
+### What was done
+
+- `src/i18n.ts`（新）：`tr(zh, en)`、`setLanguage` / `lang`、`isLang`、`LANGUAGES`、`LANGUAGE_NAMES`（各语言用自己的语言写，这是唯一一类**不该**被翻译的字符串）、`detectLanguage()`（没选过时按 `navigator.language` 走，非英语环境留在中文）。
+- `Settings` 新增 `language`，和其它设置一样是 `.catch()` 兜底——存档被改坏只损失一个选项，不是整份档案。设置面板加了语言下拉，切换即写盘 + 重载。`<html lang>` 同步跟着走。
+- **329 处字符串全部改成 `tr(zh, en)`**，覆盖 29 个文件：10 张数据表（武器 / 敌人 / 被动 / 装备 / 天赋 / 干员 / 成就 / 技能 / 僚机 / 精英）、全部系统层的飘字与死因、`progression.ts` 的升级卡、`hudData.ts` 的 HUD 快照、`ui.ts` 的九块面板。
+- **`tools/i18nAudit.ts`（新）+ `npm run i18n:audit` + CI 步骤** —— 这才是这一项的重点。一次性翻译好做，靠自觉维持不住。审计做两件事：
+  1. `src/**` 里任何中文字符串字面量都必须在 `tr(...)` 调用内；注释豁免（注释是写给读代码的人的）。
+  2. **每个 `tr()` 的英文半边不能含中文**——只是把字符串包起来不算翻译。
+  为此它要会剥注释、剥模板字符串的 `${...}` 插值（`` `<h1>${tr('设置','Settings')}</h1>` `` 是合法的）、并容忍 `tr()` 嵌套。真正不该翻译的字符串可以在起始行的注释里写 `i18n-exempt`（目前只有 `LANGUAGE_NAMES` 用到）。
+
+### Testing
+
+- `npx eslint .`、两个 TS 工程的 `tsc --noEmit`、`npm run i18n:audit`、`npm run build`：各自单独执行，退出码均为 0。
+- `npm test`：38 个文件 253 个测试（`tests/i18n.test.ts` 新增 6 个，含「language 被写成 `'klingon'` 时兜底而不是整份设置失效」）。
+- **审计的两条规则都种了违例验证会报错**（和上一轮 eslint 自定义规则一样的做法）：把 `name: tr('疾冲','Dash')` 改成 `tr('疾冲','疾冲')` → 报 “English half still contains Chinese”；把另一条拆掉 `tr` → 报未包裹。两条都命中，恢复后重新变绿。
+- 浏览器实测，中英各跑一遍：标题页、天赋页、设置页、成就页、商店、升级三选一、结算页，逐屏截图 + 提取文本核对；HUD（阶段 / 威胁 / 金币 / 武器槽 / 主武器 / 商店按钮）两种语言都正确。console 零报错。
+- **生产构建单独实测**：这次 dev 和 prod 的模块图不一样（动态 import 把 bundle 拆成了三个 chunk），所以 `vite preview` 上又跑了一遍中英双语——`<html lang>`、标题、按钮、开局后的 HUD 全部正确。
+
+### Notes
+
+- 新增：`src/i18n.ts`、`tools/i18nAudit.ts`、`tests/i18n.test.ts`。改动：`src/main.ts`（改成 async bootstrap）、`src/settings.ts`、29 个含文案的源文件、`package.json`、CI、两个 README。
+- 翻译过程中顺手修掉一处英文排版问题（天赋页 `win or lose.Held 400` 缺空格），是看截图发现的。
+- 回滚方式：回退本任务对应提交。
+
 ## 2026-09-15 - Task: 色盲可读性——精英词缀不能只靠颜色
 
 ### 问题

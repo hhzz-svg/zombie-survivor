@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   check:
-    name: typecheck · test · build
+    name: lint · typecheck · i18n · test · build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +29,10 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      # Every user-facing string must be bilingual — see src/i18n.ts.
+      - name: i18n audit
+        run: npm run i18n:audit
 
       # Unit tests plus the headless sim, which replays full runs without a browser.
       - name: Test

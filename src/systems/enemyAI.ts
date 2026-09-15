@@ -13,6 +13,7 @@ import {
   SIEGE_BARRAGE_INTERVAL, SIEGE_BARRAGE_WINDUP, SIEGE_SHELLS, SIEGE_SHELLS_ENRAGED,
   SIEGE_SHELL_RADIUS, SIEGE_SHELL_DAMAGE, SIEGE_LEAD, SIEGE_SUMMON_INTERVAL, SIEGE_ENRAGE_AT,
 } from '../data/enemies';
+import { tr } from '../i18n';
 
 /** How close cover has to be before the horde starts steering around it. */
 const AVOID_RANGE = 74;
@@ -153,7 +154,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
           windup: LASHER_WINDUP,
           dmg: LASHER_DAMAGE * (en.elite?.dmgMul ?? 1),
           color: '#ffb160',
-          cause: '钩刺者拖拽',
+          cause: tr('钩刺者拖拽', 'Lasher drag'),
         });
       }
     } else if (en.def.behavior === 'spitter') {
@@ -205,7 +206,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
             windup: SIEGE_BARRAGE_WINDUP + i * 0.18,
             dmg: SIEGE_SHELL_DAMAGE,
             color: '#8fe04a',
-            cause: '腐蚀母株炮击',
+            cause: tr('腐蚀母株炮击', 'Rotting Matriarch barrage'),
           });
         }
         ctx.audio.boss();
@@ -263,7 +264,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
           windup: BOSS_SLAM_WINDUP,
           dmg: en.enraged ? 24 : 16,
           color: '#ffb4d0',
-          cause: '母巢暴君震地猛击',
+          cause: tr('母巢暴君震地猛击', 'Hive Tyrant ground slam'),
         });
         ctx.audio.boss();
       }

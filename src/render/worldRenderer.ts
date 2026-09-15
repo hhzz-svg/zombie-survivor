@@ -17,6 +17,7 @@ import {
 import { obstaclesInRect, type Obstacle } from '../data/obstacles';
 import { SURVIVOR_WAIT } from '../data/wingmen';
 import { primaryWeapon } from '../loadout';
+import { tr } from '../i18n';
 
 /** '#rrggbb' → 'r,g,b' for the renderer's edge-glow gradients. */
 function hexToRgb(hex: string): string {
@@ -382,7 +383,12 @@ export class WorldRenderer {
             r.drawRing(t.x, t.y + 4, 26, `rgba(234,255,247,${0.35 + pulse * 0.3})`, 2);
             r.drawRing(t.x, t.y + 4, 14 + 18 * frac, sv.def.color, 2, 0.75);
             r.drawGlowCircle(t.x, t.y - 34 + Math.sin(now / 260) * 2.5, 3.2, '#ffffff', sv.def.color);
-            r.drawText(t.x, t.y - 44, `救援 ${sv.def.name} ${Math.ceil(remain)}s`, '#eafff7', 11, 'center', 0.95);
+            r.drawText(
+              t.x,
+              t.y - 44,
+              tr(`救援 ${sv.def.name} ${Math.ceil(remain)}s`, `Rescue ${sv.def.name} ${Math.ceil(remain)}s`),
+              '#eafff7', 11, 'center', 0.95,
+            );
           },
         });
       } else if (w.has(e, Wingman)) {
@@ -470,7 +476,7 @@ export class WorldRenderer {
         r.drawRect(t.x, t.y - 8, 8, 22, '#47222b');
         r.drawGlowCircle(t.x, t.y - 8, 3.2 + pulse * 1.8, '#ffb3ab', '#e0344a');
         r.drawRing(t.x, t.y + 10, 24 + pulse * 6, `rgba(224,52,74,${0.55 - pulse * 0.25})`, 2);
-        r.drawText(t.x, t.y - 30, '血怨祭坛', '#ff5a6a', 11, 'center', 0.65 + pulse * 0.3);
+        r.drawText(t.x, t.y - 30, tr('血怨祭坛', 'Blood Altar'), '#ff5a6a', 11, 'center', 0.65 + pulse * 0.3);
       } else if (w.has(e, GoldCoin)) {
         const img = this.assets.get('coin');
         if (img) {

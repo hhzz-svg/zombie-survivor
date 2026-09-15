@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { OperativeDefSchema, type OperativeDef } from './schemas';
+import { tr } from '../i18n';
 
 /**
  * Playable operatives: each starts with a different weapon and stat spread so
@@ -8,36 +9,36 @@ import { OperativeDefSchema, type OperativeDef } from './schemas';
 const raw = [
   {
     id: 'ranger',
-    name: '游侠',
-    title: '均衡机动',
-    desc: '标准装备的清道夫，进攻节奏快，怎么打都顺手。',
+    name: tr('游侠', 'Ranger'),
+    title: tr('均衡机动', 'Balanced Mobility'),
+    desc: tr('标准装备的清道夫，进攻节奏快，怎么打都顺手。', 'A standard-issue scavenger with a fast offensive rhythm — comfortable in any fight.'),
     weapon: 'pistol',
     spriteKey: 'player_pistol',
-    perk: '+12% 攻速',
+    perk: tr('+12% 攻速', '+12% fire rate'),
     mods: { fireRateMul: 0.12 },
-    levelPerk: { stat: 'fireRateMul', amount: 0.02, label: '每级 +2% 攻速' },
+    levelPerk: { stat: 'fireRateMul', amount: 0.02, label: tr('每级 +2% 攻速', '+2% fire rate per level') },
   },
   {
     id: 'juggernaut',
-    name: '重装',
-    title: '钢铁防线',
-    desc: '扛住第一波压力，用霰弹在近距离轰开缺口。',
+    name: tr('重装', 'Juggernaut'),
+    title: tr('钢铁防线', 'Iron Line'),
+    desc: tr('扛住第一波压力，用霰弹在近距离轰开缺口。', 'Soaks the first wave, then blasts an opening at point-blank range.'),
     weapon: 'shotgun',
     spriteKey: 'player_shotgun',
-    perk: '+40 生命 · -8% 移速',
+    perk: tr('+40 生命 · -8% 移速', '+40 HP · -8% move speed'),
     mods: { maxHp: 40, moveSpeedMul: -0.08 },
-    levelPerk: { stat: 'maxHp', amount: 6, label: '每级 +6 生命' },
+    levelPerk: { stat: 'maxHp', amount: 6, label: tr('每级 +6 生命', '+6 HP per level') },
   },
   {
     id: 'hunter',
-    name: '猎手',
-    title: '一击必杀',
-    desc: '高风险高回报，用重弹和暴击精准点名精英。',
+    name: tr('猎手', 'Hunter'),
+    title: tr('一击必杀', 'One Shot, One Kill'),
+    desc: tr('高风险高回报，用重弹和暴击精准点名精英。', 'High risk, high reward: heavy rounds and crits to pick elites off precisely.'),
     weapon: 'magnum',
     spriteKey: 'player_magnum',
-    perk: '+15% 暴击 · +8% 移速 · -20 生命',
+    perk: tr('+15% 暴击 · +8% 移速 · -20 生命', '+15% crit · +8% move speed · -20 HP'),
     mods: { crit: 0.15, moveSpeedMul: 0.08, maxHp: -20 },
-    levelPerk: { stat: 'crit', amount: 0.012, label: '每级 +1.2% 暴击' },
+    levelPerk: { stat: 'crit', amount: 0.012, label: tr('每级 +1.2% 暴击', '+1.2% crit per level') },
   },
 ];
 
@@ -106,10 +107,10 @@ export function applyOperativeLevel<T extends {
 /** Human-readable current bonus, e.g. "+8% 攻速". */
 export function opLevelBonusText(op: OperativeDef, level: number): string {
   const steps = Math.max(0, Math.min(OP_LEVEL_CAP, level) - 1);
-  if (steps === 0) return '尚无老兵加成';
+  if (steps === 0) return tr('尚无老兵加成', 'No veterancy bonus yet');
   const perk = op.levelPerk;
   const total = perk.amount * steps;
-  if (perk.stat === 'maxHp') return `老兵加成 +${Math.round(total)} 生命`;
-  if (perk.stat === 'fireRateMul') return `老兵加成 +${Math.round(total * 100)}% 攻速`;
-  return `老兵加成 +${(total * 100).toFixed(1)}% 暴击`;
+  if (perk.stat === 'maxHp') return tr(`老兵加成 +${Math.round(total)} 生命`, `Veterancy +${Math.round(total)} HP`);
+  if (perk.stat === 'fireRateMul') return tr(`老兵加成 +${Math.round(total * 100)}% 攻速`, `Veterancy +${Math.round(total * 100)}% fire rate`);
+  return tr(`老兵加成 +${(total * 100).toFixed(1)}% 暴击`, `Veterancy +${(total * 100).toFixed(1)}% crit`);
 }

@@ -35,6 +35,7 @@ import {
   NO_TALENTS, talentEffects, applyTalents, salvageGain, buyState, nextCost, totalSpent, talentById,
 } from './data/talents';
 import { dailyKey, dailySeed, formatSeed, parseSeed, randomSeed } from './seed';
+import { tr } from './i18n';
 
 type State = 'title' | 'playing' | 'paused' | 'levelup' | 'shop' | 'gameover' | 'victory';
 
@@ -66,7 +67,7 @@ export class Game {
   private talents: Record<string, number>; // talent id → owned level
   private salvageCommitted = 0; // already banked for the run in progress
   private lastSalvageGain = 0;
-  private lastDamageCause = '尚未受到致命伤害';
+  private lastDamageCause = tr('尚未受到致命伤害', 'No fatal damage taken yet');
   private lastOperative: string;
   private unlockedAch: Set<string>;
   private lifetime: LifetimeStats;
@@ -240,7 +241,7 @@ export class Game {
     this.fx.clear();
     this.world.resetRun();
     this.hash.clear();
-    this.lastDamageCause = '尚未受到致命伤害';
+    this.lastDamageCause = tr('尚未受到致命伤害', 'No fatal damage taken yet');
     const seed = seedOverride ?? randomSeed();
     this.runSeed = seed;
     this.runDailyKey = seed === dailySeed(dailyKey()) ? dailyKey() : null;
@@ -368,9 +369,9 @@ export class Game {
     for (const a of fresh) {
       this.unlockedAch.add(a.id);
       this.runAchievements.push(a);
-      this.ui.toast(`成就解锁 · ${a.name}`, a.desc, 'achieve');
+      this.ui.toast(tr(`成就解锁 · ${a.name}`, `Achievement · ${a.name}`), a.desc, 'achieve');
       const pt = this.ctx.world.get(this.ctx.player, Transform);
-      if (pt) this.ctx.fx.text(pt.x, pt.y - 46, `成就 · ${a.name}`, '#61e5de', 15);
+      if (pt) this.ctx.fx.text(pt.x, pt.y - 46, tr(`成就 · ${a.name}`, `Achievement · ${a.name}`), '#61e5de', 15);
     }
     this.ctx.audio.levelUp();
     this.persist();
@@ -528,20 +529,20 @@ export class Game {
       if (skill) {
         if (!this.ctx!.skills.owned.has(id)) return '';
         const remain = skillCooldownRemaining(this.ctx!, id);
-        return remain > 0 ? `冷却 ${Math.ceil(remain)}s` : '已解锁';
+        return remain > 0 ? tr(`冷却 ${Math.ceil(remain)}s`, `Cooldown ${Math.ceil(remain)}s`) : tr('已解锁', 'Owned');
       }
       const def = EQUIPMENT.find((e) => e.id === id);
       if (!def) return '';
       if (def.kind === 'charge') {
         const n = eq.charges.get(id) ?? 0;
-        return n > 0 ? `持有 ×${n}` : '';
+        return n > 0 ? tr(`持有 ×${n}`, `Held ×${n}`) : '';
       }
       if (def.kind === 'shield') {
-        return eq.shield > 0 ? `护盾 ×${eq.shield}` : '';
+        return eq.shield > 0 ? tr(`护盾 ×${eq.shield}`, `Shield ×${eq.shield}`) : '';
       }
       const until = eq.buffs.get(id);
       if (until !== undefined && this.ctx!.time.elapsed < until) {
-        return `生效中 ${Math.ceil(until - this.ctx!.time.elapsed)}s`;
+        return tr(`生效中 ${Math.ceil(until - this.ctx!.time.elapsed)}s`, `Active ${Math.ceil(until - this.ctx!.time.elapsed)}s`);
       }
       return '';
     };
@@ -629,7 +630,13 @@ export class Game {
     d.nextBossAt = this.ctx.time.elapsed + ENDLESS_BOSS_INTERVAL;
     this.state = 'playing';
     this.ui.hideEnd();
-    this.ui.toast('无尽尸潮已开启', `母巢暴君将每 ${ENDLESS_BOSS_INTERVAL} 秒回归，且一次比一次强`);
+    this.ui.toast(
+      tr('无尽尸潮已开启', 'Endless horde unlocked'),
+      tr(
+        `母巢暴君将每 ${ENDLESS_BOSS_INTERVAL} 秒回归，且一次比一次强`,
+        `The Hive Tyrant returns every ${ENDLESS_BOSS_INTERVAL}s, stronger each time`,
+      ),
+    );
     this.ctx.audio.boss();
   }
 
@@ -646,7 +653,7 @@ export class Game {
       stage,
       primaryWeapon: primary.def.name,
       gold: ctx.equip.gold,
-      cause: victory ? '击败母巢暴君' : this.lastDamageCause,
+      cause: victory ? tr('击败母巢暴君', 'Defeated the Hive Tyrant') : this.lastDamageCause,
       nextGoal: this.nextGoal(stage, primary.level, !!ctx.director.endless),
       maxCombo: ctx.run.combo.best,
       elites: ctx.run.elitesKilled,
@@ -668,10 +675,10 @@ export class Game {
   }
 
   private nextGoal(stage: number, weaponLevel: number, endless: boolean): string {
-    if (endless) return '下一目标：在无尽尸潮中走得更远';
-    if (stage < 2) return '下一目标：抵达第 2 阶段';
-    if (weaponLevel < 3) return '下一目标：将主武器升到 Lv.3';
-    return '下一目标：击败母巢暴君';
+    if (endless) return tr('下一目标：在无尽尸潮中走得更远', 'Next goal: get further into the endless horde');
+    if (stage < 2) return tr('下一目标：抵达第 2 阶段', 'Next goal: reach stage 2');
+    if (weaponLevel < 3) return tr('下一目标：将主武器升到 Lv.3', 'Next goal: take your primary weapon to Lv.3');
+    return tr('下一目标：击败母巢暴君', 'Next goal: defeat the Hive Tyrant');
   }
 
   /** Today's daily keeps its own best, since every player got the exact same world. */

@@ -17,6 +17,7 @@ import { useItem } from '../systems/equipment';
 import { useSkill, skillCooldownRemaining } from '../systems/skills';
 import { Health, Loadout, Enemy, Transform } from '../components';
 import { AiInput, DEFAULT_BOT, type BotTuning } from './aiInput';
+import { tr } from '../i18n';
 
 /**
  * How the scripted player picks its level-up rewards.
@@ -261,7 +262,7 @@ export function runHeadless(seed: number, maxSeconds: number, opts: SimOptions =
   const policy = opts.policy ?? 'greedy';
   const useShop = opts.shop !== false;
   let died = false;
-  let cause = '存活到时间上限';
+  let cause = tr('存活到时间上限', 'Survived to the time limit');
 
   const ctx: GameContext = {
     world,
@@ -344,6 +345,6 @@ export function runHeadless(seed: number, maxSeconds: number, opts: SimOptions =
     skills: [...ctx.skills.owned],
     rerolls: ctx.run.rerolls,
     banishes: ctx.run.banishes,
-    cause: died ? cause : '存活到时间上限',
+    cause: died ? cause : tr('存活到时间上限', 'Survived to the time limit'),
   };
 }

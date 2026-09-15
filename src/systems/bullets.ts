@@ -2,6 +2,7 @@ import type { GameContext } from '../ctx';
 import { Transform, Collider, Bullet, Health } from '../components';
 import { damageEnemy, damagePlayer, explode } from './combat';
 import { blockedAt } from '../data/obstacles';
+import { tr } from '../i18n';
 
 /**
  * Bullet collisions. Player bullets hit enemies (with pierce + a per-bullet hit set so one bullet
@@ -65,7 +66,7 @@ export function bulletSystem(ctx: GameContext, _dt: number): void {
     } else {
       const rr = c.r + pc.r;
       if ((pt.x - t.x) ** 2 + (pt.y - t.y) ** 2 <= rr * rr) {
-        damagePlayer(ctx, b.dmg, '远程感染弹命中');
+        damagePlayer(ctx, b.dmg, tr('远程感染弹命中', 'Hit by infected projectile'));
         w.destroy(e);
       }
     }

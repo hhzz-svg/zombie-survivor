@@ -6,6 +6,7 @@ import {
 } from '../data/wingmen';
 import { WEAPONS } from '../data/weapons';
 import { spawnSurvivor, spawnWingman, spawnBullet } from '../factory';
+import { tr } from '../i18n';
 
 /**
  * Squad lifecycle: stranded survivors appear while there is room, joining on
@@ -46,7 +47,7 @@ export function wingmanSystem(ctx: GameContext, dt: number): void {
       const e = spawnSurvivor(ctx, def);
       const st = w.get(e, Transform)!;
       ctx.fx.shockwave(st.x, st.y, 52, '#eafff7', 0.5);
-      ctx.fx.text(st.x, st.y - 26, `发现幸存者：${def.name}`, '#eafff7', 15);
+      ctx.fx.text(st.x, st.y - 26, tr(`发现幸存者：${def.name}`, `Survivor spotted: ${def.name}`), '#eafff7', 15);
       ctx.audio.pickup();
     }
   }
@@ -56,7 +57,7 @@ export function wingmanSystem(ctx: GameContext, dt: number): void {
     const sv = w.get(e, Survivor)!;
     const t = w.get(e, Transform)!;
     if (ctx.time.elapsed >= sv.until) {
-      ctx.fx.text(t.x, t.y - 20, '幸存者离开了…', '#9ab1aa', 13);
+      ctx.fx.text(t.x, t.y - 20, tr('幸存者离开了…', 'The survivor moved on…'), '#9ab1aa', 13);
       w.destroy(e);
       continue;
     }
@@ -67,11 +68,15 @@ export function wingmanSystem(ctx: GameContext, dt: number): void {
       ctx.run.rescued++;
       ctx.fx.shockwave(t.x, t.y, 70, sv.def.color, 0.4);
       ctx.fx.burst(t.x, t.y, 16, sv.def.color, 220, ctx.rng);
-      ctx.fx.text(t.x, t.y - 26, `${sv.def.name}加入编队！`, sv.def.color, 16);
+      ctx.fx.text(t.x, t.y - 26, tr(`${sv.def.name}加入编队！`, `${sv.def.name} joined the squad!`), sv.def.color, 16);
       ctx.audio.levelUp();
       ctx.vfx?.onAnnounce?.(
-        `${sv.def.name}已入队`,
-        sv.def.id === 'medic' ? '定期为你治疗' : sv.def.id === 'gunner' ? '远程速射火力支援' : '近距火焰洗地',
+        tr(`${sv.def.name}已入队`, `${sv.def.name} is with you`),
+        sv.def.id === 'medic'
+          ? tr('定期为你治疗', 'Heals you on a timer')
+          : sv.def.id === 'gunner'
+            ? tr('远程速射火力支援', 'Long-range rapid fire support')
+            : tr('近距火焰洗地', 'Close-range flame sweep'),
         'achieve',
       );
     }
@@ -115,9 +120,13 @@ export function wingmanSystem(ctx: GameContext, dt: number): void {
     }
     if (h.hp <= 0) {
       ctx.fx.burst(t.x, t.y, 20, wm.def.color, 240, ctx.rng);
-      ctx.fx.text(t.x, t.y - 22, `${wm.def.name}倒下了`, '#ff5a6a', 15);
+      ctx.fx.text(t.x, t.y - 22, tr(`${wm.def.name}倒下了`, `${wm.def.name} is down`), '#ff5a6a', 15);
       ctx.audio.hurt();
-      ctx.vfx?.onAnnounce?.(`${wm.def.name}阵亡`, '继续前进，会有新的幸存者出现', 'curse');
+      ctx.vfx?.onAnnounce?.(
+        tr(`${wm.def.name}阵亡`, `${wm.def.name} killed in action`),
+        tr('继续前进，会有新的幸存者出现', 'Keep moving — more survivors will turn up'),
+        'curse',
+      );
       w.destroy(e);
       continue;
     }

@@ -58,6 +58,7 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | **Spitter** | Ranged acid; forces you to keep moving. |
 | **Exploder** | Rushes in and detonates. Pop it early or pay for it. |
 | **Brute** | A wall of HP that shrugs off knockback. |
+| **Bilingual UI** | Every user-facing string is a `tr(zh, en)` pair — Chinese and English, switchable in Settings. A CI audit fails the build if a new string is added in one language only. |
 | **Elite mutations** | Swift / Mighty / Toxic affixes with auras, name tags and colour-independent badges. Multiplied rewards; Toxic bursts acid on death. |
 | **Warden** | Shield up front: fire inside its arc is 82% blocked. The shield swings slowly — get around it, through the horde. |
 | **Brood** | Hangs back and keeps hatching walkers. Ignore it and the field compounds on its own. |
@@ -102,6 +103,8 @@ Open the local URL Vite prints (defaults to `http://localhost:5173`).
 | `npm run build` | Type-check, then build to `dist/`. |
 | `npm run preview` | Serve the production build locally. |
 | `npm test` | Run the test suite (unit + a headless game simulation). |
+| `npm run lint` | ESLint, including three rules that encode this project's invariants. |
+| `npm run i18n:audit` | Fail if any user-facing string is hardcoded in one language. |
 | `npm run balance` | Balance report: headless runs across many seeds and operatives — win rate, survival, weapon/passive pick rates, causes of death. |
 
 ## Balance report

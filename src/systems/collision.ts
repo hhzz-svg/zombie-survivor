@@ -6,6 +6,7 @@ import {
 } from '../data/obstacles';
 import { spawnBarrel } from '../factory';
 import { explode } from './combat';
+import { tr } from '../i18n';
 
 /**
  * Terrain response. Anything that walks (player, horde, squad) gets pushed out of cover and
@@ -87,7 +88,7 @@ export function barrelSystem(ctx: GameContext, dt: number): void {
     const x = t.x;
     const y = t.y;
     w.destroy(e); // gone before the blast, so it cannot re-trigger itself
-    explode(ctx, x, y, BARREL_RADIUS, BARREL_DAMAGE, true, '油桶爆炸');
+    explode(ctx, x, y, BARREL_RADIUS, BARREL_DAMAGE, true, tr('油桶爆炸', 'Barrel explosion'));
     ctx.fx.shockwave(x, y, BARREL_RADIUS, '#ff9b35', 0.42);
     ctx.fx.flash(x, y, 44, '#fff3d6', '#ff9b35', 0.2);
     ctx.screen.shake = Math.max(ctx.screen.shake, 13);

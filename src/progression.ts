@@ -6,6 +6,7 @@ import {
 } from './data/weapons';
 import { PASSIVES, passiveById } from './data/passives';
 import { WEAPON_SLOTS, PASSIVE_SLOTS, MAX_PASSIVE_LEVEL } from './data/balance';
+import { tr } from './i18n';
 
 /** A single level-up offer. */
 export type Choice =
@@ -18,9 +19,9 @@ export type Choice =
 
 /** Consolation offers used only when the real pool has run dry (every slot full and maxed). */
 const BONUSES: ReadonlyArray<Extract<Choice, { kind: 'bonus' }>> = [
-  { kind: 'bonus', bonus: 'hp', label: '战地补给', desc: '+15 最大生命并回满' },
-  { kind: 'bonus', bonus: 'gold', label: '赏金', desc: '+40 金币' },
-  { kind: 'bonus', bonus: 'shield', label: '备用护盾', desc: '+1 层护盾' },
+  { kind: 'bonus', bonus: 'hp', label: tr('战地补给', 'Field Supplies'), desc: tr('+15 最大生命并回满', '+15 max HP and a full heal') },
+  { kind: 'bonus', bonus: 'gold', label: tr('赏金', 'Bounty'), desc: tr('+40 金币', '+40 gold') },
+  { kind: 'bonus', bonus: 'shield', label: tr('备用护盾', 'Spare Shield'), desc: tr('+1 层护盾', '+1 shield layer') },
 ];
 
 /**
@@ -68,7 +69,7 @@ export function makeChoices(ctx: GameContext, keep: Choice[] = []): Choice[] {
     for (const id of Object.keys(WEAPONS)) {
       if (id.endsWith('-evo') || owned.has(id)) continue;
       const def = WEAPONS[id];
-      const card: Choice = { kind: 'weapon-new', weapon: def, label: `新武器 · ${def.name}`, desc: weaponDesc(def), sprite: def.sprite };
+      const card: Choice = { kind: 'weapon-new', weapon: def, label: tr(`新武器 · ${def.name}`, `New weapon · ${def.name}`), desc: weaponDesc(def), sprite: def.sprite };
       if (allowed(card)) pool.push(card);
     }
   }
@@ -86,7 +87,7 @@ export function makeChoices(ctx: GameContext, keep: Choice[] = []): Choice[] {
           weaponId: wi.def.id,
           evoId: recipe.evo,
           label: `${wi.def.name} → ${evoDef.name}`,
-          desc: '终极进化！',
+          desc: tr('终极进化！', 'Final evolution!'),
           sprite: evoDef.sprite,
         });
       }
@@ -102,7 +103,9 @@ export function makeChoices(ctx: GameContext, keep: Choice[] = []): Choice[] {
       kind: 'weapon-up',
       weaponId: wi.def.id,
       label: `${wi.def.name} Lv.${wi.level}→${wi.level + 1}`,
-      desc: nearMax ? '+25% 伤害 · 满级，逼近进化' : '+25% 伤害',
+      desc: nearMax
+        ? tr('+25% 伤害 · 满级，逼近进化', '+25% damage · maxed, evolution in reach')
+        : tr('+25% 伤害', '+25% damage'),
       sprite: wi.def.sprite,
     };
     if (allowed(card)) pool.push(card);
@@ -139,7 +142,9 @@ export function makeChoices(ctx: GameContext, keep: Choice[] = []): Choice[] {
 }
 
 function withUnlock(desc: string, weaponName: string | undefined): string {
-  return weaponName ? `${desc} · 解锁${weaponName}进化` : desc;
+  return weaponName
+    ? tr(`${desc} · 解锁${weaponName}进化`, `${desc} · unlocks the ${weaponName} evolution`)
+    : desc;
 }
 
 function pickN(ctx: GameContext, arr: Choice[], n: number): Choice[] {
@@ -251,6 +256,9 @@ function applyPassive(ctx: GameContext, p: PassiveDef): void {
 }
 
 function weaponDesc(def: WeaponDef): string {
-  if (def.kind === 'nova') return `范围冲击 · 伤害 ${def.damage}`;
-  return `${def.projectiles > 1 ? `${def.projectiles} 连发 · ` : ''}伤害 ${def.damage}`;
+  if (def.kind === 'nova') return tr(`范围冲击 · 伤害 ${def.damage}`, `Area burst · ${def.damage} damage`);
+  return tr(
+    `${def.projectiles > 1 ? `${def.projectiles} 连发 · ` : ''}伤害 ${def.damage}`,
+    `${def.projectiles > 1 ? `${def.projectiles}-round burst · ` : ''}${def.damage} damage`,
+  );
 }

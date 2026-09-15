@@ -5,6 +5,7 @@ import { MAX_WEAPON_LEVEL } from '../data/weapons';
 import { spawnCrate } from '../factory';
 import { collectXp } from './player';
 import { startBuff } from './equipment';
+import { tr } from '../i18n';
 
 /**
  * Supply drops: on a fixed cadence a crate parachutes in near the player.
@@ -19,12 +20,12 @@ export interface CrateReward {
 }
 
 export const CRATE_REWARDS: readonly CrateReward[] = [
-  { id: 'gold', name: '军费储备', weight: 22 },
-  { id: 'vacuum', name: '全域磁暴', weight: 14 },
-  { id: 'heal', name: '战地医疗箱', weight: 16 },
-  { id: 'ammo', name: '强化弹药', weight: 16 },
-  { id: 'weaponUp', name: '武器改装件', weight: 20 },
-  { id: 'shieldCell', name: '护盾电池', weight: 12 },
+  { id: 'gold', name: tr('军费储备', 'War Funds'), weight: 22 },
+  { id: 'vacuum', name: tr('全域磁暴', 'Global Magnet Storm'), weight: 14 },
+  { id: 'heal', name: tr('战地医疗箱', 'Field Medkit'), weight: 16 },
+  { id: 'ammo', name: tr('强化弹药', 'Enhanced Ammo'), weight: 16 },
+  { id: 'weaponUp', name: tr('武器改装件', 'Weapon Mod Kit'), weight: 20 },
+  { id: 'shieldCell', name: tr('护盾电池', 'Shield Cell'), weight: 12 },
 ];
 
 export function rollCrateReward(rng: () => number): CrateReward {
@@ -51,7 +52,7 @@ export function supplyDropSystem(ctx: GameContext, _dt: number): void {
       const y = pt.y + Math.sin(a) * r;
       spawnCrate(ctx, x, y);
       ctx.fx.shockwave(x, y, 46, '#ffd166', 0.5);
-      ctx.fx.text(x, y - 26, '空投抵达', '#ffd166', 15);
+      ctx.fx.text(x, y - 26, tr('空投抵达', 'Supply drop landed'), '#ffd166', 15);
       ctx.audio.pickup();
     }
   }
@@ -89,7 +90,7 @@ export function applyCrateReward(ctx: GameContext, id: CrateReward['id']): strin
     case 'gold': {
       const amount = 30 + Math.floor(ctx.rng() * 21);
       ctx.equip.gold += amount;
-      return `获得 ${amount} 金币`;
+      return tr(`获得 ${amount} 金币`, `Gained ${amount} gold`);
     }
     case 'vacuum': {
       // Pull every gem and coin on the field into the player instantly.
@@ -111,29 +112,29 @@ export function applyCrateReward(ctx: GameContext, id: CrateReward['id']): strin
       if (gems > 0) collectXp(ctx, gems);
       ctx.equip.gold += coins;
       ctx.audio.pickup();
-      return `吸取全场掉落：${gems} 经验 · ${coins} 金币`;
+      return tr(`吸取全场掉落：${gems} 经验 · ${coins} 金币`, `Pulled in everything: ${gems} XP · ${coins} gold`);
     }
     case 'heal': {
       const h = ctx.world.get(ctx.player, Health);
       if (h) h.hp = Math.min(h.max, h.hp + 50);
-      return '回复 50 生命';
+      return tr('回复 50 生命', 'Restored 50 HP');
     }
     case 'ammo':
       startBuff(ctx, 'supplyAmmo', 30);
-      return '30 秒内伤害 +18%';
+      return tr('30 秒内伤害 +18%', '+18% damage for 30 seconds');
     case 'weaponUp': {
       const lo = ctx.world.get(ctx.player, Loadout);
       const upgradable = lo?.weapons.filter((w) => w.level < MAX_WEAPON_LEVEL) ?? [];
       if (upgradable.length === 0) {
         ctx.equip.gold += 25;
-        return '武器已全部满级，折算 25 金币';
+        return tr('武器已全部满级，折算 25 金币', 'All weapons maxed — converted to 25 gold');
       }
       const wi = upgradable[Math.floor(ctx.rng() * upgradable.length)];
       wi.level++;
-      return `${wi.def.name} 升至 Lv.${wi.level}`;
+      return tr(`${wi.def.name} 升至 Lv.${wi.level}`, `${wi.def.name} to Lv.${wi.level}`);
     }
     case 'shieldCell':
       ctx.equip.shield++;
-      return '获得 1 层护盾';
+      return tr('获得 1 层护盾', 'Gained 1 shield layer');
   }
 }

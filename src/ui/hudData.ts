@@ -12,6 +12,7 @@ import { skillCooldownRemaining } from '../systems/skills';
 import { comboTier } from '../systems/combo';
 import { Health, Loadout, Enemy, Wingman } from '../components';
 import { primaryWeapon } from '../loadout';
+import { tr } from '../i18n';
 
 /** Held passives in definition order, so the panel never reshuffles between frames. */
 export function passiveList(ctx: GameContext): Array<{ name: string; level: number; trait: boolean }> {
@@ -41,12 +42,12 @@ export function evoHint(ctx: GameContext): string {
 }
 
 function threatLabelFor(ctx: GameContext, stage: number): string {
-  if (ctx.director.endless) return '威胁：无尽尸潮';
-  if (stage >= 5) return '威胁：母巢逼近';
-  if (ctx.time.elapsed < 30) return '威胁：低';
-  if (stage >= 4) return '威胁：极高';
-  if (stage >= 3) return '威胁：高';
-  return '威胁：中';
+  if (ctx.director.endless) return tr('威胁：无尽尸潮', 'Threat: Endless horde');
+  if (stage >= 5) return tr('威胁：母巢逼近', 'Threat: Hive closing in');
+  if (ctx.time.elapsed < 30) return tr('威胁：低', 'Threat: Low');
+  if (stage >= 4) return tr('威胁：极高', 'Threat: Extreme');
+  if (stage >= 3) return tr('威胁：高', 'Threat: High');
+  return tr('威胁：中', 'Threat: Moderate');
 }
 
 /**
@@ -67,12 +68,12 @@ export function buildHudData(ctx: GameContext): HudData {
   const nextStageIn = nextStage ? Math.max(0, nextStage.from - ctx.time.elapsed) : null;
   const primary = primaryWeapon(lo);
   const stageBanner = (ctx.director.stageBannerUntil ?? 0) > ctx.time.elapsed
-    ? `阶段 ${stage.index} · ${stage.name}`
+    ? tr(`阶段 ${stage.index} · ${stage.name}`, `Stage ${stage.index} · ${stage.name}`)
     : '';
   const tutorialTip = ctx.time.elapsed < 12
-    ? '优先绕圈移动并拾取经验；前 30 秒拾取范围更大'
+    ? tr('优先绕圈移动并拾取经验；前 30 秒拾取范围更大', 'Keep circling and scoop up XP — pickup range is wider for the first 30 seconds')
     : ctx.time.elapsed < 35
-      ? '按 B 打开商店，用金币购买装备补足生存能力'
+      ? tr('按 B 打开商店，用金币购买装备补足生存能力', 'Press B to open the shop and spend gold on survivability')
       : '';
   let bossHp: number | null = null;
   let bossName = '';
@@ -85,7 +86,7 @@ export function buildHudData(ctx: GameContext): HudData {
       break;
     }
   }
-  const threatLabel = bossHp !== null ? 'Boss 接战' : threatLabelFor(ctx, stage.index);
+  const threatLabel = bossHp !== null ? tr('Boss 接战', 'Boss engaged') : threatLabelFor(ctx, stage.index);
 
   const tier = comboTier(ctx.run.combo.count);
   const combo = {
@@ -100,9 +101,18 @@ export function buildHudData(ctx: GameContext): HudData {
   const act = activeSurge(ctx.time.elapsed);
   const inc = incomingSurge(ctx.time.elapsed);
   const surge = act
-    ? { label: `血月尸潮 · 剩余 ${Math.ceil(act.at + act.duration - ctx.time.elapsed)}s`, active: true }
+    ? {
+      label: tr(
+        `血月尸潮 · 剩余 ${Math.ceil(act.at + act.duration - ctx.time.elapsed)}s`,
+        `Blood moon · ${Math.ceil(act.at + act.duration - ctx.time.elapsed)}s left`,
+      ),
+      active: true,
+    }
     : inc
-      ? { label: `血月将至 ${Math.ceil(inc.at - ctx.time.elapsed)}s`, active: false }
+      ? {
+        label: tr(`血月将至 ${Math.ceil(inc.at - ctx.time.elapsed)}s`, `Blood moon in ${Math.ceil(inc.at - ctx.time.elapsed)}s`),
+        active: false,
+      }
       : null;
 
   const squad = w.query(Wingman).map((e) => {

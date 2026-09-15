@@ -1,4 +1,5 @@
 import { WaveConfigSchema, type WaveConfig } from './schemas';
+import { tr } from '../i18n';
 
 /** Player base stats before any upgrades. */
 export const PLAYER_BASE = {
@@ -109,10 +110,10 @@ export interface ComboTier {
 
 export const COMBO_TIERS: readonly ComboTier[] = [
   { at: 0, name: '', xpMul: 1, goldMul: 1, color: '#9ab1aa' },
-  { at: 10, name: '连击', xpMul: 1.1, goldMul: 1, color: '#61e5de' },
-  { at: 25, name: '杀戮', xpMul: 1.25, goldMul: 1.1, color: '#ffd166' },
-  { at: 50, name: '狂热', xpMul: 1.5, goldMul: 1.2, color: '#ff9f43' },
-  { at: 100, name: '灭世', xpMul: 2, goldMul: 1.35, color: '#ff5252' },
+  { at: 10, name: tr('连击', 'Combo'), xpMul: 1.1, goldMul: 1, color: '#61e5de' },
+  { at: 25, name: tr('杀戮', 'Slaughter'), xpMul: 1.25, goldMul: 1.1, color: '#ffd166' },
+  { at: 50, name: tr('狂热', 'Frenzy'), xpMul: 1.5, goldMul: 1.2, color: '#ff9f43' },
+  { at: 100, name: tr('灭世', 'Apocalypse'), xpMul: 2, goldMul: 1.35, color: '#ff5252' },
 ];
 
 // ---------------------------------------------------------------------------

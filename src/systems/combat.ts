@@ -12,6 +12,7 @@ import { addComboKill, comboGoldMul, comboPitch, resetCombo } from './combo';
 import { curseGoldMul } from './curse';
 import { barrierAbsorb } from './skills';
 import { CHILL_CAP, CHILL_SECONDS, DETONATE_DAMAGE, DETONATE_RADIUS } from '../data/passives';
+import { tr } from '../i18n';
 
 /** Shared damage resolution — used by bullets, nova, and explosions so the rules live in one place. */
 
@@ -23,7 +24,7 @@ import { CHILL_CAP, CHILL_SECONDS, DETONATE_DAMAGE, DETONATE_RADIUS } from '../d
 export function damagePlayer(
   ctx: GameContext,
   dmg: number,
-  cause = '感染者近身攻击',
+  cause = tr('感染者近身攻击', 'Infected melee'),
   grantIFrames = true,
 ): void {
   const h = ctx.world.get(ctx.player, Health)!;
@@ -60,12 +61,16 @@ export function damagePlayer(
         knockBackAround(ctx, pt.x, pt.y, 260, 320);
         ctx.fx.shockwave(pt.x, pt.y, 260, '#61e5de', 0.55);
         ctx.fx.flash(pt.x, pt.y, 54, '#eafffb', '#61e5de', 0.26);
-        ctx.fx.text(pt.x, pt.y - 34, '复活协议！', '#61e5de', 20);
+        ctx.fx.text(pt.x, pt.y - 34, tr('复活协议！', 'Revival Protocol!'), '#61e5de', 20);
       }
       ctx.time.hitStop = Math.max(ctx.time.hitStop, 90);
       ctx.screen.shake = Math.max(ctx.screen.shake, 16);
       ctx.audio.levelUp();
-      ctx.vfx?.onAnnounce?.('复活协议', '倒下时原地复活 · 回复 50% 生命 · 2 秒无敌', 'adrenaline');
+      ctx.vfx?.onAnnounce?.(
+        tr('复活协议', 'Revival Protocol'),
+        tr('倒下时原地复活 · 回复 50% 生命 · 2 秒无敌', 'Revived on the spot · 50% HP · 2s invulnerable'),
+        'adrenaline',
+      );
       return;
     }
     h.hp = 0;
@@ -83,12 +88,16 @@ export function damagePlayer(
       ctx.fx.shockwave(pt.x, pt.y, 220, '#ffd166', 0.5);
       ctx.fx.flash(pt.x, pt.y, 46, '#fff6dd', '#ffb43c', 0.22);
       ctx.fx.burst(pt.x, pt.y, 30, '#ffd166', 320, ctx.rng);
-      ctx.fx.text(pt.x, pt.y - 34, '肾上腺素！', '#ffd166', 20);
+      ctx.fx.text(pt.x, pt.y - 34, tr('肾上腺素！', 'Adrenaline!'), '#ffd166', 20);
     }
     ctx.time.hitStop = Math.max(ctx.time.hitStop, 70);
     ctx.screen.shake = Math.max(ctx.screen.shake, 14);
     ctx.audio.levelUp();
-    ctx.vfx?.onAnnounce?.('肾上腺素爆发', '+15 生命 · 1.5 秒无敌 · 击退周围尸群（每局一次）', 'adrenaline');
+    ctx.vfx?.onAnnounce?.(
+      tr('肾上腺素爆发', 'Adrenaline Surge'),
+      tr('+15 生命 · 1.5 秒无敌 · 击退周围尸群（每局一次）', '+15 HP · 1.5s invulnerable · knocks the horde back (once per run)'),
+      'adrenaline',
+    );
   }
 }
 
@@ -124,7 +133,7 @@ export function damageEnemy(
   if (en0 && en0.def.behavior === 'warden' && dx * en0.faceX + dy * en0.faceY < WARDEN_ARC_COS) {
     dmg *= WARDEN_FRONT_MUL;
     ctx.fx.spark(t.x + en0.faceX * 14, t.y + en0.faceY * 14, -dx, -dy, 4, '#cfe0f2', 220, ctx.rng);
-    if (!quiet) ctx.fx.text(t.x, t.y - 16, '挡下', '#9fb6cf', 12);
+    if (!quiet) ctx.fx.text(t.x, t.y - 16, tr('挡下', 'Blocked'), '#9fb6cf', 12);
     quiet = true; // the blocked number is noise; the "挡下" tag already says it
   }
 
@@ -221,7 +230,7 @@ export function killEnemy(ctx: GameContext, e: Entity): void {
     ctx.screen.shake = Math.max(ctx.screen.shake, 7);
     ctx.fx.shockwave(x, y, 60, elite.color, 0.35);
     ctx.fx.burst(x, y, 18, elite.color, 240, ctx.rng);
-    ctx.fx.text(x, y - 24, `精英击破`, elite.color, 16);
+    ctx.fx.text(x, y - 24, tr('精英击破', 'Elite broken'), elite.color, 16);
     if (elite.id === 'toxic') {
       // Toxic elites release a ring of acid bolts on death — reposition, then punish.
       for (let i = 0; i < TOXIC_DEATH_BOLTS; i++) {
@@ -241,7 +250,7 @@ export function killEnemy(ctx: GameContext, e: Entity): void {
     }
     ctx.fx.shockwave(x, y, 80, '#ffd700', 0.45);
     ctx.fx.burst(x, y, 26, '#ffe66a', 300, ctx.rng);
-    ctx.fx.text(x, y - 26, '黄金收割！', '#ffd700', 18);
+    ctx.fx.text(x, y - 26, tr('黄金收割！', 'Golden harvest!'), '#ffd700', 18);
     ctx.audio.levelUp();
   }
 
@@ -254,7 +263,7 @@ export function killEnemy(ctx: GameContext, e: Entity): void {
       if (ph) ph.hp = Math.min(ph.max, ph.hp + 40);
       ctx.director.nextBossAt = ctx.time.elapsed + ENDLESS_BOSS_INTERVAL;
       ctx.fx.shockwave(x, y, 160, '#ffd0e6', 0.6);
-      ctx.fx.text(x, y - 40, `暴君再临倒计时 ${ENDLESS_BOSS_INTERVAL}s`, '#e56aa8', 16);
+      ctx.fx.text(x, y - 40, tr(`暴君再临倒计时 ${ENDLESS_BOSS_INTERVAL}s`, `Tyrant returns in ${ENDLESS_BOSS_INTERVAL}s`), '#e56aa8', 16);
       ctx.audio.boss();
     } else {
       ctx.director.bossDead = true;
@@ -270,7 +279,7 @@ export function explode(
   radius: number,
   dmg: number,
   hurtPlayer = true,
-  cause = '爆裂感染者自爆',
+  cause = tr('爆裂感染者自爆', 'Bomber detonation'),
 ): void {
   const neigh: number[] = [];
   ctx.hash.query(x, y, radius, neigh);

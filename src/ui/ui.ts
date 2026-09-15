@@ -5,6 +5,7 @@ import type { AchievementDef } from '../data/achievements';
 import type { ShopOffer } from '../shop';
 import type { Settings } from '../settings';
 import { TALENTS, BRANCH_NAMES, BRANCH_BLURB, buyState, nextCost, levelOf, totalSpent } from '../data/talents';
+import { tr, isLang, LANGUAGES, LANGUAGE_NAMES } from '../i18n';
 
 export interface HudData {
   stage: number;
@@ -332,7 +333,7 @@ export class UI {
     hud.innerHTML = `
       <div id="ui-xp"><i></i></div>
       <div id="ui-mission"><span id="ui-stage"></span><strong id="ui-time"></strong><span id="ui-threat"></span></div>
-      <div id="ui-economy"><span id="ui-gold"></span><button id="ui-shopbtn">[B] 商店</button></div>
+      <div id="ui-economy"><span id="ui-gold"></span><button id="ui-shopbtn">[B] ${tr('商店', 'Shop')}</button></div>
       <div id="ui-stage-banner"></div>
       <div id="ui-surge"></div>
       <div id="ui-tutorial"></div>
@@ -343,7 +344,7 @@ export class UI {
       <div id="ui-weapons"></div>
       <div id="ui-combo"><div class="cnum"></div><div class="cname"></div><div class="cbar"><i></i></div></div>
       <div id="ui-toast"><div class="t-name"></div><div class="t-desc"></div></div>
-      <div id="ui-reveal"><div class="rv-kicker">空投补给</div><div class="rv-name"></div><div class="rv-desc"></div></div>
+      <div id="ui-reveal"><div class="rv-kicker">${tr('空投补给', 'Supply Drop')}</div><div class="rv-name"></div><div class="rv-desc"></div></div>
       <div id="ui-boss"><div class="t"></div><i></i></div>
     `;
     document.body.appendChild(hud);
@@ -392,7 +393,8 @@ export class UI {
     this.xpFill.style.width = `${Math.min(100, (d.xp / d.xpToNext) * 100)}%`;
     this.hpFill.style.width = `${Math.max(0, (d.hp / d.maxHp) * 100)}%`;
     this.hpLabel.innerHTML = `<span>HP ${Math.ceil(d.hp)} / ${d.maxHp}</span><span>Lv.${d.level} · ${d.kills} K</span>`;
-    this.stageEl.textContent = `阶段 ${d.stage} · ${d.stageName} · ${Math.round(d.stageProgress * 100)}%${d.nextStageIn === null ? '' : ` · ${Math.ceil(d.nextStageIn)}s`}`;
+    const stageTail = `${d.stageName} · ${Math.round(d.stageProgress * 100)}%${d.nextStageIn === null ? '' : ` · ${Math.ceil(d.nextStageIn)}s`}`;
+    this.stageEl.textContent = tr(`阶段 ${d.stage} · ${stageTail}`, `Stage ${d.stage} · ${stageTail}`);
     this.timeEl.textContent = UI.fmt(d.time);
     this.threatEl.textContent = d.threatLabel;
     this.stageBannerEl.textContent = d.stageBanner;
@@ -400,7 +402,7 @@ export class UI {
     this.tutorialEl.textContent = d.tutorialTip;
     this.tutorialEl.style.display = d.tutorialTip ? 'block' : 'none';
     this.primaryWeaponEl.innerHTML = `
-      <div class="meta"><span>主武器</span><span>Lv.${d.primaryWeapon.level}</span></div>
+      <div class="meta"><span>${tr('主武器', 'Primary')}</span><span>Lv.${d.primaryWeapon.level}</span></div>
       <div class="name">${d.primaryWeapon.name}</div>
       <div class="bar"><i style="width:${Math.round(d.primaryWeapon.progress * 100)}%"></i></div>`;
     this.weaponsEl.innerHTML = d.weapons
@@ -409,7 +411,7 @@ export class UI {
       + d.passives
         .map((p) => `<div><span class="w" style="color:${p.trait ? '#9ef06f' : '#a8c7bd'}">${p.name}</span> <span class="lv">Lv.${p.level}</span></div>`)
         .join('')
-      + `<div class="slots">武器 ${d.slots.weapons} · 强化 ${d.slots.passives}</div>`
+      + `<div class="slots">${tr('武器', 'Weapons')} ${d.slots.weapons} · ${tr('强化', 'Upgrades')} ${d.slots.passives}</div>`
       + (d.evoHint ? `<div class="evohint">${d.evoHint}</div>` : '');
     if (d.bossHp === null) {
       this.bossWrap.style.display = 'none';
@@ -420,7 +422,7 @@ export class UI {
       if (nameEl.textContent !== d.bossName) nameEl.textContent = d.bossName;
     }
 
-    this.goldEl.innerHTML = `金币 <b>${d.gold}</b>`;
+    this.goldEl.innerHTML = `${tr('金币', 'Gold')} <b>${d.gold}</b>`;
 
     // Kill-combo widget: shows from 3 kills up, colored by tier, pulses on change.
     const combo = d.combo;
@@ -428,7 +430,7 @@ export class UI {
     if (combo.count >= 3) {
       this.comboEl.style.color = combo.color;
       this.comboEl.querySelector<HTMLElement>('.cnum')!.textContent = `x${combo.count}`;
-      this.comboEl.querySelector<HTMLElement>('.cname')!.textContent = combo.name || '连锁击杀';
+      this.comboEl.querySelector<HTMLElement>('.cname')!.textContent = combo.name || tr('连锁击杀', 'Kill chain');
       this.comboEl.querySelector<HTMLElement>('.cbar > i')!.style.width = `${Math.round(combo.frac * 100)}%`;
       if (combo.count !== this.lastComboCount) {
         this.comboEl.classList.remove('pulse');
@@ -498,7 +500,7 @@ export class UI {
           const xpPct = p ? (p.next > 0 ? Math.round((p.into / p.next) * 100) : 100) : 0;
           const lvBlock = p
             ? `<div class="o-lv"><span class="lvb">Lv.${p.level}</span><span class="o-xpbar"><i style="width:${xpPct}%"></i></span></div>
-               <div class="o-bonus">${p.next > 0 ? `${p.bonus} · 距下级 ${p.next - p.into} XP` : `${p.bonus} · 已满级`}</div>`
+               <div class="o-bonus">${p.next > 0 ? tr(`${p.bonus} · 距下级 ${p.next - p.into} XP`, `${p.bonus} · ${p.next - p.into} XP to next`) : tr(`${p.bonus} · 已满级`, `${p.bonus} · maxed`)}</div>`
             : '';
           return `
         <div class="op${op.id === this.titleSelection ? ' sel' : ''}" data-op="${op.id}" role="button" tabindex="0">
@@ -513,34 +515,40 @@ export class UI {
       )
       .join('');
     const achBtn = ach && d.onShowAchievements
-      ? `<button class="quiet" id="ui-ach-btn">成就 ${ach.unlocked} / ${ach.total}</button>`
+      ? `<button class="quiet" id="ui-ach-btn">${tr('成就', 'Achievements')} ${ach.unlocked} / ${ach.total}</button>`
       : '';
-    const setBtn = d.onShowSettings ? `<button class="quiet" id="ui-set-btn">设置</button>` : '';
+    const setBtn = d.onShowSettings ? `<button class="quiet" id="ui-set-btn">${tr('设置', 'Settings')}</button>` : '';
     const talentBtn = d.onShowTalents
-      ? `<button class="quiet accent" id="ui-talent-btn">战备升级 · 残骸 ${d.salvage}</button>`
+      ? `<button class="quiet accent" id="ui-talent-btn">${tr('战备升级 · 残骸', 'Talents · Salvage')} ${d.salvage}</button>`
       : '';
     const dailyBest = d.daily.best
-      ? `今日最佳 ${UI.fmt(d.daily.best.time)} · ${d.daily.best.kills} 击杀`
-      : '今天还没打过';
+      ? tr(
+        `今日最佳 ${UI.fmt(d.daily.best.time)} · ${d.daily.best.kills} 击杀`,
+        `Today's best ${UI.fmt(d.daily.best.time)} · ${d.daily.best.kills} kills`,
+      )
+      : tr('今天还没打过', 'No run today yet');
     const seedRow = `
       <div class="seed-row">
         <div class="seed-daily">
-          <button class="quiet accent" id="ui-daily-btn">今日挑战 · ${d.daily.key}</button>
-          <span class="seed-note">全员同一张地图 · 种子 ${d.daily.seed} · ${dailyBest}<br>公平对局：不计永久升级与老兵加成</span>
+          <button class="quiet accent" id="ui-daily-btn">${tr('今日挑战', 'Daily Challenge')} · ${d.daily.key}</button>
+          <span class="seed-note">${tr('全员同一张地图 · 种子', 'Same map for everyone · seed')} ${d.daily.seed} · ${dailyBest}<br>${tr('公平对局：不计永久升级与老兵加成', 'Fair play: permanent upgrades and veterancy are disabled')}</span>
         </div>
         <div class="seed-custom">
-          <input id="ui-seed-input" maxlength="7" placeholder="输入种子" aria-label="输入种子">
-          <button class="quiet" id="ui-seed-btn">用此种子出击</button>
+          <input id="ui-seed-input" maxlength="7" placeholder="${tr('输入种子', 'Enter a seed')}" aria-label="${tr('输入种子', 'Enter a seed')}">
+          <button class="quiet" id="ui-seed-btn">${tr('用此种子出击', 'Play this seed')}</button>
           <span class="seed-note" id="ui-seed-note"></span>
         </div>
       </div>`;
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>末日清道夫</h1>
-        <p>战术俯视生存 · 自动开火 · 阶段推进<br>
-        WASD 移动 · 鼠标瞄准 · <b style="color:#ffb438">B</b> 商店 · <b style="color:#ffb438">Esc</b> 暂停 · 连杀提升经验金币 · 空投 / 血月 / 血怨祭坛改变战局${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
+        <h1>${tr('末日清道夫', 'Doomsday Scavenger')}</h1>
+        <p>${tr('战术俯视生存 · 自动开火 · 阶段推进', 'Top-down tactical survival · auto-fire · staged escalation')}<br>
+        ${tr(
+    'WASD 移动 · 鼠标瞄准 · <b style="color:#ffb438">B</b> 商店 · <b style="color:#ffb438">Esc</b> 暂停 · 连杀提升经验金币 · 空投 / 血月 / 血怨祭坛改变战局',
+    'WASD to move · mouse to aim · <b style="color:#ffb438">B</b> shop · <b style="color:#ffb438">Esc</b> pause · combos raise XP and gold · drops / blood moons / altars change the fight',
+  )}${best > 0 ? tr(`<br>最佳生存 ${UI.fmt(best)}`, `<br>Best survival ${UI.fmt(best)}`) : ''}</p>
         <div class="ops">${cards}</div>
-        <button class="start">出击 (Space)</button>
+        <button class="start">${tr('出击', 'Deploy')} (Space)</button>
         ${seedRow}
         <div class="title-btns">${talentBtn}${achBtn}${setBtn}</div>
       </div>`;
@@ -571,7 +579,7 @@ export class UI {
     const launchSeed = () => {
       const seed = d.parseSeed(input.value);
       if (seed === null) {
-        note.textContent = '种子无效（只认数字和字母）';
+        note.textContent = tr('种子无效（只认数字和字母）', 'Invalid seed (letters and digits only)');
         note.style.color = 'var(--danger)';
         return;
       }
@@ -604,17 +612,17 @@ export class UI {
         const cost = nextCost(def, levels);
         const pips = Array.from({ length: def.maxLevel }, (_, i) =>
           `<i class="${i < lv ? 'on' : ''}"></i>`).join('');
-        const foot = state.kind === 'maxed' ? '<span class="t-max">已满级</span>'
+        const foot = state.kind === 'maxed' ? `<span class="t-max">${tr('已满级', 'Maxed')}</span>`
           : state.kind === 'requires' ? `<span class="t-lock">${state.text}</span>`
           : state.kind === 'achievement' ? `<span class="t-lock">${state.text}</span>`
-          : state.kind === 'salvage' ? `<span class="t-lock">还差 ${state.short} 残骸</span>`
-          : `<span class="t-cost">${cost} 残骸</span>`;
+          : state.kind === 'salvage' ? `<span class="t-lock">${tr(`还差 ${state.short} 残骸`, `${state.short} more salvage`)}</span>`
+          : `<span class="t-cost">${tr(`${cost} 残骸`, `${cost} salvage`)}</span>`;
         const cls = state.kind === 'ok' ? ' can' : state.kind === 'maxed' ? ' maxed' : ' locked';
         return `
           <div class="t-node${cls}" data-t="${def.id}" ${state.kind === 'ok' ? 'role="button" tabindex="0"' : ''}>
             <div class="t-head"><b>${def.name}</b><span class="t-lv">Lv.${lv}/${def.maxLevel}</span></div>
             <div class="t-pips">${pips}</div>
-            <div class="t-desc">${def.desc}${def.maxLevel > 1 ? ' <em>（每级）</em>' : ''}</div>
+            <div class="t-desc">${def.desc}${def.maxLevel > 1 ? ` <em>${tr('（每级）', '(per level)')}</em>` : ''}</div>
             <div class="t-foot">${foot}</div>
           </div>`;
       }).join('');
@@ -624,11 +632,11 @@ export class UI {
     const spent = totalSpent(levels);
     this.overlay.innerHTML = `
       <div class="panel wide">
-        <h1>战备升级</h1>
-        <p>残骸来自每一局——赢了输了都有。<b style="color:#61e5de">持有 ${salvage}</b> · 已投入 ${spent}</p>
+        <h1>${tr('战备升级', 'Talents')}</h1>
+        <p>${tr('残骸来自每一局——赢了输了都有。', 'Salvage comes from every run — win or lose. ')}<b style="color:#61e5de">${tr('持有', 'Held')} ${salvage}</b> · ${tr('已投入', 'Spent')} ${spent}</p>
         <div class="t-tree">${branches}</div>
-        <button class="start" id="t-back">返回</button>
-        <div class="title-btns">${spent > 0 ? '<button class="quiet" id="t-refund">全部退还</button>' : ''}</div>
+        <button class="start" id="t-back">${tr('返回', 'Back')}</button>
+        <div class="title-btns">${spent > 0 ? `<button class="quiet" id="t-refund">${tr('全部退还', 'Refund all')}</button>` : ''}</div>
       </div>`;
 
     this.overlay.querySelectorAll('.t-node.can').forEach((el) => {
@@ -654,24 +662,37 @@ export class UI {
     const pct = (n: number) => Math.round(n * 100);
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>设置</h1>
-        <p>只影响表现，不影响模拟——同一个种子在任何设置下都是同一局。</p>
+        <h1>${tr('设置', 'Settings')}</h1>
+        <p>${tr(
+    '只影响表现，不影响模拟——同一个种子在任何设置下都是同一局。',
+    'Presentation only — none of this touches the simulation, so a seed plays the same under any setting.',
+  )}</p>
         <div class="settings">
-          <label class="srow"><span>音量</span>
+          <label class="srow"><span>${tr('语言', 'Language')}</span>
+            <select id="set-lang">${LANGUAGES
+    .map((l) => `<option value="${l}"${current.language === l ? ' selected' : ''}>${LANGUAGE_NAMES[l]}</option>`)
+    .join('')}</select><b></b></label>
+          <label class="srow"><span>${tr('音量', 'Volume')}</span>
             <input type="range" id="set-vol" min="0" max="100" value="${pct(current.volume)}">
             <b id="set-vol-v">${pct(current.volume)}%</b></label>
-          <label class="srow"><span>静音</span>
+          <label class="srow"><span>${tr('静音', 'Mute')}</span>
             <input type="checkbox" id="set-mute" ${current.muted ? 'checked' : ''}><b></b></label>
-          <label class="srow"><span>屏幕震动</span>
+          <label class="srow"><span>${tr('屏幕震动', 'Screen shake')}</span>
             <input type="range" id="set-shake" min="0" max="100" value="${pct(current.shake)}">
             <b id="set-shake-v">${pct(current.shake)}%</b></label>
-          <label class="srow"><span>减弱闪烁</span>
+          <label class="srow"><span>${tr('减弱闪烁', 'Reduce flashing')}</span>
             <input type="checkbox" id="set-flash" ${current.reduceFlashing ? 'checked' : ''}><b></b></label>
-          <label class="srow"><span>伤害数字</span>
+          <label class="srow"><span>${tr('伤害数字', 'Damage numbers')}</span>
             <input type="checkbox" id="set-num" ${current.damageNumbers ? 'checked' : ''}><b></b></label>
         </div>
-        <p class="seed-note">「减弱闪烁」会压低血月红幕、狂热光晕与濒死暗角的脉动强度。</p>
-        <button class="start" id="set-back">返回</button>
+        <p class="seed-note">${tr(
+    '「减弱闪烁」会压低血月红幕、狂热光晕与濒死暗角的脉动强度。',
+    '"Reduce flashing" holds the blood-moon wash, combo glow and low-HP vignette at a steady low level instead of pulsing them.',
+  )}<br>${tr(
+    '切换语言会重新载入页面——存档不受影响。',
+    'Switching language reloads the page. Your save is untouched.',
+  )}</p>
+        <button class="start" id="set-back">${tr('返回', 'Back')}</button>
       </div>`;
 
     const next = { ...current };
@@ -697,6 +718,16 @@ export class UI {
         push();
       };
     };
+    // The language is read once at startup, before the data tables evaluate their strings
+    // (see src/i18n.ts), so applying it means reloading. Persist first, then reload.
+    const langSel = this.overlay.querySelector<HTMLSelectElement>('#set-lang')!;
+    langSel.onchange = () => {
+      const picked = langSel.value;
+      if (!isLang(picked) || picked === current.language) return;
+      next.language = picked;
+      push();
+      location.reload();
+    };
     bind('#set-mute', 'muted');
     bind('#set-flash', 'reduceFlashing');
     bind('#set-num', 'damageNumbers');
@@ -717,10 +748,10 @@ export class UI {
       .join('');
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>成就</h1>
-        <p>已解锁 ${[...unlocked].filter((id) => defs.some((d) => d.id === id)).length} / ${defs.length} · 输赢都有进度</p>
+        <h1>${tr('成就', 'Achievements')}</h1>
+        <p>${tr('已解锁', 'Unlocked')} ${[...unlocked].filter((id) => defs.some((d) => d.id === id)).length} / ${defs.length} · ${tr('输赢都有进度', 'every run makes progress')}</p>
         <div class="ach-grid">${cells}</div>
-        <button class="start" id="ach-back">返回</button>
+        <button class="start" id="ach-back">${tr('返回', 'Back')}</button>
       </div>`;
     this.overlay.querySelector<HTMLElement>('#ach-back')!.onclick = onBack;
     this.overlay.style.display = 'flex';
@@ -730,12 +761,12 @@ export class UI {
   showPause(onResume: () => void, onRestart: () => void, onSettings?: () => void): void {
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>已暂停</h1>
-        <p>喘口气。尸潮不会真的等你。</p>
-        <button class="start" id="pause-resume">继续 (Esc)</button>
+        <h1>${tr('已暂停', 'Paused')}</h1>
+        <p>${tr('喘口气。尸潮不会真的等你。', 'Catch your breath. The horde is not really waiting.')}</p>
+        <button class="start" id="pause-resume">${tr('继续', 'Resume')} (Esc)</button>
         <div class="title-btns">
-          <button class="quiet" id="pause-restart">重新出击</button>
-          ${onSettings ? '<button class="quiet" id="pause-settings">设置</button>' : ''}
+          <button class="quiet" id="pause-restart">${tr('重新出击', 'Restart')}</button>
+          ${onSettings ? `<button class="quiet" id="pause-settings">${tr('设置', 'Settings')}</button>` : ''}
         </div>
       </div>`;
     this.overlay.querySelector<HTMLElement>('#pause-resume')!.onclick = onResume;
@@ -798,12 +829,12 @@ export class UI {
           const kind = choiceKindLabel(c, trait);
           const cls = c.kind === 'weapon-evo' ? ' evo-card' : trait ? ' trait-card' : '';
           const upgradeLine = c.kind === 'weapon-up' || c.kind === 'passive-up'
-            ? '<div class="held-label">当前 → 下一等级</div>'
+            ? `<div class="held-label">${tr('当前 → 下一等级', 'current → next level')}</div>`
             : '';
           const canBanish = shape.onBanish && choiceKey(c) !== null;
           const banishBtn = canBanish
             ? `<button class="banish${shape.gold < shape.banishCost ? ' broke' : ''}" data-b="${i}"
-                 title="本局不再出现${c.label}">✕ ${shape.banishCost}</button>`
+                 title="${tr(`本局不再出现${c.label}`, `Never offer ${c.label} again this run`)}">✕ ${shape.banishCost}</button>`
             : '';
           return `
         <div class="card${cls}" data-i="${i}" role="button" tabindex="0">
@@ -813,18 +844,18 @@ export class UI {
           <div class="n">${c.label}</div>
           <div class="d">${c.desc}</div>
           ${upgradeLine}
-          <div class="key">按 ${i + 1}</div>
+          <div class="key">${tr(`按 ${i + 1}`, `Press ${i + 1}`)}</div>
         </div>`;
         },
       )
       .join('');
     const shapeRow = shape.onReroll
       ? `<div class="shape-row">
-           <button class="quiet${shape.gold < shape.rerollCost ? ' broke' : ''}" id="lv-reroll">重抽 · ${shape.rerollCost} 金币 (R)</button>
-           <span class="seed-note">金币 ${shape.gold} · ✕ 移除后本局不再出现该项，池子越窄越容易抽到你要的</span>
+           <button class="quiet${shape.gold < shape.rerollCost ? ' broke' : ''}" id="lv-reroll">${tr(`重抽 · ${shape.rerollCost} 金币`, `Reroll · ${shape.rerollCost} gold`)} (R)</button>
+           <span class="seed-note">${tr('金币', 'Gold')} ${shape.gold} · ${tr('✕ 移除后本局不再出现该项，池子越窄越容易抽到你要的', '✕ banishes an option for the rest of the run — a narrower pool hits what you want more often')}</span>
          </div>`
       : '';
-    this.overlay.innerHTML = `<div class="panel"><h1>升级</h1><p>选择一项强化</p>`
+    this.overlay.innerHTML = `<div class="panel"><h1>${tr('升级', 'Level Up')}</h1><p>${tr('选择一项强化', 'Choose one upgrade')}</p>`
       + `<div class="cards">${cards}</div>${shapeRow}</div>`;
     this.overlay.querySelectorAll('.card').forEach((el) => {
       const card = el as HTMLElement;
@@ -865,21 +896,21 @@ export class UI {
         let cls = isSkill ? 'card skill-card' : 'card';
         if (!canAfford) cls += ' cantafford';
         const heldLine = held ? `<div class="held-label">${held}</div>` : '';
-        const kindLabel = isSkill ? '主动技能' : equipmentKindLabel(offer.equipment.kind);
+        const kindLabel = isSkill ? tr('主动技能', 'Active Skill') : equipmentKindLabel(offer.equipment.kind);
         const iconKey = isSkill ? offer.skill.iconKey : offer.equipment.iconKey;
         const icon = `<img src="/assets/${iconKey}.png" alt="">`;
-        const lackLine = canAfford ? '' : `<div class="lack">还差 ${def.cost - gold} 金币</div>`;
+        const lackLine = canAfford ? '' : `<div class="lack">${tr(`还差 ${def.cost - gold} 金币`, `${def.cost - gold} more gold`)}</div>`;
         const keyHint = isSkill
-          ? `<div class="key">技能键 ${keyLabel(offer.skill.key)}</div>`
+          ? `<div class="key">${tr(`技能键 ${keyLabel(offer.skill.key)}`, `Skill key ${keyLabel(offer.skill.key)}`)}</div>`
           : offer.equipment.kind === 'charge' && offer.equipment.key
-            ? `<div class="key">快捷键 ${keyLabel(offer.equipment.key)}</div>`
+            ? `<div class="key">${tr(`快捷键 ${keyLabel(offer.equipment.key)}`, `Hotkey ${keyLabel(offer.equipment.key)}`)}</div>`
             : '';
         return `<div class="${cls}" data-offer="${i}" role="button" tabindex="0">
           <div class="icon">${icon}</div>
           <div class="k">${kindLabel}</div>
           <div class="n">${def.name}</div>
           <div class="d">${def.desc}</div>
-          <div class="cost">金币 ${def.cost}</div>
+          <div class="cost">${tr('金币', 'Gold')} ${def.cost}</div>
           ${lackLine}
           ${heldLine}
           ${keyHint}
@@ -889,11 +920,11 @@ export class UI {
 
     this.overlay.innerHTML = `
       <div class="panel shop-panel">
-        <h1>装备商店</h1>
-        <div class="gold-display">金币: <b>${gold}</b></div>
+        <h1>${tr('装备商店', 'Equipment Shop')}</h1>
+        <div class="gold-display">${tr('金币', 'Gold')}: <b>${gold}</b></div>
         <div class="cards">${cards}</div>
-        <p style="margin-top:14px;font-size:12px;color:#6a9a84">装备可重复购买；第 3 阶段后会出现本局主动技能。按 B / Esc 关闭。</p>
-        <button class="start" id="shop-close">关闭 (B)</button>
+        <p style="margin-top:14px;font-size:12px;color:#6a9a84">${tr('装备可重复购买；第 3 阶段后会出现本局主动技能。按 B / Esc 关闭。', 'Equipment can be bought repeatedly; run-scoped active skills appear from stage 3. Press B / Esc to close.')}</p>
+        <button class="start" id="shop-close">${tr('关闭', 'Close')} (B)</button>
       </div>`;
 
     this.overlay.querySelectorAll('.card').forEach((el) => {
@@ -922,36 +953,39 @@ export class UI {
     onSameSeed?: () => void,
   ): void {
     const headline = summary.victory
-      ? '任务完成'
+      ? tr('任务完成', 'Mission Complete')
       : summary.endless
-        ? '无尽终局'
-        : '行动失败';
+        ? tr('无尽终局', 'Endless Run Over')
+        : tr('行动失败', 'Operation Failed');
     const sub = summary.victory
-      ? '你击杀了母巢暴君，清道夫路线已打通。还敢挑战无尽尸潮吗？'
+      ? tr('你击杀了母巢暴君，清道夫路线已打通。还敢挑战无尽尸潮吗？', 'You killed the Hive Tyrant and the scavenger route is open. Care to try the endless horde?')
       : summary.endless
-        ? `你在无尽尸潮中又斩落 ${summary.tyrants} 尊暴君，这里是极限，也是新的起点。`
-        : '丧尸潮压垮了防线，下一局优先补足短板。';
+        ? tr(
+          `你在无尽尸潮中又斩落 ${summary.tyrants} 尊暴君，这里是极限，也是新的起点。`,
+          `You felled ${summary.tyrants} more tyrants in the endless horde. That is the limit — and the new starting line.`,
+        )
+        : tr('丧尸潮压垮了防线，下一局优先补足短板。', 'The horde broke through. Next run, shore up the weak spot first.');
     const endlessBtn = summary.victory && onEndless
-      ? '<button class="ghost" id="end-endless">无尽尸潮 (E)</button>'
+      ? `<button class="ghost" id="end-endless">${tr('无尽尸潮', 'Endless Horde')} (E)</button>`
       : '';
     const achRow = summary.newAchievements.length > 0
       ? `<div class="new-ach-row">${summary.newAchievements
           .map((a) => `<span class="new-ach" title="${a.desc}">✓ ${a.name}</span>`)
           .join('')}</div>
-         <p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">本局解锁 ${summary.newAchievements.length} 项成就 · 总进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`
-      : `<p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">成就进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`;
+         <p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">${tr(`本局解锁 ${summary.newAchievements.length} 项成就`, `${summary.newAchievements.length} achievement(s) unlocked this run`)} · ${tr('总进度', 'Total')} ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`
+      : `<p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">${tr('成就进度', 'Achievements')} ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`;
     const buildChips = [
       ...summary.build.weapons.map((w) => `<span class="chip">${w.name} Lv.${w.level}</span>`),
       ...summary.build.passives.map((p) => `<span class="chip p">${p.name} Lv.${p.level}</span>`),
     ].join('');
     const buildRow = buildChips ? `<div class="build-row">${buildChips}</div>` : '';
-    const seedChip = `<div><span class="seed-chip">${summary.daily ? '今日挑战' : '种子'} ${summary.seed}</span>${
+    const seedChip = `<div><span class="seed-chip">${summary.daily ? tr('今日挑战', 'Daily') : tr('种子', 'Seed')} ${summary.seed}</span>${
       summary.salvage === null
-        ? '<span class="seed-chip">公平对局 · 不计永久升级</span>'
-        : `<span class="seed-chip" style="color:#ffe2a0;border-color:rgba(255,180,56,.4)">残骸 +${summary.salvage}</span>`
+        ? `<span class="seed-chip">${tr('公平对局 · 不计永久升级', 'Fair play · no permanent upgrades')}</span>`
+        : `<span class="seed-chip" style="color:#ffe2a0;border-color:rgba(255,180,56,.4)">${tr(`残骸 +${summary.salvage}`, `Salvage +${summary.salvage}`)}</span>`
     }</div>`;
-    const sameSeedBtn = onSameSeed ? '<button class="quiet" id="end-sameseed">同种子再来</button>' : '';
-    const opLine = `<div class="op-line">${summary.operative.name} 经验 <b>+${summary.operative.gained}</b> · Lv.${summary.operative.level}${summary.operative.leveledUp ? '<span class="lvup">▲ 升级！</span>' : ''}</div>`;
+    const sameSeedBtn = onSameSeed ? `<button class="quiet" id="end-sameseed">${tr('同种子再来', 'Replay this seed')}</button>` : '';
+    const opLine = `<div class="op-line">${summary.operative.name} ${tr('经验', 'XP')} <b>+${summary.operative.gained}</b> · Lv.${summary.operative.level}${summary.operative.leveledUp ? `<span class="lvup">▲ ${tr('升级！', 'Level up!')}</span>` : ''}</div>`;
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>${headline}</h1>
@@ -961,20 +995,20 @@ export class UI {
         ${opLine}
         ${buildRow}
         <div class="summary">
-          <div><span>生存时间</span><b>${UI.fmt(summary.time)}</b></div>
-          <div><span>击杀</span><b>${summary.kills}</b></div>
-          <div><span>最高连击</span><b>x${summary.maxCombo}</b></div>
-          <div><span>精英击破</span><b>${summary.elites}</b></div>
-          <div><span>空投回收</span><b>${summary.crates}</b></div>
-          <div><span>阶段</span><b>${summary.stage}</b></div>
-          <div><span>主武器</span><b>${summary.primaryWeapon}</b></div>
-          <div><span>金币</span><b>${summary.gold}</b></div>
-          <div><span>最佳</span><b>${UI.fmt(summary.best)}</b></div>
-          ${summary.rescued > 0 ? `<div><span>救援幸存者</span><b>${summary.rescued}</b></div>` : ''}
-          ${summary.tyrants > 0 ? `<div><span>额外暴君</span><b>${summary.tyrants}</b></div>` : ''}
+          <div><span>${tr('生存时间', 'Survived')}</span><b>${UI.fmt(summary.time)}</b></div>
+          <div><span>${tr('击杀', 'Kills')}</span><b>${summary.kills}</b></div>
+          <div><span>${tr('最高连击', 'Best combo')}</span><b>x${summary.maxCombo}</b></div>
+          <div><span>${tr('精英击破', 'Elites broken')}</span><b>${summary.elites}</b></div>
+          <div><span>${tr('空投回收', 'Drops recovered')}</span><b>${summary.crates}</b></div>
+          <div><span>${tr('阶段', 'Stage')}</span><b>${summary.stage}</b></div>
+          <div><span>${tr('主武器', 'Primary')}</span><b>${summary.primaryWeapon}</b></div>
+          <div><span>${tr('金币', 'Gold')}</span><b>${summary.gold}</b></div>
+          <div><span>${tr('最佳', 'Best')}</span><b>${UI.fmt(summary.best)}</b></div>
+          ${summary.rescued > 0 ? `<div><span>${tr('救援幸存者', 'Survivors rescued')}</span><b>${summary.rescued}</b></div>` : ''}
+          ${summary.tyrants > 0 ? `<div><span>${tr('额外暴君', 'Extra tyrants')}</span><b>${summary.tyrants}</b></div>` : ''}
         </div>
-        <p>原因：${summary.cause}<br>${summary.nextGoal}</p>
-        <button class="start">再来一局 (Space)</button>
+        <p>${tr('原因：', 'Cause: ')}${summary.cause}<br>${summary.nextGoal}</p>
+        <button class="start">${tr('再来一局', 'Play again')} (Space)</button>
         ${endlessBtn}
         <div class="title-btns">${sameSeedBtn}</div>
       </div>`;
@@ -993,19 +1027,19 @@ export class UI {
 
 function choiceKindLabel(c: Choice, trait: boolean): string {
   switch (c.kind) {
-    case 'weapon-new': return '武器';
-    case 'weapon-evo': return '进化';
-    case 'weapon-up': return '升级';
-    case 'passive': return trait ? '特性' : '强化';
-    case 'passive-up': return '强化';
-    default: return '补给';
+    case 'weapon-new': return tr('武器', 'Weapon');
+    case 'weapon-evo': return tr('进化', 'Evolution');
+    case 'weapon-up': return tr('升级', 'Upgrade');
+    case 'passive': return trait ? tr('特性', 'Trait') : tr('强化', 'Upgrade');
+    case 'passive-up': return tr('强化', 'Upgrade');
+    default: return tr('补给', 'Supplies');
   }
 }
 
 function equipmentKindLabel(kind: EquipDef['kind']): string {
-  if (kind === 'charge') return '消耗品';
-  if (kind === 'shield') return '护盾';
-  return '药剂';
+  if (kind === 'charge') return tr('消耗品', 'Consumable');
+  if (kind === 'shield') return tr('护盾', 'Shield');
+  return tr('药剂', 'Elixir');
 }
 
 function keyLabel(code: string): string {

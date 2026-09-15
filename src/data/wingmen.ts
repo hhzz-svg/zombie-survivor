@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 /**
  * Wingmen: rescued survivors who fight alongside the player. A stranded
  * survivor appears on a cadence while the squad has room; reach them in time
@@ -16,9 +17,9 @@ export interface WingmanDef {
 }
 
 export const WINGMEN: readonly WingmanDef[] = [
-  { id: 'gunner', name: '机枪手', color: '#ffd166', hp: 85, cooldown: 0.17, range: 380, damage: 6 },
-  { id: 'burner', name: '火焰兵', color: '#ff8a3c', hp: 85, cooldown: 0.55, range: 205, damage: 4.5 },
-  { id: 'medic', name: '军医', color: '#6fef8f', hp: 70, cooldown: 4.5, range: 0, damage: 0, heal: 3 },
+  { id: 'gunner', name: tr('机枪手', 'Gunner'), color: '#ffd166', hp: 85, cooldown: 0.17, range: 380, damage: 6 },
+  { id: 'burner', name: tr('火焰兵', 'Burner'), color: '#ff8a3c', hp: 85, cooldown: 0.55, range: 205, damage: 4.5 },
+  { id: 'medic', name: tr('军医', 'Medic'), color: '#6fef8f', hp: 70, cooldown: 4.5, range: 0, damage: 0, heal: 3 },
 ];
 
 export function rollWingman(rng: () => number): WingmanDef {

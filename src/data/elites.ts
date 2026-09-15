@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 /**
  * Elite affixes: a spawned enemy can carry one, scaling its stats and rewards.
  * The affix is runtime state layered on top of the shared immutable EnemyDef,
@@ -27,9 +28,9 @@ export interface EliteAffix {
 }
 
 export const ELITE_AFFIXES: readonly EliteAffix[] = [
-  { id: 'swift', name: '迅捷', color: '#ffd166', badge: 'chevron', hpMul: 1.8, speedMul: 1.65, dmgMul: 1.1, radiusMul: 1.15, xpMul: 4, goldMul: 4 },
-  { id: 'mighty', name: '巨力', color: '#ff5252', badge: 'wedge', hpMul: 3.2, speedMul: 0.9, dmgMul: 1.6, radiusMul: 1.35, xpMul: 5, goldMul: 5 },
-  { id: 'toxic', name: '剧毒', color: '#7be23a', badge: 'dots', hpMul: 2.2, speedMul: 1.1, dmgMul: 1.2, radiusMul: 1.2, xpMul: 4, goldMul: 4 },
+  { id: 'swift', name: tr('迅捷', 'Swift'), color: '#ffd166', badge: 'chevron', hpMul: 1.8, speedMul: 1.65, dmgMul: 1.1, radiusMul: 1.15, xpMul: 4, goldMul: 4 },
+  { id: 'mighty', name: tr('巨力', 'Mighty'), color: '#ff5252', badge: 'wedge', hpMul: 3.2, speedMul: 0.9, dmgMul: 1.6, radiusMul: 1.35, xpMul: 5, goldMul: 5 },
+  { id: 'toxic', name: tr('剧毒', 'Toxic'), color: '#7be23a', badge: 'dots', hpMul: 2.2, speedMul: 1.1, dmgMul: 1.2, radiusMul: 1.2, xpMul: 4, goldMul: 4 },
 ];
 
 /** Number of acid bolts a toxic elite releases on death. */

@@ -1,6 +1,7 @@
 import type { GameContext } from '../ctx';
 import { Transform, Hazard } from '../components';
 import { damagePlayer } from './combat';
+import { tr } from '../i18n';
 
 const TICK = 0.5;
 
@@ -25,6 +26,6 @@ export function hazardSystem(ctx: GameContext, _dt: number): void {
     const t = w.get(e, Transform)!;
     if (Math.hypot(pt.x - t.x, pt.y - t.y) > h.r) continue;
     h.nextTick = ctx.time.elapsed + TICK;
-    damagePlayer(ctx, h.dps * TICK, '腐蚀酸池', false);
+    damagePlayer(ctx, h.dps * TICK, tr('腐蚀酸池', 'Corrosive acid pool'), false);
   }
 }
