@@ -3,6 +3,7 @@ import { AssetStore } from './assets';
 import { enemySpriteSize } from './spriteScale';
 import { actorDepth, recoilAmount, walkMotion } from './motion';
 import { combatActorPose } from './combatActor';
+import { drawEliteBadge } from './eliteBadge';
 import { CorpseFX } from '../fx/corpseFX';
 import { BloodDecals } from '../fx/bloodDecals';
 import type { GameContext } from '../ctx';
@@ -312,23 +313,31 @@ export class WorldRenderer {
               }
               return;
             }
-            // tags only near the player — full-horde tag spam reads as noise
+            // The name tag only reads up close, so it stays near-only — full-horde tag spam
+            // is noise. The badge below has no distance cutoff: it is the channel that has to
+            // work at range, and for a player who cannot separate the affix colours at all.
             const showTag = en.elite && dist < 340;
             const img = this.assets.get(en.def.sprite ?? en.def.id);
             let bodyY = y; // visual centre of the enemy — overlays hang off this, not the collider
+            let headY = y - rd.r; // top of the drawn body, where the badge sits
             if (img) {
               const size = enemySpriteSize(rd.r, en.def.isBoss);
               const sw = size * (1 + squash);
               const sh = size * (1 - squash);
               bodyY = y + rd.r - sh / 2 - anim.bob;
+              headY = y + rd.r - sh;
               r.drawSprite(img, x, bodyY, sw, sh, px - t.x < 0);
               if (showTag) {
-                r.drawText(x, y + rd.r - sh - 9, `${en.elite!.name}·${en.def.name}`, en.elite!.color, 11, 'center', 0.92);
+                r.drawText(x, headY - 9, `${en.elite!.name}·${en.def.name}`, en.elite!.color, 11, 'center', 0.92);
               }
             } else {
               r.drawCircle(x, y, rd.r, rd.color);
               if (en.def.isBoss) r.drawRing(x, y, rd.r + 6, '#ffd0e6', 3);
-              if (showTag) r.drawText(x, y - rd.r - 10, `${en.elite!.name}·${en.def.name}`, en.elite!.color, 11, 'center', 0.92);
+              if (showTag) r.drawText(x, headY - 10, `${en.elite!.name}·${en.def.name}`, en.elite!.color, 11, 'center', 0.92);
+            }
+            if (en.elite) {
+              const badgeY = headY - (showTag ? 26 : 12);
+              drawEliteBadge(r, en.elite.badge, x, badgeY, Math.min(17, rd.r), en.elite.color);
             }
             if (en.def.behavior === 'warden') {
               // The plate the player has to get around — held at chest height, on the side
@@ -488,7 +497,12 @@ export class WorldRenderer {
           const v = w.get(e, Velocity)!;
           const b = w.get(e, Bullet)!;
           if (b.team === 'enemy') {
+            // Hostile fire needs a silhouette, not just a hue: the enemy green and the
+            // player's amber collapse to the same yellow under red-green colour blindness.
+            // The dark-ringed head is the part that still reads with the colour removed.
             r.drawTracer(t.x, t.y, v.x, v.y, 16, rd.r * 2, '#eaffd0', '#7be23a');
+            r.drawRing(t.x, t.y, rd.r * 1.9, '#0b1013', 2.6, 0.9);
+            r.drawCircle(t.x, t.y, rd.r * 1.15, '#eaffd0', 0.95);
           } else if (b.style === 'flame') {
             // ragged flame tongue: flickering glow blob, hot core, no tracer tail
             const flick = 0.7 + 0.3 * Math.sin(now / 34 + t.x * 0.6 + t.y * 0.4);
