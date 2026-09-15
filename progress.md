@@ -1,3 +1,30 @@
+## 2026-09-15 - Task: 拆掉 game.ts 这个上帝对象
+
+### What was done
+
+`src/game.ts` 到了 1467 行，里面塞着四件互不相干的事：状态机、世界渲染、HUD 快照、元进程存档。按职责切成三块（纯搬运，没有行为改动）：
+
+- **`src/render/worldRenderer.ts`（新，605 行）** —— 世界渲染的全部：地面平铺、掩体投影与深度排序、酸池、预警圈、`drawWorld` 的 actor/bullet 分层、屏幕分级（大气、边缘辉光、低血量暗角）。血迹（`BloodDecals`）、尸体（`CorpseFX`）、精灵图集（`AssetStore`）、逐帧复用的障碍缓冲、脚步计数一并搬进来——它们本来就只有渲染在读。对 `GameContext` **只读**：帧率、图集、无障碍设置都改变不了一局种子的走向。
+- **`src/ui/hudData.ts`（新，179 行）** —— `buildHudData(ctx)` 是纯函数，把整个上下文读成一份扁平快照；`passiveList` / `evoHint` / 威胁等级一并搬过来。DOM 层退化成这份快照的哑渲染器。
+- **`src/loadout.ts`（新）** —— `primaryWeapon(lo)`，原本在 `game.ts` 里被渲染、HUD、结算页三处调用。
+
+`game.ts` 1467 → 762 行，`render()` 缩成两行转发。
+
+**顺带收紧了 lint 的作用域**：确定性规则（禁 `Math.random` / `Date.now` / `performance.now`）的豁免列表从 7 项减到 3 项——`src/main.ts`、`src/game.ts`、`src/ui/**`、`src/audio/**` 拆完之后已经一次都不读时钟了，现在它们也受规则管。这是这次拆分最实际的收益：**规则覆盖的代码变多了**。
+
+### Testing
+
+- `npx eslint .`、`npx tsc --noEmit -p tsconfig.json`、`npx tsc --noEmit -p tsconfig.tools.json`、`npm run build`：**各自单独执行并检查退出码**，均为 0（上一轮的教训）。
+- `npm test`：37 个文件 242 个测试通过（新增 8 个）。
+- **`tests/hudData.test.ts`（新）** —— 这是拆分的回报：HUD 逻辑以前要有 canvas、有 DOM、有一局真实运行才能碰，现在是纯函数。覆盖槽位占用字符串、主武器与满级进度、Boss 血条与威胁行切换、道具栏只列真正持有的（buff 过期即消失）、被动列表顺序与 trait 标记、进化提示的三个状态、`primaryWeapon` 的三级回退。
+- 浏览器实测（Playwright + Chromium）：标题页、开局、40 秒实战。掩体（车辆 / 矮墙 / 石堆）、油桶、空投箱、血迹、金币、经验、子弹、尸潮、玩家与枪口闪光全部正常绘制且深度排序正确；HUD 四块面板实时更新；console 零报错（只有一个与本次无关的 favicon 404）。
+
+### Notes
+
+- 纯搬运：没有改动任何玩法数值或系统管线，`runSystems` 一行未动。
+- 一处行为差异是刻意的：`resetRun()` 会把脚步计数归零（原先跨局保留）。纯表现，影响不到模拟。
+- 回滚方式：回退本任务对应提交。
+
 ## 2026-09-14 - Task: 修复 ESLint --fix 造成的编译失败
 
 ### What happened

@@ -40,9 +40,12 @@ export default tseslint.config(
     },
   },
   {
-    // The simulation must stay a pure function of its seed.
+    // The simulation must stay a pure function of its seed. The exemptions are the layers
+    // that are allowed to be wall-clock driven because nothing reads them back: the two
+    // presentation layers, and seed.ts, whose whole job is to mint a seed in the first place.
+    // src/game.ts came off this list once world rendering moved to src/render/worldRenderer.ts.
     files: ['src/**/*.ts'],
-    ignores: ['src/main.ts', 'src/game.ts', 'src/render/**', 'src/fx/**', 'src/ui/**', 'src/audio/**', 'src/seed.ts'],
+    ignores: ['src/render/**', 'src/fx/**', 'src/seed.ts'],
     rules: {
       'no-restricted-properties': [
         'error',
