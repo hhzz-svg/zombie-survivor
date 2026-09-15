@@ -15,7 +15,7 @@ describe('operatives', () => {
   });
 
   it('falls back to the first operative for unknown ids', () => {
-    expect(operativeById('nope').id).toBe(OPERATIVES[0]!.id);
+    expect(operativeById('nope').id).toBe(OPERATIVES[0].id);
     expect(operativeById(DEFAULT_OPERATIVE).id).toBe(DEFAULT_OPERATIVE);
   });
 
@@ -40,7 +40,7 @@ describe('operatives', () => {
     applyOperative(ctx.stats, op);
     const player = createPlayer(ctx, op.weapon);
     const lo = ctx.world.get(player, Loadout)!;
-    expect(lo.weapons[0]!.def.id).toBe('shotgun');
+    expect(lo.weapons[0].def.id).toBe('shotgun');
     expect(lo.activeWeapon).toBe('shotgun');
     expect(ctx.world.get(player, Health)!.max).toBe(ctx.stats.maxHp);
   });

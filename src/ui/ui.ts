@@ -1,8 +1,11 @@
-import type { Choice } from '../progression';
+import { choiceKey, type Choice } from '../progression';
 import type { EquipDef } from '../data/equipment';
 import type { OperativeDef, SkillDef } from '../data/schemas';
 import type { AchievementDef } from '../data/achievements';
 import type { ShopOffer } from '../shop';
+import type { Settings } from '../settings';
+import { TALENTS, BRANCH_NAMES, BRANCH_BLURB, buyState, nextCost, levelOf, totalSpent } from '../data/talents';
+import { tr, isLang, LANGUAGES, LANGUAGE_NAMES } from '../i18n';
 
 export interface HudData {
   stage: number;
@@ -21,7 +24,11 @@ export interface HudData {
   kills: number;
   time: number;
   weapons: Array<{ name: string; level: number }>;
+  passives: Array<{ name: string; level: number; trait: boolean }>;
+  slots: { weapons: string; passives: string }; // "4/6" — the run's build budget
+  evoHint: string; // pending evolution requirement, '' when none
   bossHp: number | null; // 0..1 fraction, or null if no boss
+  bossName: string; // a run can draw either boss, so the bar has to say which
   gold: number;
   items: Array<{ def: EquipDef; count: number; remain: number }>;
   skills: Array<{ def: SkillDef; remain: number; active: boolean }>;
@@ -29,6 +36,15 @@ export interface HudData {
   combo: { count: number; name: string; color: string; frac: number };
   surge: { label: string; active: boolean } | null;
   squad: Array<{ name: string; color: string; hpFrac: number }>;
+}
+
+/** Gold-funded reshaping of a level-up offer. */
+export interface LevelUpShaping {
+  gold: number;
+  rerollCost: number;
+  banishCost: number;
+  onReroll?: () => void;
+  onBanish?: (i: number) => void;
 }
 
 export interface RunSummary {
@@ -49,7 +65,32 @@ export interface RunSummary {
   newAchievements: Array<{ name: string; desc: string }>;
   achProgress: { unlocked: number; total: number };
   rescued: number;
+  seed: string; // the run's seed code, so a good run can be replayed or shared
+  daily: boolean; // this run was today's daily challenge
+  salvage: number | null; // salvage banked by this run; null on the daily, which pays none
   operative: { name: string; level: number; gained: number; leveledUp: boolean };
+  /** The build the player actually assembled — shown so a loss is legible. */
+  build: {
+    weapons: Array<{ name: string; level: number }>;
+    passives: Array<{ name: string; level: number }>;
+  };
+}
+
+/** Everything the title screen renders. Grew past the point where positional args were sane. */
+export interface TitleData {
+  best: number;
+  operatives: readonly OperativeDef[];
+  selectedId: string;
+  progress?: Record<string, OperativeProgress>;
+  ach?: { unlocked: number; total: number };
+  daily: { key: string; seed: string; best: { time: number; kills: number } | null };
+  salvage: number;
+  onShowTalents?: () => void;
+  onStart: (operativeId: string, seed?: number) => void;
+  onShowAchievements?: () => void;
+  onShowSettings?: () => void;
+  /** Parse a typed seed code; returns null when it is not a valid seed. */
+  parseSeed: (text: string) => number | null;
 }
 
 /** Per-operative veterancy shown on the title cards. */
@@ -171,6 +212,16 @@ const STYLE = `
 #ui-overlay .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;justify-content:center}
 #ui-overlay .card{cursor:pointer;background:linear-gradient(180deg,rgba(22,48,43,.86),rgba(9,18,17,.9));border:1px solid var(--line);border-radius:16px;padding:14px 12px;transition:.12s;text-align:left;min-height:176px;box-shadow:0 8px 20px rgba(0,0,0,.22)}
 #ui-overlay .card:hover{background:rgba(28,66,59,.92);transform:translateY(-3px);box-shadow:0 14px 28px rgba(0,0,0,.28),0 0 18px rgba(97,229,222,.12)}
+#ui-overlay .card{position:relative}
+#ui-overlay .card .banish{position:absolute;top:6px;right:6px;cursor:pointer;background:rgba(4,9,8,.72);border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:3px 7px;font-size:10px;letter-spacing:.5px;transition:.12s;z-index:1}
+#ui-overlay .card .banish:hover{border-color:var(--danger);color:#ffd7d3;background:rgba(255,90,79,.18)}
+#ui-overlay .card .banish.broke{opacity:.4;cursor:not-allowed}
+#ui-overlay button.quiet.broke{opacity:.45;cursor:not-allowed}
+#ui-overlay .shape-row{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:14px}
+#ui-overlay .card.evo-card{background:linear-gradient(180deg,rgba(80,58,16,.86),rgba(26,16,6,.92));border-color:rgba(255,209,102,.62);box-shadow:0 8px 20px rgba(0,0,0,.28),0 0 22px rgba(255,209,102,.22)}
+#ui-overlay .card.evo-card .k{color:#ffd166}
+#ui-overlay .card.trait-card{border-color:rgba(158,240,111,.42)}
+#ui-overlay .card.trait-card .k{color:#9ef06f}
 #ui-overlay .card.skill-card{background:linear-gradient(180deg,rgba(18,42,72,.72),rgba(9,18,28,.92));border-color:rgba(97,229,222,.3)}
 #ui-overlay .card.cantafford{opacity:.58;cursor:not-allowed}
 #ui-overlay .card .icon{text-align:center;margin-bottom:8px;min-height:54px}
@@ -183,8 +234,52 @@ const STYLE = `
 #ui-overlay .card .lack{font-size:12px;color:var(--danger);margin-top:4px;font-weight:800}
 #ui-overlay .card .held-label{font-size:11px;color:#d8fff3;margin-top:6px;font-weight:700}
 #ui-overlay .card .key{font-size:11px;color:#77a79a;margin-top:8px}
+#ui-overlay button.quiet{margin:0;cursor:pointer;background:rgba(97,229,222,.08);border:1px solid var(--line);color:#cfeee5;font-weight:700;font-size:13px;padding:9px 18px;border-radius:11px;letter-spacing:1.2px;transition:.12s}
+#ui-overlay button.quiet:hover{background:rgba(97,229,222,.16);color:#eafff9;transform:translateY(-1px)}
+#ui-overlay button.quiet.accent{background:rgba(255,180,56,.12);border-color:rgba(255,180,56,.42);color:#ffe2a0}
+#ui-overlay button.quiet.accent:hover{background:rgba(255,180,56,.2);color:#fff6dd}
 #ui-overlay button.start{margin-top:8px;cursor:pointer;background:linear-gradient(90deg,var(--fire),#ffd46a);border:none;color:#231706;font-weight:900;font-size:16px;padding:12px 30px;border-radius:12px;letter-spacing:2px;box-shadow:0 8px 24px rgba(255,180,56,.2)}
 #ui-overlay .gold-display{font-size:16px;color:var(--fire);margin-bottom:14px}.gold-display b{color:#ffe66a}
+#ui-overlay .panel.wide{max-width:min(1040px,94vw)}
+#ui-overlay .t-tree{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin:16px 0;text-align:left}
+#ui-overlay .t-branch h3{margin:0 0 2px;font-size:14px;color:var(--growth);letter-spacing:2px}
+#ui-overlay .t-branch>p{margin:0 0 10px;font-size:11px;color:var(--muted)}
+#ui-overlay .t-node{padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;transition:.12s}
+#ui-overlay .t-node.can{cursor:pointer;border-color:rgba(255,180,56,.4);background:rgba(255,180,56,.07)}
+#ui-overlay .t-node.can:hover{transform:translateY(-2px);background:rgba(255,180,56,.14)}
+#ui-overlay .t-node.locked{opacity:.55}
+#ui-overlay .t-node.maxed{border-color:rgba(97,229,222,.42);background:rgba(97,229,222,.07)}
+#ui-overlay .t-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#ui-overlay .t-head b{font-size:14px;color:#f2fffa}
+#ui-overlay .t-lv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+#ui-overlay .t-pips{display:flex;gap:3px;margin:6px 0}
+#ui-overlay .t-pips i{width:16px;height:4px;border-radius:2px;background:rgba(255,255,255,.14)}
+#ui-overlay .t-pips i.on{background:var(--growth)}
+#ui-overlay .t-desc{font-size:12px;color:#a8c7bd;line-height:1.45}
+#ui-overlay .t-desc em{font-style:normal;color:var(--muted);font-size:11px}
+#ui-overlay .t-foot{margin-top:6px;font-size:11px}
+#ui-overlay .t-cost{color:var(--fire);font-weight:800}
+#ui-overlay .t-lock{color:var(--muted)}
+#ui-overlay .t-max{color:var(--growth);font-weight:800}
+#ui-overlay .title-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+#ui-overlay .seed-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px}
+#ui-overlay .seed-daily,#ui-overlay .seed-custom{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;min-width:240px}
+#ui-overlay .seed-note{font-size:11px;color:var(--muted);line-height:1.5;text-align:center}
+#ui-overlay #ui-seed-input{width:150px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(4,9,8,.7);color:var(--text);font-size:13px;letter-spacing:2px;text-align:center;text-transform:uppercase}
+#ui-overlay #ui-seed-input:focus{outline:2px solid var(--growth);outline-offset:1px}
+#ui-overlay .settings{display:grid;gap:8px;margin:14px 0;text-align:left}
+#ui-overlay .srow{display:grid;grid-template-columns:104px 1fr 52px;align-items:center;gap:12px;padding:9px 12px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;font-size:13px;cursor:pointer}
+#ui-overlay .srow b{color:var(--growth);font-variant-numeric:tabular-nums;text-align:right;font-size:12px}
+#ui-overlay .srow input[type=range]{width:100%;accent-color:#61e5de}
+#ui-overlay .srow input[type=checkbox]{appearance:none;-webkit-appearance:none;width:19px;height:19px;margin:0;justify-self:start;border:1px solid var(--line);border-radius:6px;background:rgba(4,9,8,.7);cursor:pointer;transition:.12s}
+#ui-overlay .srow input[type=checkbox]:hover{border-color:var(--growth)}
+#ui-overlay .srow input[type=checkbox]:checked{background:var(--growth);border-color:var(--growth);box-shadow:inset 0 0 0 3px rgba(7,14,13,.85)}
+#ui-overlay .seed-chip{display:inline-block;margin:2px 0 8px;padding:4px 10px;border-radius:999px;font-size:11px;letter-spacing:1.5px;background:rgba(97,229,222,.1);border:1px solid var(--line);color:#cfeee5}
+#ui-overlay .build-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 2px}
+#ui-overlay .build-row .chip{font-size:11px;padding:4px 9px;border-radius:999px;background:rgba(97,229,222,.1);border:1px solid var(--line);color:#cfeee5}
+#ui-overlay .build-row .chip.p{background:rgba(158,240,111,.1);border-color:rgba(158,240,111,.3);color:#d6f5c4}
+#ui-weapons .slots{margin-top:6px;padding-top:6px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
+#ui-weapons .evohint{color:#ffd166;font-size:11px;line-height:1.5}
 #ui-overlay .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0;text-align:left}
 #ui-overlay .summary div{padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px}.summary span{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}.summary b{color:var(--text)}
 #ui-overlay .shop-panel{width:min(1120px,96%);padding:24px 26px;overflow:hidden}
@@ -238,7 +333,7 @@ export class UI {
     hud.innerHTML = `
       <div id="ui-xp"><i></i></div>
       <div id="ui-mission"><span id="ui-stage"></span><strong id="ui-time"></strong><span id="ui-threat"></span></div>
-      <div id="ui-economy"><span id="ui-gold"></span><button id="ui-shopbtn">[B] 商店</button></div>
+      <div id="ui-economy"><span id="ui-gold"></span><button id="ui-shopbtn">[B] ${tr('商店', 'Shop')}</button></div>
       <div id="ui-stage-banner"></div>
       <div id="ui-surge"></div>
       <div id="ui-tutorial"></div>
@@ -249,8 +344,8 @@ export class UI {
       <div id="ui-weapons"></div>
       <div id="ui-combo"><div class="cnum"></div><div class="cname"></div><div class="cbar"><i></i></div></div>
       <div id="ui-toast"><div class="t-name"></div><div class="t-desc"></div></div>
-      <div id="ui-reveal"><div class="rv-kicker">空投补给</div><div class="rv-name"></div><div class="rv-desc"></div></div>
-      <div id="ui-boss"><div class="t">母巢暴君</div><i></i></div>
+      <div id="ui-reveal"><div class="rv-kicker">${tr('空投补给', 'Supply Drop')}</div><div class="rv-name"></div><div class="rv-desc"></div></div>
+      <div id="ui-boss"><div class="t"></div><i></i></div>
     `;
     document.body.appendChild(hud);
 
@@ -258,27 +353,27 @@ export class UI {
     overlay.id = 'ui-overlay';
     document.body.appendChild(overlay);
 
-    this.xpFill = hud.querySelector('#ui-xp > i') as HTMLElement;
-    this.stageEl = hud.querySelector('#ui-stage') as HTMLElement;
-    this.timeEl = hud.querySelector('#ui-time') as HTMLElement;
-    this.threatEl = hud.querySelector('#ui-threat') as HTMLElement;
-    this.stageBannerEl = hud.querySelector('#ui-stage-banner') as HTMLElement;
-    this.tutorialEl = hud.querySelector('#ui-tutorial') as HTMLElement;
-    this.hpFill = hud.querySelector('#ui-hp > i') as HTMLElement;
-    this.hpLabel = hud.querySelector('#ui-hplabel') as HTMLElement;
-    this.primaryWeaponEl = hud.querySelector('#ui-weapon-primary') as HTMLElement;
-    this.weaponsEl = hud.querySelector('#ui-weapons') as HTMLElement;
-    this.bossWrap = hud.querySelector('#ui-boss') as HTMLElement;
-    this.bossFill = hud.querySelector('#ui-boss > i') as HTMLElement;
+    this.xpFill = hud.querySelector<HTMLElement>('#ui-xp > i')!;
+    this.stageEl = hud.querySelector<HTMLElement>('#ui-stage')!;
+    this.timeEl = hud.querySelector<HTMLElement>('#ui-time')!;
+    this.threatEl = hud.querySelector<HTMLElement>('#ui-threat')!;
+    this.stageBannerEl = hud.querySelector<HTMLElement>('#ui-stage-banner')!;
+    this.tutorialEl = hud.querySelector<HTMLElement>('#ui-tutorial')!;
+    this.hpFill = hud.querySelector<HTMLElement>('#ui-hp > i')!;
+    this.hpLabel = hud.querySelector<HTMLElement>('#ui-hplabel')!;
+    this.primaryWeaponEl = hud.querySelector<HTMLElement>('#ui-weapon-primary')!;
+    this.weaponsEl = hud.querySelector<HTMLElement>('#ui-weapons')!;
+    this.bossWrap = hud.querySelector<HTMLElement>('#ui-boss')!;
+    this.bossFill = hud.querySelector<HTMLElement>('#ui-boss > i')!;
     this.overlay = overlay;
-    this.goldEl = hud.querySelector('#ui-gold') as HTMLElement;
-    this.shopBtn = hud.querySelector('#ui-shopbtn') as HTMLElement;
-    this.itemsBar = hud.querySelector('#ui-items') as HTMLElement;
-    this.comboEl = hud.querySelector('#ui-combo') as HTMLElement;
-    this.surgeEl = hud.querySelector('#ui-surge') as HTMLElement;
-    this.toastEl = hud.querySelector('#ui-toast') as HTMLElement;
-    this.revealEl = hud.querySelector('#ui-reveal') as HTMLElement;
-    this.squadEl = hud.querySelector('#ui-squad') as HTMLElement;
+    this.goldEl = hud.querySelector<HTMLElement>('#ui-gold')!;
+    this.shopBtn = hud.querySelector<HTMLElement>('#ui-shopbtn')!;
+    this.itemsBar = hud.querySelector<HTMLElement>('#ui-items')!;
+    this.comboEl = hud.querySelector<HTMLElement>('#ui-combo')!;
+    this.surgeEl = hud.querySelector<HTMLElement>('#ui-surge')!;
+    this.toastEl = hud.querySelector<HTMLElement>('#ui-toast')!;
+    this.revealEl = hud.querySelector<HTMLElement>('#ui-reveal')!;
+    this.squadEl = hud.querySelector<HTMLElement>('#ui-squad')!;
 
     this.shopBtn.addEventListener('click', () => {
       if (this.onShopOpen) this.onShopOpen();
@@ -298,7 +393,8 @@ export class UI {
     this.xpFill.style.width = `${Math.min(100, (d.xp / d.xpToNext) * 100)}%`;
     this.hpFill.style.width = `${Math.max(0, (d.hp / d.maxHp) * 100)}%`;
     this.hpLabel.innerHTML = `<span>HP ${Math.ceil(d.hp)} / ${d.maxHp}</span><span>Lv.${d.level} · ${d.kills} K</span>`;
-    this.stageEl.textContent = `阶段 ${d.stage} · ${d.stageName} · ${Math.round(d.stageProgress * 100)}%${d.nextStageIn === null ? '' : ` · ${Math.ceil(d.nextStageIn)}s`}`;
+    const stageTail = `${d.stageName} · ${Math.round(d.stageProgress * 100)}%${d.nextStageIn === null ? '' : ` · ${Math.ceil(d.nextStageIn)}s`}`;
+    this.stageEl.textContent = tr(`阶段 ${d.stage} · ${stageTail}`, `Stage ${d.stage} · ${stageTail}`);
     this.timeEl.textContent = UI.fmt(d.time);
     this.threatEl.textContent = d.threatLabel;
     this.stageBannerEl.textContent = d.stageBanner;
@@ -306,29 +402,36 @@ export class UI {
     this.tutorialEl.textContent = d.tutorialTip;
     this.tutorialEl.style.display = d.tutorialTip ? 'block' : 'none';
     this.primaryWeaponEl.innerHTML = `
-      <div class="meta"><span>主武器</span><span>Lv.${d.primaryWeapon.level}</span></div>
+      <div class="meta"><span>${tr('主武器', 'Primary')}</span><span>Lv.${d.primaryWeapon.level}</span></div>
       <div class="name">${d.primaryWeapon.name}</div>
       <div class="bar"><i style="width:${Math.round(d.primaryWeapon.progress * 100)}%"></i></div>`;
     this.weaponsEl.innerHTML = d.weapons
       .map((w) => `<div><span class="w">${w.name}</span> <span class="lv">Lv.${w.level}</span></div>`)
-      .join('');
+      .join('')
+      + d.passives
+        .map((p) => `<div><span class="w" style="color:${p.trait ? '#9ef06f' : '#a8c7bd'}">${p.name}</span> <span class="lv">Lv.${p.level}</span></div>`)
+        .join('')
+      + `<div class="slots">${tr('武器', 'Weapons')} ${d.slots.weapons} · ${tr('强化', 'Upgrades')} ${d.slots.passives}</div>`
+      + (d.evoHint ? `<div class="evohint">${d.evoHint}</div>` : '');
     if (d.bossHp === null) {
       this.bossWrap.style.display = 'none';
     } else {
       this.bossWrap.style.display = 'block';
       this.bossFill.style.width = `${Math.max(0, d.bossHp * 100)}%`;
+      const nameEl = this.bossWrap.querySelector<HTMLElement>('.t')!;
+      if (nameEl.textContent !== d.bossName) nameEl.textContent = d.bossName;
     }
 
-    this.goldEl.innerHTML = `金币 <b>${d.gold}</b>`;
+    this.goldEl.innerHTML = `${tr('金币', 'Gold')} <b>${d.gold}</b>`;
 
     // Kill-combo widget: shows from 3 kills up, colored by tier, pulses on change.
     const combo = d.combo;
     this.comboEl.classList.toggle('show', combo.count >= 3);
     if (combo.count >= 3) {
       this.comboEl.style.color = combo.color;
-      (this.comboEl.querySelector('.cnum') as HTMLElement).textContent = `x${combo.count}`;
-      (this.comboEl.querySelector('.cname') as HTMLElement).textContent = combo.name || '连锁击杀';
-      (this.comboEl.querySelector('.cbar > i') as HTMLElement).style.width = `${Math.round(combo.frac * 100)}%`;
+      this.comboEl.querySelector<HTMLElement>('.cnum')!.textContent = `x${combo.count}`;
+      this.comboEl.querySelector<HTMLElement>('.cname')!.textContent = combo.name || tr('连锁击杀', 'Kill chain');
+      this.comboEl.querySelector<HTMLElement>('.cbar > i')!.style.width = `${Math.round(combo.frac * 100)}%`;
       if (combo.count !== this.lastComboCount) {
         this.comboEl.classList.remove('pulse');
         void this.comboEl.offsetWidth; // restart the pop animation
@@ -385,17 +488,10 @@ export class UI {
     this.itemsBar.innerHTML = barHtml;
   }
 
-  showTitle(
-    best: number,
-    operatives: readonly OperativeDef[],
-    selectedId: string,
-    onStart: (operativeId: string) => void,
-    ach?: { unlocked: number; total: number },
-    onShowAchievements?: () => void,
-    progress?: Record<string, OperativeProgress>,
-  ): void {
-    this.titleSelection = operatives.some((o) => o.id === selectedId)
-      ? selectedId
+  showTitle(d: TitleData): void {
+    const { best, operatives, progress, ach } = d;
+    this.titleSelection = operatives.some((o) => o.id === d.selectedId)
+      ? d.selectedId
       : operatives[0]?.id ?? '';
     const cards = operatives
       .map(
@@ -404,7 +500,7 @@ export class UI {
           const xpPct = p ? (p.next > 0 ? Math.round((p.into / p.next) * 100) : 100) : 0;
           const lvBlock = p
             ? `<div class="o-lv"><span class="lvb">Lv.${p.level}</span><span class="o-xpbar"><i style="width:${xpPct}%"></i></span></div>
-               <div class="o-bonus">${p.next > 0 ? `${p.bonus} · 距下级 ${p.next - p.into} XP` : `${p.bonus} · 已满级`}</div>`
+               <div class="o-bonus">${p.next > 0 ? tr(`${p.bonus} · 距下级 ${p.next - p.into} XP`, `${p.bonus} · ${p.next - p.into} XP to next`) : tr(`${p.bonus} · 已满级`, `${p.bonus} · maxed`)}</div>`
             : '';
           return `
         <div class="op${op.id === this.titleSelection ? ' sel' : ''}" data-op="${op.id}" role="button" tabindex="0">
@@ -418,17 +514,43 @@ export class UI {
         },
       )
       .join('');
-    const achBtn = ach && onShowAchievements
-      ? `<br><button id="ui-ach-btn">成就 ${ach.unlocked} / ${ach.total}</button>`
+    const achBtn = ach && d.onShowAchievements
+      ? `<button class="quiet" id="ui-ach-btn">${tr('成就', 'Achievements')} ${ach.unlocked} / ${ach.total}</button>`
       : '';
+    const setBtn = d.onShowSettings ? `<button class="quiet" id="ui-set-btn">${tr('设置', 'Settings')}</button>` : '';
+    const talentBtn = d.onShowTalents
+      ? `<button class="quiet accent" id="ui-talent-btn">${tr('战备升级 · 残骸', 'Talents · Salvage')} ${d.salvage}</button>`
+      : '';
+    const dailyBest = d.daily.best
+      ? tr(
+        `今日最佳 ${UI.fmt(d.daily.best.time)} · ${d.daily.best.kills} 击杀`,
+        `Today's best ${UI.fmt(d.daily.best.time)} · ${d.daily.best.kills} kills`,
+      )
+      : tr('今天还没打过', 'No run today yet');
+    const seedRow = `
+      <div class="seed-row">
+        <div class="seed-daily">
+          <button class="quiet accent" id="ui-daily-btn">${tr('今日挑战', 'Daily Challenge')} · ${d.daily.key}</button>
+          <span class="seed-note">${tr('全员同一张地图 · 种子', 'Same map for everyone · seed')} ${d.daily.seed} · ${dailyBest}<br>${tr('公平对局：不计永久升级与老兵加成', 'Fair play: permanent upgrades and veterancy are disabled')}</span>
+        </div>
+        <div class="seed-custom">
+          <input id="ui-seed-input" maxlength="7" placeholder="${tr('输入种子', 'Enter a seed')}" aria-label="${tr('输入种子', 'Enter a seed')}">
+          <button class="quiet" id="ui-seed-btn">${tr('用此种子出击', 'Play this seed')}</button>
+          <span class="seed-note" id="ui-seed-note"></span>
+        </div>
+      </div>`;
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>末日清道夫</h1>
-        <p>战术俯视生存 · 自动开火 · 阶段推进<br>
-        WASD 移动 · 鼠标瞄准 · <b style="color:#ffb438">B</b> 商店 · <b style="color:#ffb438">Esc</b> 暂停 · 连杀提升经验金币 · 空投 / 血月 / 血怨祭坛改变战局${best > 0 ? `<br>最佳生存 ${UI.fmt(best)}` : ''}</p>
+        <h1>${tr('末日清道夫', 'Doomsday Scavenger')}</h1>
+        <p>${tr('战术俯视生存 · 自动开火 · 阶段推进', 'Top-down tactical survival · auto-fire · staged escalation')}<br>
+        ${tr(
+    'WASD 移动 · 鼠标瞄准 · <b style="color:#ffb438">B</b> 商店 · <b style="color:#ffb438">Esc</b> 暂停 · 连杀提升经验金币 · 空投 / 血月 / 血怨祭坛改变战局',
+    'WASD to move · mouse to aim · <b style="color:#ffb438">B</b> shop · <b style="color:#ffb438">Esc</b> pause · combos raise XP and gold · drops / blood moons / altars change the fight',
+  )}${best > 0 ? tr(`<br>最佳生存 ${UI.fmt(best)}`, `<br>Best survival ${UI.fmt(best)}`) : ''}</p>
         <div class="ops">${cards}</div>
-        <button class="start">出击 (Space)</button>
-        ${achBtn}
+        <button class="start">${tr('出击', 'Deploy')} (Space)</button>
+        ${seedRow}
+        <div class="title-btns">${talentBtn}${achBtn}${setBtn}</div>
       </div>`;
     this.overlay.querySelectorAll('.op').forEach((el) => {
       const card = el as HTMLElement;
@@ -441,9 +563,185 @@ export class UI {
         if (e.key === 'Enter' || e.key === ' ') select();
       };
     });
-    (this.overlay.querySelector('.start') as HTMLElement).onclick = () => onStart(this.titleSelection);
-    const achEl = this.overlay.querySelector('#ui-ach-btn') as HTMLElement | null;
-    if (achEl && onShowAchievements) achEl.onclick = onShowAchievements;
+    this.overlay.querySelector<HTMLElement>('.start')!.onclick = () => d.onStart(this.titleSelection);
+    const achEl = this.overlay.querySelector<HTMLElement>('#ui-ach-btn');
+    if (achEl && d.onShowAchievements) achEl.onclick = d.onShowAchievements;
+    const setEl = this.overlay.querySelector<HTMLElement>('#ui-set-btn');
+    if (setEl && d.onShowSettings) setEl.onclick = d.onShowSettings;
+    const talentEl = this.overlay.querySelector<HTMLElement>('#ui-talent-btn');
+    if (talentEl && d.onShowTalents) talentEl.onclick = d.onShowTalents;
+
+    this.overlay.querySelector<HTMLElement>('#ui-daily-btn')!.onclick = () =>
+      d.onStart(this.titleSelection, d.parseSeed(d.daily.seed) ?? undefined);
+
+    const input = this.overlay.querySelector<HTMLInputElement>('#ui-seed-input')!;
+    const note = this.overlay.querySelector<HTMLElement>('#ui-seed-note')!;
+    const launchSeed = () => {
+      const seed = d.parseSeed(input.value);
+      if (seed === null) {
+        note.textContent = tr('种子无效（只认数字和字母）', 'Invalid seed (letters and digits only)');
+        note.style.color = 'var(--danger)';
+        return;
+      }
+      d.onStart(this.titleSelection, seed);
+    };
+    this.overlay.querySelector<HTMLElement>('#ui-seed-btn')!.onclick = launchSeed;
+    input.onkeydown = (e) => {
+      e.stopPropagation(); // typing a seed must not trigger the global hotkeys
+      if (e.key === 'Enter') launchSeed();
+    };
+    this.overlay.style.display = 'flex';
+  }
+
+  /**
+   * The talent tree. Three branches, unlocked in order, paid for with salvage — the thing a
+   * lost run leaves behind. A full refund is always available so trying a branch is cheap.
+   */
+  showTalents(
+    levels: Readonly<Record<string, number>>,
+    salvage: number,
+    unlocked: ReadonlySet<string>,
+    onBuy: (id: string) => void,
+    onRefund: () => void,
+    onBack: () => void,
+  ): void {
+    const branches = (['kit', 'arms', 'survival'] as const).map((branch) => {
+      const nodes = TALENTS.filter((t) => t.branch === branch).map((def) => {
+        const lv = levelOf(levels, def.id);
+        const state = buyState(def, levels, salvage, unlocked);
+        const cost = nextCost(def, levels);
+        const pips = Array.from({ length: def.maxLevel }, (_, i) =>
+          `<i class="${i < lv ? 'on' : ''}"></i>`).join('');
+        const foot = state.kind === 'maxed' ? `<span class="t-max">${tr('已满级', 'Maxed')}</span>`
+          : state.kind === 'requires' ? `<span class="t-lock">${state.text}</span>`
+          : state.kind === 'achievement' ? `<span class="t-lock">${state.text}</span>`
+          : state.kind === 'salvage' ? `<span class="t-lock">${tr(`还差 ${state.short} 残骸`, `${state.short} more salvage`)}</span>`
+          : `<span class="t-cost">${tr(`${cost} 残骸`, `${cost} salvage`)}</span>`;
+        const cls = state.kind === 'ok' ? ' can' : state.kind === 'maxed' ? ' maxed' : ' locked';
+        return `
+          <div class="t-node${cls}" data-t="${def.id}" ${state.kind === 'ok' ? 'role="button" tabindex="0"' : ''}>
+            <div class="t-head"><b>${def.name}</b><span class="t-lv">Lv.${lv}/${def.maxLevel}</span></div>
+            <div class="t-pips">${pips}</div>
+            <div class="t-desc">${def.desc}${def.maxLevel > 1 ? ` <em>${tr('（每级）', '(per level)')}</em>` : ''}</div>
+            <div class="t-foot">${foot}</div>
+          </div>`;
+      }).join('');
+      return `<div class="t-branch"><h3>${BRANCH_NAMES[branch]}</h3><p>${BRANCH_BLURB[branch]}</p>${nodes}</div>`;
+    }).join('');
+
+    const spent = totalSpent(levels);
+    this.overlay.innerHTML = `
+      <div class="panel wide">
+        <h1>${tr('战备升级', 'Talents')}</h1>
+        <p>${tr('残骸来自每一局——赢了输了都有。', 'Salvage comes from every run — win or lose. ')}<b style="color:#61e5de">${tr('持有', 'Held')} ${salvage}</b> · ${tr('已投入', 'Spent')} ${spent}</p>
+        <div class="t-tree">${branches}</div>
+        <button class="start" id="t-back">${tr('返回', 'Back')}</button>
+        <div class="title-btns">${spent > 0 ? `<button class="quiet" id="t-refund">${tr('全部退还', 'Refund all')}</button>` : ''}</div>
+      </div>`;
+
+    this.overlay.querySelectorAll('.t-node.can').forEach((el) => {
+      const node = el as HTMLElement;
+      const buy = () => onBuy(node.dataset.t ?? '');
+      node.onclick = buy;
+      node.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') buy();
+      };
+    });
+    this.overlay.querySelector<HTMLElement>('#t-back')!.onclick = onBack;
+    const refundEl = this.overlay.querySelector<HTMLElement>('#t-refund');
+    if (refundEl) refundEl.onclick = onRefund;
+    this.overlay.style.display = 'flex';
+  }
+
+  /** Presentation options. Reachable from the title screen and from the pause menu. */
+  showSettings(
+    current: Settings,
+    onChange: (next: Settings) => void,
+    onBack: () => void,
+  ): void {
+    const pct = (n: number) => Math.round(n * 100);
+    this.overlay.innerHTML = `
+      <div class="panel">
+        <h1>${tr('设置', 'Settings')}</h1>
+        <p>${tr(
+    '只影响表现，不影响模拟——同一个种子在任何设置下都是同一局。',
+    'Presentation only — none of this touches the simulation, so a seed plays the same under any setting.',
+  )}</p>
+        <div class="settings">
+          <label class="srow"><span>${tr('语言', 'Language')}</span>
+            <select id="set-lang">${LANGUAGES
+    .map((l) => `<option value="${l}"${current.language === l ? ' selected' : ''}>${LANGUAGE_NAMES[l]}</option>`)
+    .join('')}</select><b></b></label>
+          <label class="srow"><span>${tr('音量', 'Volume')}</span>
+            <input type="range" id="set-vol" min="0" max="100" value="${pct(current.volume)}">
+            <b id="set-vol-v">${pct(current.volume)}%</b></label>
+          <label class="srow"><span>${tr('音乐', 'Music')}</span>
+            <input type="range" id="set-music" min="0" max="100" value="${pct(current.musicVolume)}">
+            <b id="set-music-v">${pct(current.musicVolume)}%</b></label>
+          <label class="srow"><span>${tr('静音', 'Mute')}</span>
+            <input type="checkbox" id="set-mute" ${current.muted ? 'checked' : ''}><b></b></label>
+          <label class="srow"><span>${tr('屏幕震动', 'Screen shake')}</span>
+            <input type="range" id="set-shake" min="0" max="100" value="${pct(current.shake)}">
+            <b id="set-shake-v">${pct(current.shake)}%</b></label>
+          <label class="srow"><span>${tr('减弱闪烁', 'Reduce flashing')}</span>
+            <input type="checkbox" id="set-flash" ${current.reduceFlashing ? 'checked' : ''}><b></b></label>
+          <label class="srow"><span>${tr('伤害数字', 'Damage numbers')}</span>
+            <input type="checkbox" id="set-num" ${current.damageNumbers ? 'checked' : ''}><b></b></label>
+        </div>
+        <p class="seed-note">${tr(
+    '「减弱闪烁」会压低血月红幕、狂热光晕与濒死暗角的脉动强度。',
+    '"Reduce flashing" holds the blood-moon wash, combo glow and low-HP vignette at a steady low level instead of pulsing them.',
+  )}<br>${tr(
+    '切换语言会重新载入页面——存档不受影响。',
+    'Switching language reloads the page. Your save is untouched.',
+  )}</p>
+        <button class="start" id="set-back">${tr('返回', 'Back')}</button>
+      </div>`;
+
+    const next = { ...current };
+    const push = () => onChange({ ...next });
+    const vol = this.overlay.querySelector<HTMLInputElement>('#set-vol')!;
+    const volV = this.overlay.querySelector<HTMLElement>('#set-vol-v')!;
+    vol.oninput = () => {
+      next.volume = Number(vol.value) / 100;
+      volV.textContent = `${vol.value}%`;
+      push();
+    };
+    const music = this.overlay.querySelector<HTMLInputElement>('#set-music')!;
+    const musicV = this.overlay.querySelector<HTMLElement>('#set-music-v')!;
+    music.oninput = () => {
+      next.musicVolume = Number(music.value) / 100;
+      musicV.textContent = `${music.value}%`;
+      push();
+    };
+    const shake = this.overlay.querySelector<HTMLInputElement>('#set-shake')!;
+    const shakeV = this.overlay.querySelector<HTMLElement>('#set-shake-v')!;
+    shake.oninput = () => {
+      next.shake = Number(shake.value) / 100;
+      shakeV.textContent = `${shake.value}%`;
+      push();
+    };
+    const bind = (id: string, key: 'muted' | 'reduceFlashing' | 'damageNumbers') => {
+      const el = this.overlay.querySelector(id) as HTMLInputElement;
+      el.onchange = () => {
+        next[key] = el.checked;
+        push();
+      };
+    };
+    // The language is read once at startup, before the data tables evaluate their strings
+    // (see src/i18n.ts), so applying it means reloading. Persist first, then reload.
+    const langSel = this.overlay.querySelector<HTMLSelectElement>('#set-lang')!;
+    langSel.onchange = () => {
+      const picked = langSel.value;
+      if (!isLang(picked) || picked === current.language) return;
+      next.language = picked;
+      push();
+      location.reload();
+    };
+    bind('#set-mute', 'muted');
+    bind('#set-flash', 'reduceFlashing');
+    bind('#set-num', 'damageNumbers');
+    this.overlay.querySelector<HTMLElement>('#set-back')!.onclick = onBack;
     this.overlay.style.display = 'flex';
   }
 
@@ -460,26 +758,31 @@ export class UI {
       .join('');
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>成就</h1>
-        <p>已解锁 ${[...unlocked].filter((id) => defs.some((d) => d.id === id)).length} / ${defs.length} · 输赢都有进度</p>
+        <h1>${tr('成就', 'Achievements')}</h1>
+        <p>${tr('已解锁', 'Unlocked')} ${[...unlocked].filter((id) => defs.some((d) => d.id === id)).length} / ${defs.length} · ${tr('输赢都有进度', 'every run makes progress')}</p>
         <div class="ach-grid">${cells}</div>
-        <button class="start" id="ach-back">返回</button>
+        <button class="start" id="ach-back">${tr('返回', 'Back')}</button>
       </div>`;
-    (this.overlay.querySelector('#ach-back') as HTMLElement).onclick = onBack;
+    this.overlay.querySelector<HTMLElement>('#ach-back')!.onclick = onBack;
     this.overlay.style.display = 'flex';
   }
 
   /** Pause curtain: resume or abandon into a fresh run. */
-  showPause(onResume: () => void, onRestart: () => void): void {
+  showPause(onResume: () => void, onRestart: () => void, onSettings?: () => void): void {
     this.overlay.innerHTML = `
       <div class="panel">
-        <h1>已暂停</h1>
-        <p>喘口气。尸潮不会真的等你。</p>
-        <button class="start" id="pause-resume">继续 (Esc)</button>
-        <button class="ghost" id="pause-restart">重新出击</button>
+        <h1>${tr('已暂停', 'Paused')}</h1>
+        <p>${tr('喘口气。尸潮不会真的等你。', 'Catch your breath. The horde is not really waiting.')}</p>
+        <button class="start" id="pause-resume">${tr('继续', 'Resume')} (Esc)</button>
+        <div class="title-btns">
+          <button class="quiet" id="pause-restart">${tr('重新出击', 'Restart')}</button>
+          ${onSettings ? `<button class="quiet" id="pause-settings">${tr('设置', 'Settings')}</button>` : ''}
+        </div>
       </div>`;
-    (this.overlay.querySelector('#pause-resume') as HTMLElement).onclick = onResume;
-    (this.overlay.querySelector('#pause-restart') as HTMLElement).onclick = onRestart;
+    this.overlay.querySelector<HTMLElement>('#pause-resume')!.onclick = onResume;
+    this.overlay.querySelector<HTMLElement>('#pause-restart')!.onclick = onRestart;
+    const setEl = this.overlay.querySelector<HTMLElement>('#pause-settings');
+    if (setEl && onSettings) setEl.onclick = onSettings;
     this.overlay.style.display = 'flex';
   }
 
@@ -498,8 +801,8 @@ export class UI {
 
   /** Transient bottom-center announcement, tinted by kind. */
   toast(name: string, desc: string, kind: 'gold' | 'curse' | 'achieve' | 'adrenaline' = 'gold'): void {
-    (this.toastEl.querySelector('.t-name') as HTMLElement).textContent = name;
-    (this.toastEl.querySelector('.t-desc') as HTMLElement).textContent = desc;
+    this.toastEl.querySelector<HTMLElement>('.t-name')!.textContent = name;
+    this.toastEl.querySelector<HTMLElement>('.t-desc')!.textContent = desc;
     this.toastEl.classList.remove('v-curse', 'v-achieve');
     if (kind === 'curse') this.toastEl.classList.add('v-curse');
     if (kind === 'achieve') this.toastEl.classList.add('v-achieve');
@@ -510,8 +813,8 @@ export class UI {
 
   /** Center-screen supply-crate reveal: a short pop ceremony, no game pause. */
   reveal(name: string, desc: string): void {
-    (this.revealEl.querySelector('.rv-name') as HTMLElement).textContent = name;
-    (this.revealEl.querySelector('.rv-desc') as HTMLElement).textContent = desc;
+    this.revealEl.querySelector<HTMLElement>('.rv-name')!.textContent = name;
+    this.revealEl.querySelector<HTMLElement>('.rv-desc')!.textContent = desc;
     this.revealEl.classList.remove('show');
     void this.revealEl.offsetWidth; // restart the pop-in animation
     this.revealEl.classList.add('show');
@@ -519,29 +822,51 @@ export class UI {
     this.revealTimer = window.setTimeout(() => this.revealEl.classList.remove('show'), 1900);
   }
 
-  showLevelUp(choices: Choice[], onPick: (i: number) => void): void {
+  /**
+   * The level-up offer, plus the two ways to pay gold to change it: reroll the table, or
+   * banish one card's subject from the run. Banish is the one that actually aims a build —
+   * every entry it removes raises the odds of drawing what you are building toward.
+   */
+  showLevelUp(choices: Choice[], shape: LevelUpShaping, onPick: (i: number) => void): void {
     const cards = choices
       .map(
         (c, i) => {
-          const spriteKey = c.kind !== 'passive' ? c.sprite : undefined;
+          const spriteKey = 'sprite' in c ? c.sprite : undefined;
           const spriteImg = spriteKey
             ? `<img src="/assets/${spriteKey}.png" style="width:56px;height:56px;object-fit:contain;margin-bottom:4px;filter:drop-shadow(0 0 6px rgba(63,174,132,.5))" alt="">`
             : '';
-          const kind = c.kind === 'passive' ? '强化' : c.kind === 'weapon-new' ? '武器' : c.kind === 'weapon-evo' ? '进化' : '升级';
-          const upgradeLine = c.kind === 'weapon-up' ? '<div class="held-label">当前 → 下一等级</div>' : '';
+          const trait = c.kind === 'passive' && c.passive.kind === 'trait';
+          const kind = choiceKindLabel(c, trait);
+          const cls = c.kind === 'weapon-evo' ? ' evo-card' : trait ? ' trait-card' : '';
+          const upgradeLine = c.kind === 'weapon-up' || c.kind === 'passive-up'
+            ? `<div class="held-label">${tr('当前 → 下一等级', 'current → next level')}</div>`
+            : '';
+          const canBanish = shape.onBanish && choiceKey(c) !== null;
+          const banishBtn = canBanish
+            ? `<button class="banish${shape.gold < shape.banishCost ? ' broke' : ''}" data-b="${i}"
+                 title="${tr(`本局不再出现${c.label}`, `Never offer ${c.label} again this run`)}">✕ ${shape.banishCost}</button>`
+            : '';
           return `
-        <div class="card" data-i="${i}" role="button" tabindex="0">
+        <div class="card${cls}" data-i="${i}" role="button" tabindex="0">
+          ${banishBtn}
           ${spriteImg}
           <div class="k">${kind}</div>
           <div class="n">${c.label}</div>
           <div class="d">${c.desc}</div>
           ${upgradeLine}
-          <div class="key">按 ${i + 1}</div>
+          <div class="key">${tr(`按 ${i + 1}`, `Press ${i + 1}`)}</div>
         </div>`;
         },
       )
       .join('');
-    this.overlay.innerHTML = `<div class="panel"><h1>升级</h1><p>选择一项强化</p><div class="cards">${cards}</div></div>`;
+    const shapeRow = shape.onReroll
+      ? `<div class="shape-row">
+           <button class="quiet${shape.gold < shape.rerollCost ? ' broke' : ''}" id="lv-reroll">${tr(`重抽 · ${shape.rerollCost} 金币`, `Reroll · ${shape.rerollCost} gold`)} (R)</button>
+           <span class="seed-note">${tr('金币', 'Gold')} ${shape.gold} · ${tr('✕ 移除后本局不再出现该项，池子越窄越容易抽到你要的', '✕ banishes an option for the rest of the run — a narrower pool hits what you want more often')}</span>
+         </div>`
+      : '';
+    this.overlay.innerHTML = `<div class="panel"><h1>${tr('升级', 'Level Up')}</h1><p>${tr('选择一项强化', 'Choose one upgrade')}</p>`
+      + `<div class="cards">${cards}</div>${shapeRow}</div>`;
     this.overlay.querySelectorAll('.card').forEach((el) => {
       const card = el as HTMLElement;
       card.onclick = () => onPick(Number(card.dataset.i));
@@ -549,6 +874,15 @@ export class UI {
         if (e.key === 'Enter' || e.key === ' ') onPick(Number(card.dataset.i));
       };
     });
+    this.overlay.querySelectorAll('.banish').forEach((el) => {
+      const btn = el as HTMLElement;
+      btn.onclick = (e) => {
+        e.stopPropagation(); // banishing a card must never also pick it
+        shape.onBanish?.(Number(btn.dataset.b));
+      };
+    });
+    const rerollEl = this.overlay.querySelector<HTMLElement>('#lv-reroll');
+    if (rerollEl && shape.onReroll) rerollEl.onclick = shape.onReroll;
     this.overlay.style.display = 'flex';
   }
 
@@ -572,21 +906,21 @@ export class UI {
         let cls = isSkill ? 'card skill-card' : 'card';
         if (!canAfford) cls += ' cantafford';
         const heldLine = held ? `<div class="held-label">${held}</div>` : '';
-        const kindLabel = isSkill ? '主动技能' : equipmentKindLabel(offer.equipment.kind);
+        const kindLabel = isSkill ? tr('主动技能', 'Active Skill') : equipmentKindLabel(offer.equipment.kind);
         const iconKey = isSkill ? offer.skill.iconKey : offer.equipment.iconKey;
         const icon = `<img src="/assets/${iconKey}.png" alt="">`;
-        const lackLine = canAfford ? '' : `<div class="lack">还差 ${def.cost - gold} 金币</div>`;
+        const lackLine = canAfford ? '' : `<div class="lack">${tr(`还差 ${def.cost - gold} 金币`, `${def.cost - gold} more gold`)}</div>`;
         const keyHint = isSkill
-          ? `<div class="key">技能键 ${keyLabel(offer.skill.key)}</div>`
+          ? `<div class="key">${tr(`技能键 ${keyLabel(offer.skill.key)}`, `Skill key ${keyLabel(offer.skill.key)}`)}</div>`
           : offer.equipment.kind === 'charge' && offer.equipment.key
-            ? `<div class="key">快捷键 ${keyLabel(offer.equipment.key)}</div>`
+            ? `<div class="key">${tr(`快捷键 ${keyLabel(offer.equipment.key)}`, `Hotkey ${keyLabel(offer.equipment.key)}`)}</div>`
             : '';
         return `<div class="${cls}" data-offer="${i}" role="button" tabindex="0">
           <div class="icon">${icon}</div>
           <div class="k">${kindLabel}</div>
           <div class="n">${def.name}</div>
           <div class="d">${def.desc}</div>
-          <div class="cost">金币 ${def.cost}</div>
+          <div class="cost">${tr('金币', 'Gold')} ${def.cost}</div>
           ${lackLine}
           ${heldLine}
           ${keyHint}
@@ -596,11 +930,11 @@ export class UI {
 
     this.overlay.innerHTML = `
       <div class="panel shop-panel">
-        <h1>装备商店</h1>
-        <div class="gold-display">金币: <b>${gold}</b></div>
+        <h1>${tr('装备商店', 'Equipment Shop')}</h1>
+        <div class="gold-display">${tr('金币', 'Gold')}: <b>${gold}</b></div>
         <div class="cards">${cards}</div>
-        <p style="margin-top:14px;font-size:12px;color:#6a9a84">装备可重复购买；第 3 阶段后会出现本局主动技能。按 B / Esc 关闭。</p>
-        <button class="start" id="shop-close">关闭 (B)</button>
+        <p style="margin-top:14px;font-size:12px;color:#6a9a84">${tr('装备可重复购买；第 3 阶段后会出现本局主动技能。按 B / Esc 关闭。', 'Equipment can be bought repeatedly; run-scoped active skills appear from stage 3. Press B / Esc to close.')}</p>
+        <button class="start" id="shop-close">${tr('关闭', 'Close')} (B)</button>
       </div>`;
 
     this.overlay.querySelectorAll('.card').forEach((el) => {
@@ -614,7 +948,7 @@ export class UI {
         if (e.key === 'Enter' || e.key === ' ') buy();
       };
     });
-    (this.overlay.querySelector('#shop-close') as HTMLElement).onclick = onClose;
+    this.overlay.querySelector<HTMLElement>('#shop-close')!.onclick = onClose;
     this.overlay.style.display = 'flex';
   }
 
@@ -622,53 +956,77 @@ export class UI {
     this.overlay.style.display = 'none';
   }
 
-  showEnd(summary: RunSummary, onRestart: () => void, onEndless?: () => void): void {
+  showEnd(
+    summary: RunSummary,
+    onRestart: () => void,
+    onEndless?: () => void,
+    onSameSeed?: () => void,
+  ): void {
     const headline = summary.victory
-      ? '任务完成'
+      ? tr('任务完成', 'Mission Complete')
       : summary.endless
-        ? '无尽终局'
-        : '行动失败';
+        ? tr('无尽终局', 'Endless Run Over')
+        : tr('行动失败', 'Operation Failed');
     const sub = summary.victory
-      ? '你击杀了母巢暴君，清道夫路线已打通。还敢挑战无尽尸潮吗？'
+      ? tr('你击杀了母巢暴君，清道夫路线已打通。还敢挑战无尽尸潮吗？', 'You killed the Hive Tyrant and the scavenger route is open. Care to try the endless horde?')
       : summary.endless
-        ? `你在无尽尸潮中又斩落 ${summary.tyrants} 尊暴君，这里是极限，也是新的起点。`
-        : '丧尸潮压垮了防线，下一局优先补足短板。';
+        ? tr(
+          `你在无尽尸潮中又斩落 ${summary.tyrants} 尊暴君，这里是极限，也是新的起点。`,
+          `You felled ${summary.tyrants} more tyrants in the endless horde. That is the limit — and the new starting line.`,
+        )
+        : tr('丧尸潮压垮了防线，下一局优先补足短板。', 'The horde broke through. Next run, shore up the weak spot first.');
     const endlessBtn = summary.victory && onEndless
-      ? '<button class="ghost" id="end-endless">无尽尸潮 (E)</button>'
+      ? `<button class="ghost" id="end-endless">${tr('无尽尸潮', 'Endless Horde')} (E)</button>`
       : '';
     const achRow = summary.newAchievements.length > 0
       ? `<div class="new-ach-row">${summary.newAchievements
           .map((a) => `<span class="new-ach" title="${a.desc}">✓ ${a.name}</span>`)
           .join('')}</div>
-         <p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">本局解锁 ${summary.newAchievements.length} 项成就 · 总进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`
-      : `<p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">成就进度 ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`;
-    const opLine = `<div class="op-line">${summary.operative.name} 经验 <b>+${summary.operative.gained}</b> · Lv.${summary.operative.level}${summary.operative.leveledUp ? '<span class="lvup">▲ 升级！</span>' : ''}</div>`;
+         <p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">${tr(`本局解锁 ${summary.newAchievements.length} 项成就`, `${summary.newAchievements.length} achievement(s) unlocked this run`)} · ${tr('总进度', 'Total')} ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`
+      : `<p style="margin:2px 0 10px;font-size:12px;color:#6a9a84">${tr('成就进度', 'Achievements')} ${summary.achProgress.unlocked}/${summary.achProgress.total}</p>`;
+    const buildChips = [
+      ...summary.build.weapons.map((w) => `<span class="chip">${w.name} Lv.${w.level}</span>`),
+      ...summary.build.passives.map((p) => `<span class="chip p">${p.name} Lv.${p.level}</span>`),
+    ].join('');
+    const buildRow = buildChips ? `<div class="build-row">${buildChips}</div>` : '';
+    const seedChip = `<div><span class="seed-chip">${summary.daily ? tr('今日挑战', 'Daily') : tr('种子', 'Seed')} ${summary.seed}</span>${
+      summary.salvage === null
+        ? `<span class="seed-chip">${tr('公平对局 · 不计永久升级', 'Fair play · no permanent upgrades')}</span>`
+        : `<span class="seed-chip" style="color:#ffe2a0;border-color:rgba(255,180,56,.4)">${tr(`残骸 +${summary.salvage}`, `Salvage +${summary.salvage}`)}</span>`
+    }</div>`;
+    const sameSeedBtn = onSameSeed ? `<button class="quiet" id="end-sameseed">${tr('同种子再来', 'Replay this seed')}</button>` : '';
+    const opLine = `<div class="op-line">${summary.operative.name} ${tr('经验', 'XP')} <b>+${summary.operative.gained}</b> · Lv.${summary.operative.level}${summary.operative.leveledUp ? `<span class="lvup">▲ ${tr('升级！', 'Level up!')}</span>` : ''}</div>`;
     this.overlay.innerHTML = `
       <div class="panel">
         <h1>${headline}</h1>
         <p>${sub}</p>
         ${achRow}
+        ${seedChip}
         ${opLine}
+        ${buildRow}
         <div class="summary">
-          <div><span>生存时间</span><b>${UI.fmt(summary.time)}</b></div>
-          <div><span>击杀</span><b>${summary.kills}</b></div>
-          <div><span>最高连击</span><b>x${summary.maxCombo}</b></div>
-          <div><span>精英击破</span><b>${summary.elites}</b></div>
-          <div><span>空投回收</span><b>${summary.crates}</b></div>
-          <div><span>阶段</span><b>${summary.stage}</b></div>
-          <div><span>主武器</span><b>${summary.primaryWeapon}</b></div>
-          <div><span>金币</span><b>${summary.gold}</b></div>
-          <div><span>最佳</span><b>${UI.fmt(summary.best)}</b></div>
-          ${summary.rescued > 0 ? `<div><span>救援幸存者</span><b>${summary.rescued}</b></div>` : ''}
-          ${summary.tyrants > 0 ? `<div><span>额外暴君</span><b>${summary.tyrants}</b></div>` : ''}
+          <div><span>${tr('生存时间', 'Survived')}</span><b>${UI.fmt(summary.time)}</b></div>
+          <div><span>${tr('击杀', 'Kills')}</span><b>${summary.kills}</b></div>
+          <div><span>${tr('最高连击', 'Best combo')}</span><b>x${summary.maxCombo}</b></div>
+          <div><span>${tr('精英击破', 'Elites broken')}</span><b>${summary.elites}</b></div>
+          <div><span>${tr('空投回收', 'Drops recovered')}</span><b>${summary.crates}</b></div>
+          <div><span>${tr('阶段', 'Stage')}</span><b>${summary.stage}</b></div>
+          <div><span>${tr('主武器', 'Primary')}</span><b>${summary.primaryWeapon}</b></div>
+          <div><span>${tr('金币', 'Gold')}</span><b>${summary.gold}</b></div>
+          <div><span>${tr('最佳', 'Best')}</span><b>${UI.fmt(summary.best)}</b></div>
+          ${summary.rescued > 0 ? `<div><span>${tr('救援幸存者', 'Survivors rescued')}</span><b>${summary.rescued}</b></div>` : ''}
+          ${summary.tyrants > 0 ? `<div><span>${tr('额外暴君', 'Extra tyrants')}</span><b>${summary.tyrants}</b></div>` : ''}
         </div>
-        <p>原因：${summary.cause}<br>${summary.nextGoal}</p>
-        <button class="start">再来一局 (Space)</button>
+        <p>${tr('原因：', 'Cause: ')}${summary.cause}<br>${summary.nextGoal}</p>
+        <button class="start">${tr('再来一局', 'Play again')} (Space)</button>
         ${endlessBtn}
+        <div class="title-btns">${sameSeedBtn}</div>
       </div>`;
-    (this.overlay.querySelector('.start') as HTMLElement).onclick = onRestart;
-    const endlessEl = this.overlay.querySelector('#end-endless') as HTMLElement | null;
+    this.overlay.querySelector<HTMLElement>('.start')!.onclick = onRestart;
+    const endlessEl = this.overlay.querySelector<HTMLElement>('#end-endless');
     if (endlessEl && onEndless) endlessEl.onclick = onEndless;
+    const seedEl = this.overlay.querySelector<HTMLElement>('#end-sameseed');
+    if (seedEl && onSameSeed) seedEl.onclick = onSameSeed;
     this.overlay.style.display = 'flex';
   }
 
@@ -677,10 +1035,21 @@ export class UI {
   }
 }
 
+function choiceKindLabel(c: Choice, trait: boolean): string {
+  switch (c.kind) {
+    case 'weapon-new': return tr('武器', 'Weapon');
+    case 'weapon-evo': return tr('进化', 'Evolution');
+    case 'weapon-up': return tr('升级', 'Upgrade');
+    case 'passive': return trait ? tr('特性', 'Trait') : tr('强化', 'Upgrade');
+    case 'passive-up': return tr('强化', 'Upgrade');
+    default: return tr('补给', 'Supplies');
+  }
+}
+
 function equipmentKindLabel(kind: EquipDef['kind']): string {
-  if (kind === 'charge') return '消耗品';
-  if (kind === 'shield') return '护盾';
-  return '药剂';
+  if (kind === 'charge') return tr('消耗品', 'Consumable');
+  if (kind === 'shield') return tr('护盾', 'Shield');
+  return tr('药剂', 'Elixir');
 }
 
 function keyLabel(code: string): string {

@@ -72,9 +72,9 @@ export class World {
   /** Entities that have ALL the given components. Iterates the smallest store for speed. */
   query(...cts: ComponentType<unknown>[]): Entity[] {
     if (cts.length === 0) return [];
-    let smallest = this.store(cts[0]!.name);
+    let smallest = this.store(cts[0].name);
     for (let i = 1; i < cts.length; i++) {
-      const s = this.store(cts[i]!.name);
+      const s = this.store(cts[i].name);
       if (s.size < smallest.size) smallest = s;
     }
     const out: Entity[] = [];

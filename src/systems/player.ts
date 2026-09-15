@@ -6,6 +6,7 @@ import { buffActive } from './equipment';
 import { comboXpMul } from './combo';
 import { curseXpMul } from './curse';
 import { pickupRangeMultiplier } from '../runFlow';
+import { tr } from '../i18n';
 
 /** Player ↔ enemy body contact (with i-frames) and the exploder's contact detonation. */
 export function contactSystem(ctx: GameContext, dt: number): void {
@@ -27,7 +28,14 @@ export function contactSystem(ctx: GameContext, dt: number): void {
     if ((ot.x - pt.x) ** 2 + (ot.y - pt.y) ** 2 <= rr * rr) {
       if (en.def.behavior === 'exploder') killEnemy(ctx, o);
       else if (en.def.contactDmg > 0) {
-        damagePlayer(ctx, en.def.contactDmg * (en.elite?.dmgMul ?? 1), `${en.elite ? `${en.elite.name}·` : ''}${en.def.name}近身攻击`);
+        damagePlayer(
+          ctx,
+          en.def.contactDmg * (en.elite?.dmgMul ?? 1),
+          tr(
+            `${en.elite ? `${en.elite.name}·` : ''}${en.def.name}近身攻击`,
+            `${en.elite ? `${en.elite.name} ` : ''}${en.def.name} melee`,
+          ),
+        );
       }
     }
   }

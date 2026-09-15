@@ -19,8 +19,13 @@ export interface PlayerStats {
   pierceBonus: number;
   magnet: number; // multiplier on pickup range
   projectileBonus: number;
+  evoDiscount: number; // passive levels shaved off every evolution recipe (改装工坊)
   crit: number; // crit chance 0..1 (crit = 2× damage)
   lifesteal: number; // hp restored per kill
+  // Trait passives — behaviour, not raw numbers. Each level adds one step.
+  detonate: number; // chance a kill detonates the corpse (0..1)
+  chill: number; // slow fraction applied to enemies on hit (0..1)
+  desperate: number; // bonus damage multiplier while below DESPERATE_HP_FRAC
 }
 
 export interface TimeState {
@@ -44,9 +49,14 @@ export interface RunState {
   goldenKilled: number; // golden runners caught this run
   evolved: boolean; // any weapon evolved this run
   firstHpHitAt: number | null; // elapsed time of the first real HP hit (null = untouched)
-  adrenalineUsed: boolean; // the once-per-run low-HP save has fired
+  adrenalineLeft: number; // remaining low-HP saves (the 第二次呼吸 talent grants a second)
+  revivesLeft: number; // remaining death saves from the 复活协议 talent
   curse: number; // blood-curse altar stacks accepted this run
   rescued: number; // survivors rescued into the squad this run
+  rerolls: number; // level-up rerolls bought this run (each one costs more)
+  banishes: number; // cards banished this run (each one costs much more)
+  /** Pool keys removed for the rest of the run — see `choiceKey`. */
+  banished: Set<string>;
 }
 
 export interface Director {
@@ -59,7 +69,9 @@ export interface Director {
   nextDropAt?: number; // next supply-drop time (lazily initialised by the supply system)
   nextGoldenAt?: number; // next golden-runner spawn time
   nextSurvivorAt?: number; // next stranded-survivor spawn time
+  activatedCells?: Set<string>; // obstacle cells whose barrels have already been materialised
   endless?: boolean; // post-victory endless mode
+  bossId?: string; // which boss this run drew — the fight survives the boss entity's death
   bossCycle?: number; // endless: how many tyrants have spawned so far
   nextBossAt?: number; // endless: next tyrant respawn time
 }
@@ -121,8 +133,12 @@ export interface GameContext {
   time: TimeState;
   director: Director;
   stats: PlayerStats;
+  /** Owned passives → current level. Drives the level-up pool, evolutions and the HUD. */
+  passives: Map<string, number>;
   input: InputProvider;
   rng: () => number;
+  /** The run's world seed. Drives the obstacle field, and is what a shared/daily run would pin. */
+  seed: number;
   camera: Camera;
   screen: { shake: number }; // current screen-shake magnitude, decayed by the camera each frame
   events: GameEvents;

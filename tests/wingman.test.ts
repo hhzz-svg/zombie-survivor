@@ -58,7 +58,7 @@ describe('rescue wingmen', () => {
   it('a gunner fires player-team bullets at an enemy in range', () => {
     const ctx = makeCtx();
     spawnWingman(ctx, gunner, 0, 0, 0);
-    spawnEnemyAt(ctx, ENEMIES['walker']!, 120, 0);
+    spawnEnemyAt(ctx, ENEMIES['walker'], 120, 0);
     rebuildEnemyHash(ctx);
     wingmanSystem(ctx, gunner.cooldown + 0.01);
     const shots = ctx.world.query(Bullet).map((b) => ctx.world.get(b, Bullet)!);
@@ -79,7 +79,7 @@ describe('rescue wingmen', () => {
     const ctx = makeCtx();
     const e = spawnWingman(ctx, gunner, 200, 0, 0);
     ctx.world.get(e, Health)!.hp = 3; // one brush from death
-    spawnEnemyAt(ctx, ENEMIES['brute']!, 205, 0);
+    spawnEnemyAt(ctx, ENEMIES['brute'], 205, 0);
     rebuildEnemyHash(ctx);
     wingmanSystem(ctx, 1 / 60);
     expect(ctx.world.query(Wingman)).toHaveLength(0);

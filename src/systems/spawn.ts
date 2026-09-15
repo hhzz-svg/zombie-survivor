@@ -11,6 +11,7 @@ import { ENEMIES, SPAWN_TABLE } from '../data/enemies';
 import { spawnEnemyRing, spawnBoss, spawnGoldenRunner } from '../factory';
 import { introSpawnMultiplier } from '../runFlow';
 import { curseSpawnMul, curseEliteBonus } from './curse';
+import { tr } from '../i18n';
 
 const GOLDEN_FIRST_AT = 70;
 const GOLDEN_INTERVAL = 65;
@@ -40,7 +41,7 @@ export function directorSystem(ctx: GameContext, dt: number): void {
     spawnGoldenRunner(ctx);
     alive++;
     const pt = ctx.world.get(ctx.player, Transform);
-    if (pt) ctx.fx.text(pt.x, pt.y - 44, '黄金逃亡者出现！', '#ffd700', 16);
+    if (pt) ctx.fx.text(pt.x, pt.y - 44, tr('黄金逃亡者出现！', 'A Golden Runner appears!'), '#ffd700', 16);
     ctx.audio.pickup();
   }
 
@@ -78,19 +79,20 @@ export function directorSystem(ctx: GameContext, dt: number): void {
   if (d.endless && d.nextBossAt !== undefined && ctx.time.elapsed >= d.nextBossAt) {
     d.nextBossAt = undefined; // re-armed by killEnemy when this tyrant dies
     d.bossCycle = (d.bossCycle ?? 0) + 1;
-    spawnBoss(ctx, ENDLESS_BOSS_HP_MUL ** d.bossCycle);
+    // Pass the cycle so endless alternates the two bosses instead of replaying one louder.
+    spawnBoss(ctx, ENDLESS_BOSS_HP_MUL ** d.bossCycle, d.bossCycle);
   }
 }
 
 function pickEnemy(ctx: GameContext): EnemyDef | null {
   const t = ctx.time.elapsed;
-  const eligible = SPAWN_TABLE.filter((s) => t >= s.from && ENEMIES[s.id]!.cost <= ctx.director.budget);
+  const eligible = SPAWN_TABLE.filter((s) => t >= s.from && ENEMIES[s.id].cost <= ctx.director.budget);
   if (eligible.length === 0) return null;
   const total = eligible.reduce((a, s) => a + s.weight, 0);
   let r = ctx.rng() * total;
   for (const s of eligible) {
     r -= s.weight;
-    if (r <= 0) return ENEMIES[s.id]!;
+    if (r <= 0) return ENEMIES[s.id];
   }
-  return ENEMIES[eligible[eligible.length - 1]!.id]!;
+  return ENEMIES[eligible[eligible.length - 1].id];
 }

@@ -9,7 +9,10 @@ import { z } from 'zod';
 export const EnemyDefSchema = z.object({
   id: z.string(),
   name: z.string(),
-  behavior: z.enum(['walker', 'runner', 'brute', 'spitter', 'exploder', 'boss', 'golden']),
+  behavior: z.enum([
+    'walker', 'runner', 'brute', 'spitter', 'exploder', 'boss', 'golden',
+    'warden', 'brood', 'lasher', 'siege',
+  ]),
   hp: z.number().positive(),
   speed: z.number().nonnegative(),
   contactDmg: z.number().nonnegative(),
@@ -18,13 +21,15 @@ export const EnemyDefSchema = z.object({
   xp: z.number().nonnegative(),
   cost: z.number().positive(),
   isBoss: z.boolean(),
+  /** Manifest key for the sprite; defaults to `id`. Lets a new archetype reuse existing art. */
+  sprite: z.string().optional(),
 });
 export type EnemyDef = z.infer<typeof EnemyDefSchema>;
 
 export const WeaponDefSchema = z.object({
   id: z.string(),
   name: z.string(),
-  kind: z.enum(['aim', 'nova', 'orbit']),
+  kind: z.enum(['aim', 'nova', 'orbit', 'beam', 'chain']),
   cooldown: z.number().positive(), // seconds between shots
   damage: z.number().nonnegative(),
   projectiles: z.number().int().positive(),
@@ -37,6 +42,7 @@ export const WeaponDefSchema = z.object({
   sprite: z.string().optional(), // manifest key for sprite image
   bulletStyle: z.enum(['flame', 'rocket']).optional(), // non-default projectile rendering
   explodeRadius: z.number().positive().optional(), // splash radius on hit (rockets)
+  width: z.number().positive().optional(), // beam thickness in px (kind === 'beam')
 });
 export type WeaponDef = z.infer<typeof WeaponDefSchema>;
 
@@ -68,8 +74,13 @@ export const PassiveDefSchema = z.object({
   id: z.string(),
   name: z.string(),
   desc: z.string(),
-  stat: z.enum(['damageMul', 'fireRateMul', 'moveSpeed', 'maxHp', 'pierce', 'magnet', 'projectiles', 'crit', 'lifesteal']),
+  stat: z.enum([
+    'damageMul', 'fireRateMul', 'moveSpeed', 'maxHp', 'pierce', 'magnet', 'projectiles', 'crit', 'lifesteal',
+    'detonate', 'chill', 'desperate',
+  ]),
   amount: z.number(),
+  /** 'stat' = flat numbers, 'trait' = changes how combat behaves. UI tints them differently. */
+  kind: z.enum(['stat', 'trait']).default('stat'),
 });
 export type PassiveDef = z.infer<typeof PassiveDefSchema>;
 

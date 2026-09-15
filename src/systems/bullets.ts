@@ -1,6 +1,8 @@
 import type { GameContext } from '../ctx';
 import { Transform, Collider, Bullet, Health } from '../components';
 import { damageEnemy, damagePlayer, explode } from './combat';
+import { blockedAt } from '../data/obstacles';
+import { tr } from '../i18n';
 
 /**
  * Bullet collisions. Player bullets hit enemies (with pierce + a per-bullet hit set so one bullet
@@ -18,6 +20,20 @@ export function bulletSystem(ctx: GameContext, _dt: number): void {
     const b = w.get(e, Bullet)!;
     const t = w.get(e, Transform)!;
     const c = w.get(e, Collider)!;
+
+    // Cover blocks fire from BOTH sides. Breaking line of sight is the whole point of
+    // terrain — it is what gives the spitter a real counter.
+    if (blockedAt(ctx.seed, t.x, t.y, c.r)) {
+      if (b.team === 'player' && b.explodeRadius) {
+        explode(ctx, t.x, t.y, b.explodeRadius, b.dmg * 0.7, false);
+        ctx.fx.flash(t.x, t.y, b.explodeRadius * 0.5, '#fff3d6', '#ff9b35', 0.14);
+        ctx.fx.shockwave(t.x, t.y, b.explodeRadius, '#ffb060', 0.3);
+      } else {
+        ctx.fx.spark(t.x, t.y, -Math.sign(t.x), 0, 3, '#cdd6cf', 140, ctx.rng);
+      }
+      w.destroy(e);
+      continue;
+    }
 
     if (b.team === 'player') {
       ctx.hash.query(t.x, t.y, c.r + 24, neigh);
@@ -50,7 +66,7 @@ export function bulletSystem(ctx: GameContext, _dt: number): void {
     } else {
       const rr = c.r + pc.r;
       if ((pt.x - t.x) ** 2 + (pt.y - t.y) ** 2 <= rr * rr) {
-        damagePlayer(ctx, b.dmg, '远程感染弹命中');
+        damagePlayer(ctx, b.dmg, tr('远程感染弹命中', 'Hit by infected projectile'));
         w.destroy(e);
       }
     }

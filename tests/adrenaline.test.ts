@@ -10,7 +10,7 @@ describe('adrenaline surge', () => {
     h.hp = 30; // 30% of 100
 
     damagePlayer(ctx, 15); // → 15, under the 20% line
-    expect(ctx.run.adrenalineUsed).toBe(true);
+    expect(ctx.run.adrenalineLeft).toBe(0);
     expect(h.hp).toBe(30); // 15 after damage + 15 surge heal
     expect(h.invuln).toBeGreaterThanOrEqual(1.5);
     expect(ctx.run.firstHpHitAt).toBe(0);
@@ -21,7 +21,7 @@ describe('adrenaline surge', () => {
     const h = ctx.world.get(ctx.player, Health)!;
     h.hp = 30;
     damagePlayer(ctx, 15);
-    expect(ctx.run.adrenalineUsed).toBe(true);
+    expect(ctx.run.adrenalineLeft).toBe(0);
     const after = h.hp;
 
     h.invuln = 0; // clear i-frames so the next hit lands
@@ -39,6 +39,6 @@ describe('adrenaline surge', () => {
     h.hp = 10;
     damagePlayer(ctx, 50);
     expect(died).toBe(true);
-    expect(ctx.run.adrenalineUsed).toBe(false);
+    expect(ctx.run.adrenalineLeft).toBe(1);
   });
 });

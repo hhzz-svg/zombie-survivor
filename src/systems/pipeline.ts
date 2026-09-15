@@ -1,9 +1,12 @@
 import type { GameContext } from '../ctx';
-import { Enemy, Transform } from '../components';
+import { Barrel, Enemy, Transform } from '../components';
 import { movementSystem } from './movement';
+import { barrelSystem, blockerSystem } from './collision';
 import { directorSystem } from './spawn';
 import { inputSystem } from './input';
 import { enemyAISystem } from './enemyAI';
+import { telegraphSystem } from './telegraph';
+import { hazardSystem } from './hazard';
 import { wingmanSystem } from './wingman';
 import { weaponSystem } from './weapons';
 import { bulletSystem } from './bullets';
@@ -23,6 +26,13 @@ export function rebuildEnemyHash(ctx: GameContext): void {
     const t = ctx.world.get(e, Transform)!;
     ctx.hash.insert(e, t.x, t.y);
   }
+  // Barrels join the same hash so bullets, novas, blades and grenades hit them with no
+  // extra code in any weapon — contactSystem requires an Enemy component, so they stay
+  // harmless to walk into.
+  for (const e of ctx.world.query(Barrel, Transform)) {
+    const t = ctx.world.get(e, Transform)!;
+    ctx.hash.insert(e, t.x, t.y);
+  }
 }
 
 /**
@@ -37,9 +47,13 @@ export function runSystems(ctx: GameContext, dt: number): void {
   rebuildEnemyHash(ctx);
   inputSystem(ctx);
   enemyAISystem(ctx, dt);
+  telegraphSystem(ctx, dt);
+  hazardSystem(ctx, dt);
   wingmanSystem(ctx, dt);
   weaponSystem(ctx, dt);
   movementSystem(ctx.world, dt);
+  blockerSystem(ctx);
+  barrelSystem(ctx, dt);
   bulletSystem(ctx, dt);
   contactSystem(ctx, dt);
   pickupSystem(ctx, dt);

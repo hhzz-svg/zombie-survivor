@@ -11,15 +11,15 @@ describe('flamer and rocket launcher', () => {
   it('both weapons and their evolutions parse and are linked', () => {
     expect(WEAPONS['flamer']).toBeDefined();
     expect(WEAPONS['rocket']).toBeDefined();
-    expect(EVOLUTIONS['flamer']).toBe('flamer-evo');
-    expect(EVOLUTIONS['rocket']).toBe('rocket-evo');
-    expect(WEAPONS['flamer']!.bulletStyle).toBe('flame');
-    expect(WEAPONS['rocket-evo']!.explodeRadius).toBeGreaterThan(WEAPONS['rocket']!.explodeRadius!);
+    expect(EVOLUTIONS['flamer'].evo).toBe('flamer-evo');
+    expect(EVOLUTIONS['rocket'].evo).toBe('rocket-evo');
+    expect(WEAPONS['flamer'].bulletStyle).toBe('flame');
+    expect(WEAPONS['rocket-evo'].explodeRadius).toBeGreaterThan(WEAPONS['rocket'].explodeRadius!);
   });
 
   it('spawned bullets carry the style and splash radius', () => {
     const ctx = makeCtx();
-    const b = spawnBullet(ctx, 0, 0, 1, 0, WEAPONS['rocket']!, 34, 0);
+    const b = spawnBullet(ctx, 0, 0, 1, 0, WEAPONS['rocket'], 34, 0);
     const data = ctx.world.get(b, Bullet)!;
     expect(data.style).toBe('rocket');
     expect(data.explodeRadius).toBe(95);
@@ -27,12 +27,12 @@ describe('flamer and rocket launcher', () => {
 
   it('a rocket hit splashes damage onto clustered enemies', () => {
     const ctx = makeCtx();
-    const hit = spawnEnemyAt(ctx, ENEMIES['brute']!, 40, 0);
-    const near = spawnEnemyAt(ctx, ENEMIES['brute']!, 90, 0); // inside 95px splash
-    const far = spawnEnemyAt(ctx, ENEMIES['brute']!, 400, 0); // outside
+    const hit = spawnEnemyAt(ctx, ENEMIES['brute'], 40, 0);
+    const near = spawnEnemyAt(ctx, ENEMIES['brute'], 90, 0); // inside 95px splash
+    const far = spawnEnemyAt(ctx, ENEMIES['brute'], 400, 0); // outside
     rebuildEnemyHash(ctx);
 
-    spawnBullet(ctx, 30, 0, 1, 0, WEAPONS['rocket']!, 34, 0);
+    spawnBullet(ctx, 30, 0, 1, 0, WEAPONS['rocket'], 34, 0);
     bulletSystem(ctx, 1 / 60);
 
     const hpOf = (e: number) => ctx.world.get(e, Health)!;
@@ -44,11 +44,11 @@ describe('flamer and rocket launcher', () => {
 
   it('rocket splash never hurts the player standing next to the blast', () => {
     const ctx = makeCtx();
-    spawnEnemyAt(ctx, ENEMIES['walker']!, 30, 0);
+    spawnEnemyAt(ctx, ENEMIES['walker'], 30, 0);
     rebuildEnemyHash(ctx);
     const before = ctx.world.get(ctx.player, Health)!.hp;
 
-    spawnBullet(ctx, 20, 0, 1, 0, WEAPONS['rocket']!, 34, 0);
+    spawnBullet(ctx, 20, 0, 1, 0, WEAPONS['rocket'], 34, 0);
     bulletSystem(ctx, 1 / 60);
 
     expect(ctx.world.get(ctx.player, Health)!.hp).toBe(before);

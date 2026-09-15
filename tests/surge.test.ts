@@ -8,7 +8,7 @@ import { GoldCoin } from '../src/components';
 
 describe('blood-moon surges', () => {
   it('activates exactly inside each configured window', () => {
-    const s = SURGES[0]!;
+    const s = SURGES[0];
     expect(activeSurge(s.at - 0.01)).toBeNull();
     expect(activeSurge(s.at)).toBe(s);
     expect(activeSurge(s.at + s.duration - 0.01)).toBe(s);
@@ -16,7 +16,7 @@ describe('blood-moon surges', () => {
   });
 
   it('warns ahead of the window, then hands over to the active state', () => {
-    const s = SURGES[0]!;
+    const s = SURGES[0];
     expect(incomingSurge(s.at - SURGE_WARN_SECONDS - 0.01)).toBeNull();
     expect(incomingSurge(s.at - SURGE_WARN_SECONDS)).toBe(s);
     expect(incomingSurge(s.at - 0.01)).toBe(s);
@@ -35,17 +35,17 @@ describe('blood-moon surges', () => {
   });
 
   it('kills during a surge drop boosted gold', () => {
-    const surge = SURGES[0]!;
+    const surge = SURGES[0];
 
     const quiet = makeCtx(7);
     quiet.time.elapsed = surge.at - 10;
-    killEnemy(quiet, spawnEnemyAt(quiet, ENEMIES['walker']!, 50, 0));
+    killEnemy(quiet, spawnEnemyAt(quiet, ENEMIES['walker'], 50, 0));
     const quietGold = quiet.world.query(GoldCoin)
       .reduce((a, c) => a + quiet.world.get(c, GoldCoin)!.value, 0);
 
     const stormy = makeCtx(7);
     stormy.time.elapsed = surge.at + 1;
-    killEnemy(stormy, spawnEnemyAt(stormy, ENEMIES['walker']!, 50, 0));
+    killEnemy(stormy, spawnEnemyAt(stormy, ENEMIES['walker'], 50, 0));
     const stormyGold = stormy.world.query(GoldCoin)
       .reduce((a, c) => a + stormy.world.get(c, GoldCoin)!.value, 0);
 
