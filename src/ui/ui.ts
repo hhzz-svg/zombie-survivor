@@ -7,6 +7,7 @@ import type { Settings } from '../settings';
 import { TALENTS, BRANCH_NAMES, BRANCH_BLURB, buyState, nextCost, levelOf, totalSpent } from '../data/talents';
 import { tr, isLang, LANGUAGES, LANGUAGE_NAMES } from '../i18n';
 import { ASSET_BASE } from '../assetPath';
+import { TOUCH_CSS } from '../input/touch';
 
 export interface HudData {
   stage: number;
@@ -109,18 +110,19 @@ const STYLE = `
 #ui-hud button:focus-visible,#ui-overlay button:focus-visible,#ui-overlay .card:focus-visible{outline:2px solid var(--growth);outline-offset:3px}
 #ui-xp{position:fixed;top:0;left:0;right:0;height:8px;background:rgba(4,8,7,.9);box-shadow:0 1px 0 var(--line)}
 #ui-xp>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--growth),#e8fff6);box-shadow:0 0 18px rgba(97,229,222,.35);transition:width .12s}
-#ui-mission{position:fixed;top:16px;left:50%;transform:translateX(-50%);min-width:min(560px,72vw);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;padding:10px 16px;background:linear-gradient(180deg,var(--surface),rgba(5,10,9,.78));border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05);letter-spacing:.8px;text-transform:uppercase}
+#ui-mission{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);min-width:min(560px,72vw);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;padding:10px 16px;background:linear-gradient(180deg,var(--surface),rgba(5,10,9,.78));border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05);letter-spacing:.8px;text-transform:uppercase}
 #ui-stage{font-size:12px;color:var(--growth);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #ui-time{font-size:20px;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 0 16px rgba(97,229,222,.24)}
 #ui-threat{text-align:right;font-size:12px;color:var(--fire);white-space:nowrap}
-#ui-economy{position:fixed;top:16px;right:16px;display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 24px rgba(0,0,0,.24)}
+#ui-economy{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 24px rgba(0,0,0,.24)}
 #ui-gold{font-size:14px;color:var(--fire);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.8px}
 #ui-shopbtn{cursor:pointer;background:linear-gradient(180deg,rgba(255,180,56,.22),rgba(255,180,56,.08));border:1px solid rgba(255,180,56,.45);border-radius:10px;padding:7px 12px;font-size:12px;color:#ffe2a0;letter-spacing:1px;transition:.12s}
 #ui-shopbtn:hover{transform:translateY(-1px);background:rgba(255,180,56,.2);color:#fff6dd}
 #ui-stage-banner{position:fixed;top:74px;left:50%;transform:translateX(-50%) translateY(-6px);padding:8px 18px;background:rgba(255,180,56,.13);border:1px solid rgba(255,180,56,.45);border-radius:999px;color:#ffe2a0;font-weight:800;letter-spacing:2px;text-transform:uppercase;opacity:0;transition:.18s;box-shadow:0 0 28px rgba(255,180,56,.16)}
 #ui-stage-banner.show{opacity:1;transform:translateX(-50%) translateY(0)}
-#ui-tutorial{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);max-width:560px;padding:8px 16px;background:rgba(7,14,13,.72);border:1px solid var(--line);border-radius:999px;color:#c9ddd7;font-size:13px;text-align:center;letter-spacing:.5px;opacity:.92}
-#ui-items{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:auto}
+#ui-tutorial[hidden]{display:none}
+#ui-tutorial{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:560px;padding:8px 16px;background:rgba(7,14,13,.72);border:1px solid var(--line);border-radius:999px;color:#c9ddd7;font-size:13px;text-align:center;letter-spacing:.5px;opacity:.92}
+#ui-items{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:auto}
 #ui-items .slot{position:relative;width:52px;height:52px;background:linear-gradient(180deg,var(--surface-2),rgba(8,13,12,.92));border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;user-select:none;overflow:visible;box-shadow:0 8px 20px rgba(0,0,0,.25)}
 #ui-items .slot:hover{border-color:var(--growth);background:rgba(24,55,50,.88);transform:translateY(-1px)}
 #ui-items .slot .slot-img{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 0 7px rgba(97,229,222,.28))}
@@ -132,11 +134,11 @@ const STYLE = `
 #ui-items .slot.skill{border-color:rgba(97,229,222,.28)}
 #ui-items .slot.skill.ready{border-color:var(--growth);box-shadow:0 0 18px rgba(97,229,222,.24)}
 #ui-items .slot.skill.active{border-color:#b7a5ff;box-shadow:0 0 18px rgba(183,165,255,.34)}
-#ui-hpwrap{position:fixed;left:16px;bottom:16px;width:320px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 24px rgba(0,0,0,.26)}
+#ui-hpwrap{position:fixed;left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:320px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 24px rgba(0,0,0,.26)}
 #ui-hp{height:16px;border-radius:999px;background:#2b1414;overflow:hidden;border:1px solid rgba(255,90,79,.35)}
 #ui-hp>i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--danger),#ff9a72);transition:width .1s;box-shadow:0 0 16px rgba(255,90,79,.24)}
 #ui-hplabel{display:flex;justify-content:space-between;font-size:12px;margin-top:6px;color:#ffd5cc;text-shadow:0 1px 2px #000;letter-spacing:.6px}
-#ui-weapon-primary{position:fixed;left:16px;bottom:92px;width:320px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 24px rgba(0,0,0,.22)}
+#ui-weapon-primary{position:fixed;left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(92px + env(safe-area-inset-bottom,0px));width:320px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 24px rgba(0,0,0,.22)}
 #ui-weapon-primary .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:7px}
 #ui-weapon-primary .name{font-size:15px;color:var(--text);font-weight:800;letter-spacing:.8px}
 #ui-weapon-primary .bar{height:6px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
@@ -291,7 +293,51 @@ const STYLE = `
 #ui-overlay .shop-panel .card .n{font-size:14px}
 #ui-overlay .shop-panel .card .d{font-size:11px;line-height:1.35}
 #ui-overlay .shop-panel .cost{margin-top:6px}
-@media (max-width:900px){#ui-mission{min-width:0;width:calc(100vw - 32px);grid-template-columns:1fr auto;gap:10px;top:14px}#ui-threat{display:none}#ui-economy{top:64px;right:12px}#ui-weapons{display:none}#ui-hpwrap,#ui-weapon-primary{left:12px;width:280px}#ui-items{bottom:84px}#ui-tutorial{display:none}}
+@media (max-width:900px){#ui-mission{min-width:0;width:calc(100vw - 32px);grid-template-columns:1fr auto;gap:10px;top:calc(14px + env(safe-area-inset-top,0px))}#ui-threat{display:none}#ui-economy{top:calc(66px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px))}#ui-weapons{display:none}#ui-hpwrap,#ui-weapon-primary{left:calc(12px + env(safe-area-inset-left,0px));width:280px}#ui-items{bottom:calc(84px + env(safe-area-inset-bottom,0px))}#ui-tutorial{display:none}}
+
+/* --- Touch play -----------------------------------------------------------------
+   The pause button only exists for touch, because Esc does not. Everything else here
+   is about the two things a phone changes: the system bars eat the corners, and a
+   thumb is a far blunter instrument than a mouse. */
+/* Keyboard hints are worse than useless to someone holding a phone: they name a control
+   that does not exist. The taps do the same job, so the hints just go. */
+:root.touch-play .kbd,:root.touch-play #ui-overlay .card .key,:root.touch-play #ui-items .slot-key{display:none}
+#ui-pausebtn{display:none;cursor:pointer;background:rgba(7,14,13,.72);border:1px solid var(--line);border-radius:10px;padding:7px 11px;font-size:11px;color:#cfeee5;letter-spacing:1px}
+:root.touch-play #ui-pausebtn{display:inline-block}
+/* Thumbs need bigger targets than a cursor, and the bar has to sit clear of the sticks. */
+:root.touch-play #ui-items{gap:10px;bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+:root.touch-play #ui-items .slot{width:60px;height:60px}
+:root.touch-play #ui-items .slot .slot-img{width:40px;height:40px}
+#ui-items .slot[data-use]{-webkit-tap-highlight-color:transparent}
+#ui-items .slot[data-use]:active{transform:scale(.93);border-color:var(--growth)}
+
+@media (max-width:640px){
+  #ui-mission{font-size:12px;padding:8px 12px}
+  #ui-hpwrap,#ui-weapon-primary{width:min(58vw,260px)}
+  /* The bottom corners are where thumbs live. Shrink what sits there so the sticks have
+     glass to appear on, rather than landing on a wall of panel. */
+  :root.touch-play #ui-hpwrap,:root.touch-play #ui-weapon-primary{width:min(50vw,210px);padding:7px 10px;opacity:.9}
+  :root.touch-play #ui-weapon-primary{bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+  #ui-combo{transform:scale(.82);transform-origin:right center}
+  #ui-squad{display:none}
+  /* Panels are the one place a phone really hurts: they were built for a desktop column
+     count and can outgrow the screen, so they scroll on their own rather than clipping. */
+  #ui-overlay{align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(12px + env(safe-area-inset-top,0px)) 10px calc(12px + env(safe-area-inset-bottom,0px))}
+  #ui-overlay .panel,#ui-overlay .panel.wide,#ui-overlay .shop-panel{width:100%;max-width:none;padding:18px 14px}
+  #ui-overlay h1{font-size:22px}
+  #ui-overlay .cards{grid-template-columns:1fr;gap:10px}
+  #ui-overlay .shop-panel .cards{grid-template-columns:repeat(auto-fit,minmax(104px,1fr))}
+  #ui-overlay .card{min-height:0}
+  #ui-overlay .ops{grid-template-columns:1fr}
+  #ui-overlay .t-tree{grid-template-columns:1fr}
+  #ui-overlay .summary{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}
+  #ui-overlay .seed-daily,#ui-overlay .seed-custom{min-width:0;width:100%}
+  #ui-overlay .srow{grid-template-columns:88px 1fr 46px;gap:8px}
+  /* A 12px target is a miss; buttons get a real minimum height on a phone. */
+  #ui-overlay button.start,#ui-overlay button.quiet{min-height:44px}
+  #ui-overlay .card{padding:12px}
+}
+${TOUCH_CSS}
 `
 
 /** All DOM presentation: HUD overlay + title/level-up/end/shop screens. Game world stays on the canvas. */
@@ -319,6 +365,9 @@ export class UI {
   private squadEl: HTMLElement;
   private lastSquadKey = '';
   private onShopOpen: (() => void) | null = null;
+  private onPause: (() => void) | null = null;
+  /** Fires an item or skill by its keyboard key, so a tap and a keypress take the same path. */
+  private useHandler: ((key: string) => void) | null = null;
   private lastComboCount = 0;
   private toastTimer: number | undefined;
   private revealTimer: number | undefined;
@@ -334,7 +383,7 @@ export class UI {
     hud.innerHTML = `
       <div id="ui-xp"><i></i></div>
       <div id="ui-mission"><span id="ui-stage"></span><strong id="ui-time"></strong><span id="ui-threat"></span></div>
-      <div id="ui-economy"><span id="ui-gold"></span><button id="ui-shopbtn">[B] ${tr('商店', 'Shop')}</button></div>
+      <div id="ui-economy"><span id="ui-gold"></span><button id="ui-shopbtn"><span class="kbd">[B]</span> ${tr('商店', 'Shop')}</button><button id="ui-pausebtn" aria-label="${tr('暂停', 'Pause')}">❚❚</button></div>
       <div id="ui-stage-banner"></div>
       <div id="ui-surge"></div>
       <div id="ui-tutorial"></div>
@@ -379,10 +428,22 @@ export class UI {
     this.shopBtn.addEventListener('click', () => {
       if (this.onShopOpen) this.onShopOpen();
     });
+    hud.querySelector<HTMLElement>('#ui-pausebtn')!.addEventListener('click', () => {
+      if (this.onPause) this.onPause();
+    });
   }
 
   setShopHandler(fn: () => void): void {
     this.onShopOpen = fn;
+  }
+
+  /** Esc has no equivalent on a touchscreen, so the HUD grows a pause button. */
+  setPauseHandler(fn: () => void): void {
+    this.onPause = fn;
+  }
+
+  setUseHandler(fn: (key: string) => void): void {
+    this.useHandler = fn;
   }
 
   private static fmt(t: number): string {
@@ -401,7 +462,9 @@ export class UI {
     this.stageBannerEl.textContent = d.stageBanner;
     this.stageBannerEl.classList.toggle('show', d.stageBanner.length > 0);
     this.tutorialEl.textContent = d.tutorialTip;
-    this.tutorialEl.style.display = d.tutorialTip ? 'block' : 'none';
+    // `hidden`, not an inline display: an inline style outranks the narrow-screen rule that
+    // hides this tip entirely, which is how it kept showing up on top of the HP panel.
+    this.tutorialEl.hidden = !d.tutorialTip;
     this.primaryWeaponEl.innerHTML = `
       <div class="meta"><span>${tr('主武器', 'Primary')}</span><span>Lv.${d.primaryWeapon.level}</span></div>
       <div class="name">${d.primaryWeapon.name}</div>
@@ -474,19 +537,27 @@ export class UI {
       const keyHint = item.def.kind === 'charge' && item.def.key
         ? `<span class="slot-key">${keyLabel(item.def.key)}</span>`
         : '';
-      barHtml += `<div class="${cls}" title="${item.def.tip}"><img class="slot-img" src="${ASSET_BASE}/${item.def.iconKey}.png" alt="">${overlay}${countBadge}${keyHint}</div>`;
+      // data-use is what makes the slot tappable: touch has no keyboard to press.
+      const use = item.def.kind === 'charge' && item.def.key ? ` data-use="${item.def.key}"` : '';
+      barHtml += `<div class="${cls}"${use} title="${item.def.tip}"><img class="slot-img" src="${ASSET_BASE}/${item.def.iconKey}.png" alt="">${overlay}${countBadge}${keyHint}</div>`;
     }
     for (const skill of d.skills) {
       const ready = skill.remain <= 0;
       const cls = `slot skill${ready ? ' ready' : ''}${skill.active ? ' active' : ''}`;
       const overlay = ready ? '' : `<div class="cd-overlay">${Math.ceil(skill.remain)}s</div>`;
-      barHtml += `<div class="${cls}" title="${skill.def.desc}">
+      barHtml += `<div class="${cls}" data-use="${skill.def.key}" title="${skill.def.desc}">
         <img class="slot-img" src="${ASSET_BASE}/${skill.def.iconKey}.png" alt="">
         ${overlay}
         <span class="slot-key">${keyLabel(skill.def.key)}</span>
       </div>`;
     }
     this.itemsBar.innerHTML = barHtml;
+    for (const el of this.itemsBar.querySelectorAll<HTMLElement>('.slot[data-use]')) {
+      el.onclick = () => {
+        const key = el.dataset.use;
+        if (key) this.useHandler?.(key);
+      };
+    }
   }
 
   showTitle(d: TitleData): void {

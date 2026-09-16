@@ -8,6 +8,7 @@ import { WorldRenderer } from './render/worldRenderer';
 import type { MusicState } from './audio/music';
 import { Input } from './input/input';
 import { DomInput } from './input/provider';
+import { TouchControls } from './input/touch';
 import type { GameContext, PlayerStats, EquipmentState, SkillState } from './ctx';
 import {
   PLAYER_BASE, currentRunStage, xpToNext, ENDLESS_BOSS_INTERVAL, rerollCost, banishCost, activeSurge,
@@ -49,6 +50,7 @@ interface LifetimeStats {
 /** Orchestrates the run: state machine, system pipeline, world rendering, and the UI screens. */
 export class Game {
   private readonly keys = new Input();
+  private readonly touch = new TouchControls();
   private readonly ui = new UI();
   private readonly audio = new AudioBus();
   private readonly fx = new FX();
@@ -100,6 +102,8 @@ export class Game {
     void this.world.loadAssets();
     this.showTitle();
     this.ui.setShopHandler(() => this.openShop());
+    this.ui.setPauseHandler(() => this.pause());
+    this.ui.setUseHandler((key) => this.fire(key));
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
@@ -275,7 +279,7 @@ export class Game {
       equip: { ...this.freshEquip(), gold: talents.startGold, shield: talents.startShield },
       skills: this.freshSkills(),
       run: { ...freshRunState(), adrenalineLeft: talents.adrenalineCharges, revivesLeft: talents.revives },
-      input: new DomInput(this.keys, this.renderer),
+      input: new DomInput(this.keys, this.renderer, this.touch),
       rng: world.rng,
       seed,
       camera: { x: 0, y: 0 },
@@ -438,28 +442,36 @@ export class Game {
       (e) => e.kind === 'charge' && e.key && (eq.charges.get(e.id) ?? 0) > 0,
     );
     for (const item of chargeItems) {
-      if (this.keys.justPressed(item.key!)) {
-        const used = useItem(this.ctx, item.key!);
-        if (used) {
-          this.ctx.audio.pickup();
-          this.ctx.screen.shake = Math.max(this.ctx.screen.shake, 4);
-        }
-      }
+      if (this.keys.justPressed(item.key!)) this.fire(item.key!);
     }
   }
 
   private handleSkillKeys(): void {
     if (!this.ctx || this.state !== 'playing') return;
     for (const skill of SKILLS) {
-      if (this.keys.justPressed(skill.key) && useSkill(this.ctx, skill.key)) {
-        this.ctx.screen.shake = Math.max(this.ctx.screen.shake, 3);
-      }
+      if (this.keys.justPressed(skill.key)) this.fire(skill.key);
     }
+  }
+
+  /**
+   * Use whatever is bound to a key. A tap on a HUD slot and a keypress land here together,
+   * so a touch player can never reach something the keyboard cannot, or vice versa.
+   */
+  private fire(key: string): void {
+    const ctx = this.ctx;
+    if (!ctx || this.state !== 'playing') return;
+    if (useItem(ctx, key)) {
+      ctx.audio.pickup();
+      ctx.screen.shake = Math.max(ctx.screen.shake, 4);
+      return;
+    }
+    if (useSkill(ctx, key)) ctx.screen.shake = Math.max(ctx.screen.shake, 3);
   }
 
   private enterLevelUp(): void {
     if (!this.ctx) return;
     this.state = 'levelup';
+    this.touch.release();
     this.choices = makeChoices(this.ctx);
     this.renderLevelUp();
   }
@@ -533,6 +545,7 @@ export class Game {
 
   private openShop(): void {
     if (this.state !== 'playing' || !this.ctx) return;
+    this.touch.release();
     this.state = 'shop';
     this.renderShop();
   }
@@ -624,6 +637,7 @@ export class Game {
   private pause(): void {
     if (this.state !== 'playing') return;
     this.state = 'paused';
+    this.touch.release();
     // The layers fade rather than cut, so pausing does not clip the tail off a note.
     this.audio.setMusic(null);
     this.showPausePanel();
