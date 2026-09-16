@@ -39,8 +39,20 @@ export const SPAWN_TABLE: ReadonlyArray<{ id: string; from: number; weight: numb
 
 /** Damage a warden's shield lets through when hit inside its frontal arc. */
 export const WARDEN_FRONT_MUL = 0.18;
-/** cos of the half-angle covered by the shield (≈ 100° total). */
-export const WARDEN_ARC_COS = -0.28;
+/**
+ * Total width of the shield's frontal arc, in degrees. This is the number to tune: getting
+ * outside it is what "flank the warden" means, so it decides how far around the player has
+ * to travel — and therefore how much horde they have to cross to do it.
+ */
+export const WARDEN_ARC_DEGREES = 100;
+/**
+ * Threshold for `travelDirection · facing` in `damageEnemy`. Derived, never hand-written:
+ * the two disagreed for three days (a literal -0.28 is a 147° arc, not the 100° the comment
+ * claimed) because the sign flip is easy to get wrong. A shot travels *into* the warden, so
+ * it arrives from dead ahead when that dot product is -1 — hence the negated cosine, and
+ * hence "blocked" being the *lower* side of the comparison.
+ */
+export const WARDEN_ARC_COS = -Math.cos((WARDEN_ARC_DEGREES / 2) * (Math.PI / 180));
 /** Radians per second the shield can swing — slow enough that flanking works. */
 export const WARDEN_TURN_RATE = 2.1;
 

@@ -7,8 +7,8 @@ import { telegraphSystem } from '../src/systems/telegraph';
 import { damageEnemy } from '../src/systems/combat';
 import { rebuildEnemyHash } from '../src/systems/pipeline';
 import {
-  WARDEN_FRONT_MUL, WARDEN_TURN_RATE, BROOD_INTERVAL, BROOD_LITTER,
-  LASHER_WINDUP, LASHER_DAMAGE,
+  WARDEN_FRONT_MUL, WARDEN_TURN_RATE, WARDEN_ARC_COS, WARDEN_ARC_DEGREES,
+  BROOD_INTERVAL, BROOD_LITTER, LASHER_WINDUP, LASHER_DAMAGE,
 } from '../src/data/enemies';
 import { Enemy, Health, Transform, Telegraph } from '../src/components';
 
@@ -66,6 +66,51 @@ describe('warden — the shield forces a flank', () => {
     const before = h.hp;
     damageEnemy(ctx, e, 50, 1, 0, 0);
     expect(before - h.hp).toBeCloseTo(50);
+  });
+});
+
+/**
+ * The arc's *width*, which the three tests above never touched: they fire head-on and from
+ * directly behind, and both pass at any arc between 0° and 180°. That is exactly how the
+ * constant and its comment managed to disagree by 47° without a test noticing — so these
+ * probe the boundary instead of the extremes.
+ */
+describe('warden — the shield arc is as wide as it says it is', () => {
+  /** Fire from `deg` off the warden's front and report how much damage landed. */
+  function shootFrom(deg: number): number {
+    const ctx = makeCtx();
+    const e = spawnEnemyAt(ctx, ENEMIES['warden'], 200, 0);
+    const en = ctx.world.get(e, Enemy)!;
+    const rad = (deg * Math.PI) / 180;
+    // The attacker sits `deg` off the warden's forward axis; the shot travels inward.
+    en.faceX = Math.cos(rad);
+    en.faceY = Math.sin(rad);
+    const h = ctx.world.get(e, Health)!;
+    const before = h.hp;
+    damageEnemy(ctx, e, 100, -1, 0, 0);
+    return before - h.hp;
+  }
+
+  const half = WARDEN_ARC_DEGREES / 2;
+
+  it('blocks just inside the advertised edge and not just outside it', () => {
+    expect(shootFrom(half - 2)).toBeCloseTo(100 * WARDEN_FRONT_MUL);
+    expect(shootFrom(half + 2)).toBeCloseTo(100);
+  });
+
+  it('blocks everywhere within the arc and nowhere beyond it', () => {
+    for (let deg = 0; deg < 180; deg += 5) {
+      const dealt = shootFrom(deg);
+      const shouldBlock = deg < half;
+      expect(dealt, `${deg}° off front`).toBeCloseTo(shouldBlock ? 100 * WARDEN_FRONT_MUL : 100);
+    }
+  });
+
+  it('derives its threshold from the angle, so the two cannot drift apart', () => {
+    expect(WARDEN_ARC_COS).toBeCloseTo(-Math.cos((half * Math.PI) / 180));
+    // A sanity rail on the sign: dead ahead must block, dead behind must not.
+    expect(shootFrom(0)).toBeCloseTo(100 * WARDEN_FRONT_MUL);
+    expect(shootFrom(179)).toBeCloseTo(100);
   });
 });
 
