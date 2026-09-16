@@ -2,11 +2,28 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the canvas run under the notch (the HUD insets itself);
+         user-scalable=no stops a double-tap while dodging from zooming the whole game. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0a0f0d" />
     <title>末日清道夫 · Zombie Survivor</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #0a0f0d; overflow: hidden; }
-      canvas { display: block; cursor: crosshair; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #0a0f0d;
+        overflow: hidden;
+        /* A thumbstick drag must steer, not scroll the page or pull to refresh. */
+        touch-action: none;
+        overscroll-behavior: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      canvas { display: block; cursor: crosshair; touch-action: none; }
     </style>
   </head>
   <body>

@@ -3,8 +3,9 @@ import type { Entity } from './ecs/world';
 import type { EnemyDef, WeaponDef } from './data/schemas';
 import type { EliteAffix } from './data/elites';
 import {
-  Transform, Velocity, Health, Collider, Renderable, Enemy, Bullet, Lifetime, XPGem, GoldCoin, Medkit, PlayerTag, Aim, Loadout, SupplyCrate, Survivor, Wingman,
+  Transform, Velocity, Health, Collider, Renderable, Enemy, Bullet, Lifetime, XPGem, GoldCoin, Medkit, PlayerTag, Aim, Loadout, SupplyCrate, Survivor, Wingman, Barrel, Hazard,
 } from './components';
+import { BARREL_HP, blockedAt } from './data/obstacles';
 import { PLAYER_BASE, hpScale, WAVE, SUPPLY_FALL_SECONDS } from './data/balance';
 import { WEAPONS, STARTER_WEAPON } from './data/weapons';
 import { ENEMIES } from './data/enemies';
@@ -15,7 +16,7 @@ import { SURVIVOR_WAIT, type WingmanDef } from './data/wingmen';
 export function createPlayer(ctx: GameContext, weaponId: string = STARTER_WEAPON): Entity {
   const w = ctx.world;
   const e = w.create();
-  const weapon = WEAPONS[weaponId] ?? WEAPONS[STARTER_WEAPON]!;
+  const weapon = WEAPONS[weaponId] ?? WEAPONS[STARTER_WEAPON];
   w.add(e, Transform, { x: 0, y: 0, rot: 0 });
   w.add(e, Velocity, { x: 0, y: 0 });
   w.add(e, Health, { hp: ctx.stats.maxHp, max: ctx.stats.maxHp, invuln: 0, flash: 0 });
@@ -44,6 +45,11 @@ export function spawnEnemyAt(ctx: GameContext, def: EnemyDef, x: number, y: numb
     volleyCd: 2.2,
     slamCd: 6.5,
     enraged: false,
+    faceX: 1,
+    faceY: 0,
+    abilityCd: 2 + ctx.rng() * 2,
+    chillUntil: 0,
+    chillMul: 1,
     elite,
   });
   return e;
@@ -52,13 +58,30 @@ export function spawnEnemyAt(ctx: GameContext, def: EnemyDef, x: number, y: numb
 export function spawnEnemyRing(ctx: GameContext, def: EnemyDef, elite?: EliteAffix): Entity {
   const pt = ctx.world.get(ctx.player, Transform)!;
   const a = ctx.rng() * Math.PI * 2;
-  return spawnEnemyAt(ctx, def, pt.x + Math.cos(a) * WAVE.spawnRadius, pt.y + Math.sin(a) * WAVE.spawnRadius, elite);
+  const spot = findFreeSpot(
+    ctx,
+    pt.x + Math.cos(a) * WAVE.spawnRadius,
+    pt.y + Math.sin(a) * WAVE.spawnRadius,
+    def.radius,
+  );
+  return spawnEnemyAt(ctx, def, spot.x, spot.y, elite);
 }
 
-export function spawnBoss(ctx: GameContext, hpMul = 1): Entity {
+/**
+ * The bosses a run can draw. Which one shows up is a roll of the run's seed, so "which boss did
+ * I get" is part of what makes two runs different — and in endless they alternate, so a long
+ * run sees both rather than the same fight with more HP.
+ */
+export const BOSS_IDS = ['boss', 'siege'] as const;
+
+export function spawnBoss(ctx: GameContext, hpMul = 1, cycle?: number): Entity {
   const pt = ctx.world.get(ctx.player, Transform)!;
   const a = ctx.rng() * Math.PI * 2;
-  const boss = ENEMIES['boss']!;
+  const id = cycle === undefined
+    ? BOSS_IDS[Math.floor(ctx.rng() * BOSS_IDS.length)]
+    : BOSS_IDS[cycle % BOSS_IDS.length];
+  const boss = ENEMIES[id];
+  ctx.director.bossId = id;
   ctx.audio.boss();
   ctx.screen.shake = Math.max(ctx.screen.shake, 14);
   const e = spawnEnemyAt(ctx, boss, pt.x + Math.cos(a) * 420, pt.y + Math.sin(a) * 420);
@@ -72,7 +95,7 @@ export function spawnBoss(ctx: GameContext, hpMul = 1): Entity {
 
 /** The golden runner: flees the player and despawns (no rewards) if not hunted down in time. */
 export function spawnGoldenRunner(ctx: GameContext): Entity {
-  const e = spawnEnemyRing(ctx, ENEMIES['golden']!);
+  const e = spawnEnemyRing(ctx, ENEMIES['golden']);
   ctx.world.add(e, Lifetime, { t: 12 });
   return e;
 }
@@ -96,10 +119,66 @@ export function spawnBullet(
   return e;
 }
 
-export function spawnCrate(ctx: GameContext, x: number, y: number): Entity {
+/** A lingering acid pool. Harmless to the horde; it exists to take space away from the player. */
+export function spawnHazard(
+  ctx: GameContext,
+  x: number,
+  y: number,
+  r: number,
+  seconds: number,
+  dps: number,
+  color = '#8fe04a',
+): Entity {
   const w = ctx.world;
   const e = w.create();
   w.add(e, Transform, { x, y, rot: 0 });
+  w.add(e, Hazard, { r, until: ctx.time.elapsed + seconds, dps, nextTick: ctx.time.elapsed, color });
+  return e;
+}
+
+/**
+ * A bare entity whose only job is to carry one wind-up. Lets a single attacker put several
+ * telegraphed circles in the air at once, which a component on the boss itself cannot do.
+ */
+export function spawnTelegraphMarker(ctx: GameContext, x: number, y: number): Entity {
+  const e = ctx.world.create();
+  ctx.world.add(e, Transform, { x, y, rot: 0 });
+  return e;
+}
+
+/** An explosive barrel: destructible cover the player can turn into a bomb. */
+export function spawnBarrel(ctx: GameContext, x: number, y: number): Entity {
+  const w = ctx.world;
+  const e = w.create();
+  w.add(e, Transform, { x, y, rot: 0 });
+  w.add(e, Health, { hp: BARREL_HP, max: BARREL_HP, invuln: 0, flash: 0 });
+  w.add(e, Collider, { r: 12 });
+  w.add(e, Barrel, { fuse: 0 });
+  w.add(e, Renderable, { shape: 'circle', r: 12, color: '#c2622a' });
+  return e;
+}
+
+/**
+ * Nudge a spawn point off any cover it would land inside. Interactables (crates, altars,
+ * survivors) are unreachable when they spawn inside a container, so this is not cosmetic.
+ */
+export function findFreeSpot(ctx: GameContext, x: number, y: number, r: number): { x: number; y: number } {
+  if (!blockedAt(ctx.seed, x, y, r)) return { x, y };
+  for (let i = 1; i <= 6; i++) {
+    const a = ctx.rng() * Math.PI * 2;
+    const d = 40 * i;
+    const nx = x + Math.cos(a) * d;
+    const ny = y + Math.sin(a) * d;
+    if (!blockedAt(ctx.seed, nx, ny, r)) return { x: nx, y: ny };
+  }
+  return { x, y };
+}
+
+export function spawnCrate(ctx: GameContext, x: number, y: number): Entity {
+  const w = ctx.world;
+  const e = w.create();
+  const spot = findFreeSpot(ctx, x, y, 20);
+  w.add(e, Transform, { x: spot.x, y: spot.y, rot: 0 });
   w.add(e, SupplyCrate, { landAt: ctx.time.elapsed + SUPPLY_FALL_SECONDS });
   w.add(e, Renderable, { shape: 'rect', r: 14, color: '#c8b273' });
   return e;
@@ -112,7 +191,8 @@ export function spawnSurvivor(ctx: GameContext, def: WingmanDef): Entity {
   const a = ctx.rng() * Math.PI * 2;
   const r = 300 + ctx.rng() * 150;
   const e = w.create();
-  w.add(e, Transform, { x: (pt?.x ?? 0) + Math.cos(a) * r, y: (pt?.y ?? 0) + Math.sin(a) * r, rot: 0 });
+  const spot = findFreeSpot(ctx, (pt?.x ?? 0) + Math.cos(a) * r, (pt?.y ?? 0) + Math.sin(a) * r, 16);
+  w.add(e, Transform, { x: spot.x, y: spot.y, rot: 0 });
   w.add(e, Survivor, { def, until: ctx.time.elapsed + SURVIVOR_WAIT });
   w.add(e, Renderable, { shape: 'circle', r: 11, color: def.color });
   return e;

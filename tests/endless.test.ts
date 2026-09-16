@@ -15,7 +15,7 @@ describe('endless mode', () => {
     ctx.director.endless = true;
     ctx.time.elapsed = 300;
 
-    const boss = spawnEnemyAt(ctx, ENEMIES['boss']!, 100, 0);
+    const boss = spawnEnemyAt(ctx, ENEMIES['boss'], 100, 0);
     killEnemy(ctx, boss);
 
     expect(victories).toBe(0);
@@ -30,7 +30,7 @@ describe('endless mode', () => {
     let victories = 0;
     ctx.events.onVictory = () => victories++;
 
-    const boss = spawnEnemyAt(ctx, ENEMIES['boss']!, 100, 0);
+    const boss = spawnEnemyAt(ctx, ENEMIES['boss'], 100, 0);
     killEnemy(ctx, boss);
 
     expect(victories).toBe(1);
@@ -52,7 +52,26 @@ describe('endless mode', () => {
     expect(bosses).toHaveLength(1);
     expect(d.bossCycle).toBe(1);
     expect(d.nextBossAt).toBeUndefined(); // re-armed only when this tyrant dies
-    const h = ctx.world.get(bosses[0]!, Health)!;
-    expect(h.max).toBeCloseTo(ENEMIES['boss']!.hp * ENDLESS_BOSS_HP_MUL);
+    // Endless alternates the two bosses, so scale against whichever one actually turned up.
+    const spawned = ctx.world.get(bosses[0], Enemy)!.def;
+    const h = ctx.world.get(bosses[0], Health)!;
+    expect(h.max).toBeCloseTo(spawned.hp * ENDLESS_BOSS_HP_MUL);
+  });
+
+  it('alternates the bosses across endless cycles instead of replaying one louder', () => {
+    const seen = new Set<string>();
+    for (const cycle of [0, 1]) {
+      const ctx = makeCtx();
+      const d = ctx.director;
+      d.endless = true;
+      d.bossSpawned = true;
+      d.bossCycle = cycle;
+      d.nextBossAt = 400;
+      ctx.time.elapsed = 400.5;
+      directorSystem(ctx, 1 / 60);
+      const boss = ctx.world.query(Enemy).find((x) => ctx.world.get(x, Enemy)!.def.isBoss)!;
+      seen.add(ctx.world.get(boss, Enemy)!.def.id);
+    }
+    expect(seen.size).toBe(2);
   });
 });

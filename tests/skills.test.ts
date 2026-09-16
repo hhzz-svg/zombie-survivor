@@ -21,6 +21,7 @@ function freshStats(): PlayerStats {
     level: 1, xp: 0, xpToNext: xpToNext(1), kills: 0,
     damageMul: 1, fireRateMul: 1, moveSpeed: PLAYER_BASE.moveSpeed, maxHp: PLAYER_BASE.maxHp,
     pierceBonus: 0, magnet: 0, projectileBonus: 0, crit: 0, lifesteal: 0,
+    detonate: 0, chill: 0, desperate: 0, evoDiscount: 0,
   };
 }
 
@@ -47,8 +48,8 @@ function makeCtx(): GameContext {
   const ctx: GameContext = {
     world, player: 0, hash: new SpatialHash(40), fx: new FX(), audio: new AudioBus(),
     time: { elapsed: 0, hitStop: 0 }, director: { budget: 0, bossSpawned: false, bossDead: false },
-    stats: freshStats(), input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
-    rng: world.rng, camera: { x: 0, y: 0 }, screen: { shake: 0 },
+    stats: freshStats(), passives: new Map<string, number>(), input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
+    rng: world.rng, seed: 5, camera: { x: 0, y: 0 }, screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
     skills: freshSkills(),
@@ -119,14 +120,14 @@ describe('active skills', () => {
   it('burst damages nearby enemies only', () => {
     const ctx = makeCtx();
     ctx.skills.owned.add('burst');
-    const near = spawnEnemyAt(ctx, ENEMIES.walker!, 80, 0);
-    const far = spawnEnemyAt(ctx, ENEMIES.brute!, 260, 0);
+    const near = spawnEnemyAt(ctx, ENEMIES.walker, 80, 0);
+    const far = spawnEnemyAt(ctx, ENEMIES.brute, 260, 0);
     rebuildEnemyHash(ctx);
 
     expect(useSkill(ctx, 'KeyX')).toBe(true);
 
-    expect(ctx.world.get(near, Health)?.hp ?? 0).toBeLessThan(ENEMIES.walker!.hp);
-    expect(ctx.world.get(far, Health)!.hp).toBeCloseTo(ENEMIES.brute!.hp);
+    expect(ctx.world.get(near, Health)?.hp ?? 0).toBeLessThan(ENEMIES.walker.hp);
+    expect(ctx.world.get(far, Health)!.hp).toBeCloseTo(ENEMIES.brute.hp);
   });
 
   it('barrier absorbs damage with temporary layers', () => {
@@ -148,7 +149,7 @@ describe('active skills', () => {
   it('slow expires and reduces enemy movement while active', () => {
     const ctx = makeCtx();
     ctx.skills.owned.add('slow');
-    const enemy = spawnEnemyAt(ctx, ENEMIES.runner!, 100, 0);
+    const enemy = spawnEnemyAt(ctx, ENEMIES.runner, 100, 0);
     rebuildEnemyHash(ctx);
 
     enemyAISystem(ctx, 1 / 60);

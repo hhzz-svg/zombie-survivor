@@ -2,9 +2,42 @@ import type { GameContext } from '../ctx';
 import { Transform, Velocity, Enemy, Health } from '../components';
 import { speedScale, WAVE, activeSurge, SURGE_SPEED_MUL } from '../data/balance';
 import { ENEMIES } from '../data/enemies';
-import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet } from '../factory';
-import { damagePlayer } from './combat';
+import { spawnEnemyBullet, spawnEnemyAt, spawnBossBullet, spawnTelegraphMarker } from '../factory';
 import { SLOW_FACTOR, slowActive } from './skills';
+import { obstaclesNear, rayReach, type Obstacle } from '../data/obstacles';
+import { startTelegraph } from './telegraph';
+import {
+  WARDEN_TURN_RATE, BROOD_INTERVAL, BROOD_LITTER,
+  LASHER_MIN_RANGE, LASHER_MAX_RANGE, LASHER_INTERVAL, LASHER_WINDUP, LASHER_DAMAGE,
+  BOSS_SLAM_WINDUP,
+  SIEGE_BARRAGE_INTERVAL, SIEGE_BARRAGE_WINDUP, SIEGE_SHELLS, SIEGE_SHELLS_ENRAGED,
+  SIEGE_SHELL_RADIUS, SIEGE_SHELL_DAMAGE, SIEGE_LEAD, SIEGE_SUMMON_INTERVAL, SIEGE_ENRAGE_AT,
+} from '../data/enemies';
+import { tr } from '../i18n';
+
+/** How close cover has to be before the horde starts steering around it. */
+const AVOID_RANGE = 74;
+
+/** Rotate a facing toward (tx, ty) by at most `maxStep` radians. */
+function turnToward(en: { faceX: number; faceY: number }, tx: number, ty: number, maxStep: number): void {
+  const cur = Math.atan2(en.faceY, en.faceX);
+  const want = Math.atan2(ty, tx);
+  let diff = want - cur;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  const step = Math.max(-maxStep, Math.min(maxStep, diff));
+  en.faceX = Math.cos(cur + step);
+  en.faceY = Math.sin(cur + step);
+}
+
+/** Ducking behind a container stops the lasher, same as it stops bullets and the beam. */
+function hasLineOfSight(ctx: GameContext, x1: number, y1: number, x2: number, y2: number): boolean {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return true;
+  return rayReach(ctx.seed, x1, y1, dx / len, dy / len, len) >= len;
+}
 
 /**
  * Enemy steering: seek the player + separation (anti-clumping) via the spatial hash.
@@ -14,6 +47,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
   const w = ctx.world;
   const pt = w.get(ctx.player, Transform)!;
   const neigh: number[] = [];
+  const nearby: Obstacle[] = [];
   const slowMul = slowActive(ctx) ? SLOW_FACTOR : 1;
   const surgeMul = activeSurge(ctx.time.elapsed) ? SURGE_SPEED_MUL : 1;
 
@@ -51,11 +85,78 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
     let mx = dx + sx * 0.8;
     let my = dy + sy * 0.8;
 
+    // Tangential avoidance: skim past cover rather than pressing into it. Combined with the
+    // push-out in blockerSystem this is enough — see the note there on why there is no A*.
+    if (!en.def.isBoss) {
+      obstaclesNear(ctx.seed, t.x, t.y, AVOID_RANGE, nearby);
+      for (const ob of nearby) {
+        const ax = t.x - ob.x;
+        const ay = t.y - ob.y;
+        const ad = Math.hypot(ax, ay);
+        if (ad === 0 || ad > AVOID_RANGE) continue;
+        const w8 = (1 - ad / AVOID_RANGE) * 1.6;
+        // Slide around whichever way the enemy is already leaning.
+        const side = mx * -ay + my * ax >= 0 ? 1 : -1;
+        mx += (-ay / ad) * side * w8 + (ax / ad) * w8 * 0.35;
+        my += (ax / ad) * side * w8 + (ay / ad) * w8 * 0.35;
+      }
+    }
+
     if (en.def.behavior === 'golden') {
       // Flees the player, weaving as it runs; despawns via its Lifetime if it escapes.
       const weave = Math.sin(en.t * 5.2) * 0.55;
       mx = -dx + -dy * weave + sx * 0.4;
       my = -dy + dx * weave + sy * 0.4;
+    } else if (en.def.behavior === 'warden') {
+      // Shield-first advance: it turns slowly, so a player who circles it gets the back.
+      turnToward(en, dx, dy, WARDEN_TURN_RATE * dt);
+    } else if (en.def.behavior === 'brood') {
+      // Hangs back and floods the field. Ignore it and the horde compounds.
+      if (dist < 220) {
+        mx = -dx * 0.6 + sx * 0.8;
+        my = -dy * 0.6 + sy * 0.8;
+      }
+      en.abilityCd -= dt * slowMul;
+      if (en.abilityCd <= 0 && w.query(Enemy).length < WAVE.cap) {
+        en.abilityCd = BROOD_INTERVAL;
+        for (let i = 0; i < BROOD_LITTER; i++) {
+          const a = ctx.rng() * Math.PI * 2;
+          spawnEnemyAt(ctx, ENEMIES['walker'], t.x + Math.cos(a) * 34, t.y + Math.sin(a) * 34);
+        }
+        ctx.fx.shockwave(t.x, t.y, 42, '#c79bf0', 0.26);
+        ctx.fx.burst(t.x, t.y, 14, '#c79bf0', 150, ctx.rng);
+      }
+    } else if (en.def.behavior === 'lasher') {
+      // Holds a band of range and hooks the player in — standing still at range is no longer safe.
+      if (dist < LASHER_MIN_RANGE) {
+        mx = -dx + sx * 0.8;
+        my = -dy + sy * 0.8;
+      } else if (dist > LASHER_MAX_RANGE) {
+        mx = dx + sx * 0.8;
+        my = dy + sy * 0.8;
+      } else {
+        mx = sx * 0.8 + -dy * 0.5; // strafe
+        my = sy * 0.8 + dx * 0.5;
+      }
+      en.abilityCd -= dt * slowMul;
+      if (
+        en.abilityCd <= 0 &&
+        dist >= LASHER_MIN_RANGE &&
+        dist <= LASHER_MAX_RANGE &&
+        hasLineOfSight(ctx, t.x, t.y, pt.x, pt.y)
+      ) {
+        en.abilityCd = LASHER_INTERVAL;
+        startTelegraph(ctx, e, {
+          kind: 'lash',
+          x: pt.x,
+          y: pt.y,
+          r: 26,
+          windup: LASHER_WINDUP,
+          dmg: LASHER_DAMAGE * (en.elite?.dmgMul ?? 1),
+          color: '#ffb160',
+          cause: tr('钩刺者拖拽', 'Lasher drag'),
+        });
+      }
     } else if (en.def.behavior === 'spitter') {
       if (dist < 200) {
         mx = -dx + sx * 0.8;
@@ -65,6 +166,61 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
       if (en.shootCd <= 0 && dist < 460) {
         en.shootCd = 2.4;
         spawnEnemyBullet(ctx, t.x, t.y, dx, dy);
+      }
+    } else if (en.def.behavior === 'siege') {
+      // Keeps its distance and shells the ground. Contact is still lethal, so it is not a
+      // turret to be ignored — but the fight is decided by who controls the floor.
+      if (dist < 260) {
+        mx = -dx + sx * 0.8;
+        my = -dy + sy * 0.8;
+      }
+      const bh = w.get(e, Health);
+      if (bh && !en.enraged && bh.hp / bh.max < SIEGE_ENRAGE_AT) {
+        en.enraged = true;
+        ctx.audio.boss();
+        ctx.screen.shake = Math.max(ctx.screen.shake, 12);
+      }
+
+      en.volleyCd -= dt * slowMul;
+      if (en.volleyCd <= 0) {
+        en.volleyCd = SIEGE_BARRAGE_INTERVAL;
+        const shells = en.enraged ? SIEGE_SHELLS_ENRAGED : SIEGE_SHELLS;
+        const pv = w.get(ctx.player, Velocity);
+        for (let i = 0; i < shells; i++) {
+          // A creeping barrage: one shell on the player, the rest walking along their heading
+          // one blast radius apart, so standing still is the only way to eat every single one.
+          // Spacing them closer than SIEGE_SHELL_RADIUS would just make one large blob.
+          const lead = i * SIEGE_LEAD;
+          const jitterA = ctx.rng() * Math.PI * 2;
+          const jitter = i === 0 ? 0 : 40;
+          const vx = pv ? pv.x : 0;
+          const vy = pv ? pv.y : 0;
+          const vl = Math.hypot(vx, vy) || 1;
+          const tx = pt.x + (vx / vl) * lead + Math.cos(jitterA) * jitter;
+          const ty = pt.y + (vy / vl) * lead + Math.sin(jitterA) * jitter;
+          startTelegraph(ctx, spawnTelegraphMarker(ctx, tx, ty), {
+            kind: 'acid',
+            x: tx,
+            y: ty,
+            r: SIEGE_SHELL_RADIUS,
+            windup: SIEGE_BARRAGE_WINDUP + i * 0.18,
+            dmg: SIEGE_SHELL_DAMAGE,
+            color: '#8fe04a',
+            cause: tr('腐蚀母株炮击', 'Rotting Matriarch barrage'),
+          });
+        }
+        ctx.audio.boss();
+      }
+
+      en.summonCd -= dt * slowMul;
+      if (en.summonCd <= 0 && w.query(Enemy).length < WAVE.cap) {
+        en.summonCd = SIEGE_SUMMON_INTERVAL;
+        // Wardens, not runners: you cannot simply walk away from the acid in a straight line.
+        for (let i = 0; i < (en.enraged ? 3 : 2); i++) {
+          const a = ctx.rng() * Math.PI * 2;
+          spawnEnemyAt(ctx, ENEMIES['warden'], t.x + Math.cos(a) * 70, t.y + Math.sin(a) * 70);
+        }
+        ctx.fx.shockwave(t.x, t.y, 60, '#8fe04a', 0.3);
       }
     } else if (en.def.behavior === 'boss') {
       const bh = w.get(e, Health);
@@ -79,7 +235,7 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
         const count = en.enraged ? 4 : 3;
         for (let i = 0; i < count; i++) {
           const a = ctx.rng() * Math.PI * 2;
-          spawnEnemyAt(ctx, ENEMIES['runner']!, t.x + Math.cos(a) * 60, t.y + Math.sin(a) * 60);
+          spawnEnemyAt(ctx, ENEMIES['runner'], t.x + Math.cos(a) * 60, t.y + Math.sin(a) * 60);
         }
       }
       en.volleyCd -= dt * slowMul;
@@ -98,29 +254,31 @@ export function enemyAISystem(ctx: GameContext, dt: number): void {
       en.slamCd -= dt * slowMul;
       if (en.slamCd <= 0) {
         en.slamCd = en.enraged ? 4.7 : 6.5;
-        const radius = 128 + (en.enraged ? 32 : 0);
-        ctx.fx.shockwave(t.x, t.y, radius, '#ffb4d0', 0.38);
-        ctx.fx.burst(t.x, t.y, en.enraged ? 28 : 20, '#ff87b5', 220, ctx.rng);
-        const ptDist = Math.hypot(pt.x - t.x, pt.y - t.y) || 1;
-        const push = en.enraged ? 260 : 180;
-        const px = (pt.x - t.x) / ptDist;
-        const py = (pt.y - t.y) / ptDist;
-        if (ptDist <= radius + 14) damagePlayer(ctx, en.enraged ? 24 : 16, '母巢暴君震地猛击');
-        pt.x += px * push * 0.02;
-        pt.y += py * push * 0.02;
-        ctx.time.hitStop = Math.max(ctx.time.hitStop, en.enraged ? 45 : 28);
-        ctx.screen.shake = Math.max(ctx.screen.shake, en.enraged ? 18 : 12);
-        ctx.audio.explode();
+        // Wound up on the ground where the tyrant stands, so the slam is dodgeable now
+        // instead of simply happening to whoever was standing near it.
+        startTelegraph(ctx, e, {
+          kind: 'slam',
+          x: t.x,
+          y: t.y,
+          r: 128 + (en.enraged ? 32 : 0),
+          windup: BOSS_SLAM_WINDUP,
+          dmg: en.enraged ? 24 : 16,
+          color: '#ffb4d0',
+          cause: tr('母巢暴君震地猛击', 'Hive Tyrant ground slam'),
+        });
+        ctx.audio.boss();
       }
     }
 
+    if (en.chillMul < 1 && ctx.time.elapsed >= en.chillUntil) en.chillMul = 1;
     const ml = Math.hypot(mx, my) || 1;
     const speed = en.def.speed
       * speedScale(ctx.time.elapsed)
       * (en.enraged ? 1.4 : 1)
       * (en.elite?.speedMul ?? 1)
       * surgeMul
-      * slowMul;
+      * slowMul
+      * en.chillMul;
     v.x = (mx / ml) * speed;
     v.y = (my / ml) * speed;
   }
