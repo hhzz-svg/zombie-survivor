@@ -6,6 +6,7 @@ import type { ShopOffer } from '../shop';
 import type { Settings } from '../settings';
 import { TALENTS, BRANCH_NAMES, BRANCH_BLURB, buyState, nextCost, levelOf, totalSpent } from '../data/talents';
 import { tr, isLang, LANGUAGES, LANGUAGE_NAMES } from '../i18n';
+import { ASSET_BASE } from '../assetPath';
 
 export interface HudData {
   stage: number;
@@ -473,14 +474,14 @@ export class UI {
       const keyHint = item.def.kind === 'charge' && item.def.key
         ? `<span class="slot-key">${keyLabel(item.def.key)}</span>`
         : '';
-      barHtml += `<div class="${cls}" title="${item.def.tip}"><img class="slot-img" src="/assets/${item.def.iconKey}.png" alt="">${overlay}${countBadge}${keyHint}</div>`;
+      barHtml += `<div class="${cls}" title="${item.def.tip}"><img class="slot-img" src="${ASSET_BASE}/${item.def.iconKey}.png" alt="">${overlay}${countBadge}${keyHint}</div>`;
     }
     for (const skill of d.skills) {
       const ready = skill.remain <= 0;
       const cls = `slot skill${ready ? ' ready' : ''}${skill.active ? ' active' : ''}`;
       const overlay = ready ? '' : `<div class="cd-overlay">${Math.ceil(skill.remain)}s</div>`;
       barHtml += `<div class="${cls}" title="${skill.def.desc}">
-        <img class="slot-img" src="/assets/${skill.def.iconKey}.png" alt="">
+        <img class="slot-img" src="${ASSET_BASE}/${skill.def.iconKey}.png" alt="">
         ${overlay}
         <span class="slot-key">${keyLabel(skill.def.key)}</span>
       </div>`;
@@ -504,7 +505,7 @@ export class UI {
             : '';
           return `
         <div class="op${op.id === this.titleSelection ? ' sel' : ''}" data-op="${op.id}" role="button" tabindex="0">
-          <img src="/assets/${op.spriteKey}.png" alt="">
+          <img src="${ASSET_BASE}/${op.spriteKey}.png" alt="">
           <div class="o-name">${op.name}</div>
           <div class="o-title">${op.title}</div>
           <div class="o-perk">${op.perk}</div>
@@ -833,7 +834,7 @@ export class UI {
         (c, i) => {
           const spriteKey = 'sprite' in c ? c.sprite : undefined;
           const spriteImg = spriteKey
-            ? `<img src="/assets/${spriteKey}.png" style="width:56px;height:56px;object-fit:contain;margin-bottom:4px;filter:drop-shadow(0 0 6px rgba(63,174,132,.5))" alt="">`
+            ? `<img src="${ASSET_BASE}/${spriteKey}.png" style="width:56px;height:56px;object-fit:contain;margin-bottom:4px;filter:drop-shadow(0 0 6px rgba(63,174,132,.5))" alt="">`
             : '';
           const trait = c.kind === 'passive' && c.passive.kind === 'trait';
           const kind = choiceKindLabel(c, trait);
@@ -908,7 +909,7 @@ export class UI {
         const heldLine = held ? `<div class="held-label">${held}</div>` : '';
         const kindLabel = isSkill ? tr('主动技能', 'Active Skill') : equipmentKindLabel(offer.equipment.kind);
         const iconKey = isSkill ? offer.skill.iconKey : offer.equipment.iconKey;
-        const icon = `<img src="/assets/${iconKey}.png" alt="">`;
+        const icon = `<img src="${ASSET_BASE}/${iconKey}.png" alt="">`;
         const lackLine = canAfford ? '' : `<div class="lack">${tr(`还差 ${def.cost - gold} 金币`, `${def.cost - gold} more gold`)}</div>`;
         const keyHint = isSkill
           ? `<div class="key">${tr(`技能键 ${keyLabel(offer.skill.key)}`, `Skill key ${keyLabel(offer.skill.key)}`)}</div>`

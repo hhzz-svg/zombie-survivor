@@ -1,9 +1,10 @@
 /**
  * Procedural audio + sampled SFX. On first user gesture it spins up Web Audio, loads any provided
- * .wav samples (/assets/<name>.wav) into buffers, and plays them; if a sample is missing it falls
+ * .wav samples (<base>/assets/<name>.wav) into buffers, and plays them; if a sample is missing it falls
  * back to a synthesized tone. Four procedural music layers crossfade with the state of the run.
  * In Node (headless sim / tests) there is no Web Audio, so everything degrades to a silent no-op.
  */
+import { ASSET_BASE } from '../assetPath';
 import {
   MUSIC_LAYERS, layerMix, midiToFreq, fillNoise,
   STEP_SECONDS, STEPS_PER_BAR, ROOT_MIDI, PULSE_KICK, PULSE_TICK, BOSS_RIFF,
@@ -65,7 +66,7 @@ export class AudioBus {
     if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
 
-  private async loadSamples(base = '/assets'): Promise<void> {
+  private async loadSamples(base = ASSET_BASE): Promise<void> {
     if (this.samplesRequested || !this.ctx) return;
     this.samplesRequested = true;
     for (const name of SAMPLE_NAMES) {

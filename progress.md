@@ -1,3 +1,43 @@
+## 2026-09-16 - Task: 资源路径写死在域名根目录，游戏没法部署到子路径
+
+### 起因
+
+被问「在线试玩的网址是什么」——**这个项目从来没部署过**：没有 Pages workflow、没有 gh-pages 分支、`homepage` 指向 README。准备打包的时候发现一个真问题。
+
+### 问题
+
+8 处资源路径是绝对路径 `/assets/...`：
+
+- `src/render/assets.ts` 的 `load(base = '/assets')`（精灵图 manifest + 所有 PNG）
+- `src/audio/audio.ts` 的 `loadSamples(base = '/assets')`（7 个 wav）
+- `src/ui/ui.ts` 里 5 处 `<img src="/assets/...">`（道具栏图标、技能图标、干员立绘、升级卡精灵、商店图标）
+
+只要不是部署在域名根目录，这些全部 404。GitHub Pages 的 `user.github.io/<repo>/` 正是这种情况。
+
+**而且它是静默失败的**：两个 loader 都刻意吞掉异常（「没资源就退化成程序化色块」是设计好的降级路径），所以表现不是报错，而是**整个游戏变成彩色圆圈、没有音效**，控制台一句话都没有。这个降级设计本身是对的——它让美术可以增量替换——但也正因如此，路径错了没人会发现。
+
+### What was done
+
+- 新增 `src/assetPath.ts`：`ASSET_BASE = \`${import.meta.env.BASE_URL}assets\``。Vite 用构建时的 `--base` 填 `BASE_URL`，所以资源路径跟着部署位置走。
+- 8 处全部改用它。
+
+### Testing
+
+- `npx eslint .`、两个 TS 工程、`npm run i18n:audit`、`npm run build`：各自单独执行，退出码均为 0。
+- `npm test`：269 个测试全过。
+- 构建产物里已无绝对 `/assets`（`grep -c '"/assets' dist/assets/*.js` 三个 chunk 全是 0），`ASSET_BASE` 编译成 `"./assets"`。
+- **关键一步是真的放到子路径上跑**：`vite build --base=./` 之后把 dist 放到 `http://localhost:5211/play/zombie/`，Playwright 实测——地面贴图、敌人精灵、血迹、HUD 图标全部正常加载，HTML `<img>` 零破图，**零 4xx，零 console 报错**。修之前这个场景下会静默退化成色块。
+
+### 教训
+
+**刻意的静默降级会掩盖配置错误。** 「资源加载失败就退化」是个好设计，但它同时意味着「路径写错」和「还没放美术」在表现上完全一样。这类降级路径至少要能被一次真实的子路径部署测出来——而在此之前，这个项目只在 `vite dev`（根路径）和 `vite preview`（根路径）下跑过，所以八个绝对路径一直没暴露。
+
+### Notes
+
+- 新增 `src/assetPath.ts`；改动 `src/render/assets.ts`、`src/audio/audio.ts`、`src/ui/ui.ts`。
+- 仓库仍然没有部署流程。这次只是让部署**成为可能**，`npm run build -- --base=./` 产出的 dist 现在可以直接扔到任何静态托管的任何路径下。
+- 回滚方式：回退本任务对应提交。
+
 ## 2026-09-16 - Task: 盾卫护盾弧——常数和注释差了 47°
 
 ### 起因
