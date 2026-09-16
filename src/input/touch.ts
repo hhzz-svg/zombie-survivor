@@ -31,6 +31,8 @@ export class TouchControls {
   private aim: Active | null = null;
   /** True once a real touch has happened — desktop never shows the sticks. */
   private used = false;
+  /** True once the aim stick has been used, which switches aiming from follow to hold. */
+  private aimUsed = false;
 
   constructor(private readonly target: HTMLElement = document.body) {
     this.layer = document.createElement('div');
@@ -67,6 +69,11 @@ export class TouchControls {
     return this.aim?.vector ?? CENTRED;
   }
 
+  /** Whether this player aims with the right stick, rather than letting the guns follow their feet. */
+  get aimsDeliberately(): boolean {
+    return this.aimUsed;
+  }
+
   private onDown(e: PointerEvent): void {
     if (e.pointerType === 'mouse') return;
     // A tap on the HUD (an item slot, the shop button) is a press, not a stick.
@@ -97,8 +104,12 @@ export class TouchControls {
       el,
       knob,
     };
-    if (wantsAim) this.aim = active;
-    else this.move = active;
+    if (wantsAim) {
+      this.aim = active;
+      this.aimUsed = true;
+    } else {
+      this.move = active;
+    }
   }
 
   private onMove(e: PointerEvent): void {

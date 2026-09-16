@@ -51,12 +51,19 @@ export function knobOffset(dx: number, dy: number, radius = STICK_RADIUS): { x: 
 }
 
 /**
- * What the player is aiming at, in precedence order:
+ * What the player is aiming at.
  *
- *   1. the aim stick, while a thumb is on it;
- *   2. the direction they are moving, so one-thumb play still points the guns forward;
- *   3. the last direction that was deliberately chosen, so letting go does not snap the
- *      aim somewhere arbitrary while the player is standing still.
+ * There are two ways to play, and the difference is `aimIsDeliberate` — has this player
+ * ever touched the aim stick?
+ *
+ *   One thumb (never aimed): the guns point where you walk. Nothing else is available,
+ *   and a weapon that fires on its own has to point somewhere.
+ *
+ *   Two thumbs (has aimed): the aim stick owns the aim, and **keeps** it after release.
+ *   This is the part that was wrong at first: movement used to outrank the last heading,
+ *   so letting go of the aim stick while still walking threw the aim away instantly. The
+ *   right half of the screen did control aiming, but only while held — which reads as it
+ *   not working at all. Holding is the twin-stick convention for exactly this reason.
  *
  * Weapons fire on their own, so an aim of (0,0) would be a stream of shots into the floor —
  * hence the final fallback to a fixed direction rather than nothing.
@@ -65,8 +72,10 @@ export function resolveAim(
   aimStick: StickVector,
   move: { x: number; y: number },
   last: { x: number; y: number },
+  aimIsDeliberate = false,
 ): { x: number; y: number } {
   if (aimStick.magnitude > 0) return unit(aimStick.x, aimStick.y) ?? { x: 1, y: 0 };
+  if (aimIsDeliberate) return unit(last.x, last.y) ?? unit(move.x, move.y) ?? { x: 1, y: 0 };
   return unit(move.x, move.y) ?? unit(last.x, last.y) ?? { x: 1, y: 0 };
 }
 

@@ -35,7 +35,7 @@ export class DomInput implements InputProvider {
 
   aim(_px: number, _py: number): { x: number; y: number } {
     if (this.touch?.engaged) {
-      const next = resolveAim(this.touch.aimStick(), this.axis(), this.lastAim);
+      const next = resolveAim(this.touch.aimStick(), this.axis(), this.lastAim, this.touch.aimsDeliberately);
       this.lastAim = next;
       return next;
     }

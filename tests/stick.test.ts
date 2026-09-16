@@ -59,10 +59,28 @@ describe('resolveAim', () => {
     expect(aim).toEqual({ x: 0, y: -1 });
   });
 
-  it('points where you are walking when only one thumb is down', () => {
+  it('points where you are walking when the player has never used the aim stick', () => {
     const aim = resolveAim(CENTRED, { x: 0.6, y: 0.8 }, { x: -1, y: 0 });
     expect(aim.x).toBeCloseTo(0.6);
     expect(aim.y).toBeCloseTo(0.8);
+  });
+
+  it('HOLDS the aim after release once the player aims deliberately', () => {
+    // The bug this guards: movement used to outrank the last heading, so letting go of the
+    // aim stick while still walking threw the aim away and the right half of the screen
+    // read as broken.
+    const held = resolveAim(CENTRED, { x: 0.6, y: 0.8 }, { x: -1, y: 0 }, true);
+    expect(held).toEqual({ x: -1, y: 0 });
+  });
+
+  it('still follows the feet for a deliberate aimer who has no heading yet', () => {
+    const aim = resolveAim(CENTRED, { x: 0, y: 1 }, { x: 0, y: 0 }, true);
+    expect(aim).toEqual({ x: 0, y: 1 });
+  });
+
+  it('lets the stick override the held heading while it is down', () => {
+    const aim = resolveAim({ x: 1, y: 0, magnitude: 0.4 }, { x: 0, y: 1 }, { x: -1, y: 0 }, true);
+    expect(aim).toEqual({ x: 1, y: 0 });
   });
 
   it('holds the last aim when standing still, rather than snapping', () => {
