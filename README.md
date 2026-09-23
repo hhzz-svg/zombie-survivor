@@ -24,17 +24,27 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 
 ## Why it's fun
 
+- **Every run has a seed, and the seed is the run.** The whole simulation is deterministic from one number, so the end screen prints the run's code, "same seed again" replays it exactly, and typing a code someone shares gives you their world — same terrain, same spawns, same supply rolls.
+- **A permanent talent tree.** Every run banks **salvage** — from survival time, leftover gold, elites, tyrants and wins, so a defeat pays out too — and the title screen spends it across three branches and nine nodes that unlock in order. The two strongest are gated behind achievements, which finally makes the achievement wall unlock something instead of just ticking a box. **Refunds are always free and total**: a build you can't undo is a build nobody experiments with.
+- **The daily challenge is a fair fight.** One world per calendar day, identical for everyone playing that date — and it runs with talents and veterancy switched off, because otherwise the day's board would just rank who has been grinding longest. Keeps its own local best.
+- **Settings that respect the player.** Volume, mute, screen-shake scale (down to zero), damage numbers, and a *reduce flashing* switch that calms the blood-moon wash, the fever glow and the low-HP vignette. All presentation only — a seeded run plays out identically whatever you pick.
 - **Three playable operatives that grow.** Ranger (fire rate), Juggernaut (HP over speed), Hunter (crit glass cannon) — different starting weapons and stats. Every run banks veterancy XP (kills, survival, elites, victories), permanently leveling each operative's signature stat up to Lv.10, with live level and XP bars on the title cards.
 - **Rescue survivors, build a squad.** Stranded survivors appear on the field — reach them before they give up and they join (up to 2): a gunner with rapid covering fire, a burner hosing flame, or a medic who patches you up. Wingmen follow your movement, soak horde contact, and can fall for good — and then new survivors turn up.
 - **Kill chains are multipliers.** Kills within a 4-second window stack into tiers — 连击 → 杀戮 → 狂热 → 灭世 — multiplying XP and gold as you climb. One real hit breaks the chain. The riskier your kiting, the faster you snowball.
-- **Elite mutations.** Swift / Mighty / Toxic affix elites roll in over time with auras, name tags, and multiplied rewards; Toxic ones burst into a ring of acid on death. See a glow, plan before you dive.
+- **Elite mutations, readable without colour.** Swift / Mighty / Toxic affix elites roll in over time with auras, name tags, and multiplied rewards; Toxic ones burst into a ring of acid on death. Each affix also carries its own badge — chevrons, a wedge, three dots — because the three affix colours are amber / red / green, and red-green colour blindness collapses two of them into one. The badge reads at any range, tag or no tag. Hostile fire gets the same treatment: enemy bolts have a dark-ringed head, so they never depend on green-vs-amber alone.
+- **The battlefield has cover now.** Wrecked cars, shipping containers, concrete barriers and rubble are generated from the run's seed — infinite, identical on a replay, and never boxing in the opening area. They stop bullets from BOTH sides, so breaking line of sight is finally a real answer to the spitter, and kiting stops being a matter of drawing circles on an empty plane.
+- **Explosive barrels.** Scattered through the field, 30 HP, a short fuse, then a 120-radius blast that chains into other barrels. Every weapon already hits them for free — and so does the player who stands too close.
 - **Supply drops and blood moons bend the run.** A crate parachutes in every 42 seconds (gold / field-wide vacuum / weapon upgrade / shield cell… six rewards, revealed on open); blood moons hit on a schedule — ×2.3 spawns, +12% enemy speed, +60% gold. The screen turns red, and those seconds are both the danger and the payday.
 - **The golden runner.** A glowing target that flees at full sprint. Catch it for a fountain of coins; miss it and it's gone — a chase scene about once a minute.
 - **Blood-curse altars: your own difficulty dial.** From stage 2, an altar rises each stage. Step in to seal a pact — more spawns and elites in exchange for richer XP and gold. Greed pays, if you can back it up.
 - **20 achievements — every run makes progress.** Combo peaks, elite hunts, untouched openings, lifetime kill counts… unlocks pop live mid-run, with a persistent wall on the title screen and progress on the results screen.
 - **A comeback in your veins.** The first time HP dips under 20%, an adrenaline surge fires: heal, brief invulnerability, and a shockwave that throws the horde back — turning near-death into a highlight.
-- **Eight weapons, each with an evolution.** Pistol, shotgun, SMG, magnum, nova, orbit blades — plus the flamethrower (close-range fire hose) and the rocket launcher (splash damage). Max a weapon to unlock its ultimate form.
+- **Ten weapons, each with an evolution recipe.** Pistol, shotgun, SMG, magnum, nova, orbit blades, flamethrower and rocket launcher — plus two that are about **where you stand** rather than how hard you hit: the **prism beam** is a continuous lance that cover stops, so it wants a clean lane and the terrain decides where that is; the **arc** hops between bodies and reaches further the tighter the horde is packed. They pull in opposite directions. Maxing a weapon is only half of it: each evolution also demands its paired passive at Lv.3, so "I need multi-shot to three" becomes a mid-run goal instead of something that just happens.
+- **The level-up offer is something you can pay to change.** Reroll the table, or spend more to **banish** an entry so it never appears again this run. A narrower pool is better odds on the card you are building toward, which turns "assemble this weapon's evolution" from luck into a plan — and it is the only real late-game sink for gold. Measured: a run that uses it evolves 28% of the time against 6% without, and ends holding 232 gold instead of 2470.
+- **Six weapon slots, six passive slots.** Both are capped and passives level to 5, so every level-up is a decision about what you give up — not a free stat handout. Three of the passives change how combat behaves rather than moving a number: corpses that cook off on kill, hits that freeze the horde, and damage that spikes while you are nearly dead.
 - **Auto-fire, all movement.** No reloading, no aiming clicks — your attention goes entirely into positioning and crowd control. Easy to start, hard to master.
+- **Attacks you can read.** Telegraphed wind-ups: the lasher's hook and the tyrant's ground slam both mark where they will land before they land. Nothing in the game was dodgeable before this — a hit just happened to you.
+- **Two bosses, and the run draws one.** The Hive Tyrant chases. The Corrosion Matriarch barely moves and takes the ground away instead — a creeping barrage that leaves acid behind it, and wardens summoned to block the way out. The seed decides which one you meet, and endless alternates them rather than replaying one fight louder.
 - **A boss with a kit — and it doesn't end there.** The Hive Tyrant volleys, slams, and summons. Beat it and you can enter the **endless horde**: the Tyrant returns every 110 seconds, tougher each cycle, with blood moons on rotation. See how far you get.
 - **Active skills you actually pilot.** Dash through a pack, burst the room, pop a barrier, or slow time. Bought from the shop mid-run, mapped to `Z` `X` `C` `V` with live cooldown slots.
 - **It feels good to play.** Scaled damage numbers, a combo counter with fever-glow screen edges, parachuting crates with reward toasts, blood-moon tint, screen shake, hit flashes, corpses and blood decals — all on plain Canvas 2D, all running smooth with a crowded screen.
@@ -48,9 +58,15 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | **Spitter** | Ranged acid; forces you to keep moving. |
 | **Exploder** | Rushes in and detonates. Pop it early or pay for it. |
 | **Brute** | A wall of HP that shrugs off knockback. |
-| **Elite mutations** | Swift / Mighty / Toxic affixes with auras and name tags. Multiplied rewards; Toxic bursts acid on death. |
+| **Layered adaptive score** | Four procedural Web Audio layers — bed / rhythm / dread / boss — crossfading against horde pressure, blood moons and boss fights. No music asset, so it follows the fight continuously instead of cutting between clips. Music has its own volume slider. |
+| **Bilingual UI** | Every user-facing string is a `tr(zh, en)` pair — Chinese and English, switchable in Settings. A CI audit fails the build if a new string is added in one language only. |
+| **Elite mutations** | Swift / Mighty / Toxic affixes with auras, name tags and colour-independent badges. Multiplied rewards; Toxic bursts acid on death. |
+| **Warden** | Shield up front: fire inside its arc is 82% blocked. The shield swings slowly — get around it, through the horde. |
+| **Brood** | Hangs back and keeps hatching walkers. Ignore it and the field compounds on its own. |
+| **Lasher** | Hooks from mid range: a 0.75s warning line and landing ring, then it yanks you in. Break line of sight behind cover and it can't reach. |
 | **Golden runner** | Never attacks, only flees. Kill it before it escapes for a coin fountain. |
-| **Hive Tyrant** | The boss. Volleys, slams, and summons — survive it to win, then dare the endless horde. |
+| **Hive Tyrant** | One of two bosses. Volleys, a telegraphed ground slam, and summoned runners — a fight that chases you. |
+| **Corrosion Matriarch** | The other. Barely moves, but takes the floor away: a telegraphed creeping barrage that leaves acid pools for six seconds, plus summoned wardens to block the way out. |
 
 ## Controls
 
@@ -62,8 +78,11 @@ It starts as a cleanup job. It ends with hundreds of zombies on screen and a bos
 | Active skills | `Z` Dash · `X` Burst · `C` Barrier · `V` Time Slow |
 | Open shop | `B` |
 | Pick a level-up | `1` / `2` / `3` |
+| Reroll the offer | `R` (costs gold, dearer each time) |
+| Banish a card | Click `✕` on the card (costs gold; gone for the run) |
 | Pick operative / start / restart | Click + `Space` |
 | Pause / resume | `Esc` / `P` |
+| Settings (title / pause menu) | Click **Settings**; `Esc` goes back |
 | Enter endless mode after victory | `E` or the on-screen button |
 
 ## The shop
@@ -85,6 +104,22 @@ Open the local URL Vite prints (defaults to `http://localhost:5173`).
 | `npm run build` | Type-check, then build to `dist/`. |
 | `npm run preview` | Serve the production build locally. |
 | `npm test` | Run the test suite (unit + a headless game simulation). |
+| `npm run lint` | ESLint, including three rules that encode this project's invariants. |
+| `npm run i18n:audit` | Fail if any user-facing string is hardcoded in one language. |
+| `npm run balance` | Balance report: headless runs across many seeds and operatives — win rate, survival, weapon/passive pick rates, causes of death. |
+
+## Balance report
+
+The simulation is deterministic, so the same systems can replay whole runs in bulk with no browser — which turns this project's most distinctive asset into a tuning tool rather than just a regression net:
+
+```bash
+npm run balance                                   # 30 seeds × 3 operatives × 260s
+npm run balance -- --seeds=100 --seconds=300      # bigger sample
+npm run balance -- --ops=hunter --policy=first    # one operative / a different pick policy
+npm run balance -- --json=/tmp/runs.json          # also dump every run as raw data
+```
+
+It prints markdown: win rate and median survival per operative, pick rate and mean level for every weapon and passive, skill purchase rate, causes of death, and how far runs get. The numbers come from a scripted bot, not a human — use them to **compare versions and builds**, not as absolute difficulty.
 
 ## Built with
 

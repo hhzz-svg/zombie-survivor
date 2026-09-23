@@ -1,4 +1,5 @@
 import { WaveConfigSchema, type WaveConfig } from './schemas';
+import { tr } from '../i18n';
 
 /** Player base stats before any upgrades. */
 export const PLAYER_BASE = {
@@ -7,6 +8,35 @@ export const PLAYER_BASE = {
   radius: 12,
   pickupRange: 48,
 };
+
+// ---------------------------------------------------------------------------
+// Build slots: the run's core trade-off. Weapons and passives are capped, so a
+// level-up is a decision (what do I give up?) instead of a free stat handout.
+
+export const WEAPON_SLOTS = 6;
+export const PASSIVE_SLOTS = 6;
+export const MAX_PASSIVE_LEVEL = 5;
+
+// ---------------------------------------------------------------------------
+// Reroll & banish: paying gold to shape the level-up offer. This is the run's
+// only real late-game gold sink, and the only way to aim a build at a specific
+// evolution instead of waiting for the right card to show up.
+
+export const REROLL_BASE = 20;
+export const REROLL_STEP = 15; // linear: cheap enough to use often, never free
+export const BANISH_BASE = 60;
+export const BANISH_GROWTH = 1.7; // compounding: clearing the whole pool must stay out of reach
+
+export function rerollCost(used: number): number {
+  return REROLL_BASE + REROLL_STEP * used;
+}
+
+export function banishCost(used: number): number {
+  return Math.round(BANISH_BASE * BANISH_GROWTH ** used);
+}
+
+/** Below this fraction of max HP the `desperate` trait pays out. */
+export const DESPERATE_HP_FRAC = 0.4;
 
 /** XP needed to go from `level` to `level+1`. Grows so late levels feel earned. */
 export function xpToNext(level: number): number {
@@ -38,7 +68,7 @@ export const RUN_STAGES: readonly RunStage[] = [
 ];
 
 export function currentRunStage(t: number): RunStage {
-  let stage = RUN_STAGES[0]!;
+  let stage = RUN_STAGES[0];
   for (const s of RUN_STAGES) {
     if (t >= s.from) stage = s;
     else break;
@@ -80,10 +110,10 @@ export interface ComboTier {
 
 export const COMBO_TIERS: readonly ComboTier[] = [
   { at: 0, name: '', xpMul: 1, goldMul: 1, color: '#9ab1aa' },
-  { at: 10, name: '连击', xpMul: 1.1, goldMul: 1, color: '#61e5de' },
-  { at: 25, name: '杀戮', xpMul: 1.25, goldMul: 1.1, color: '#ffd166' },
-  { at: 50, name: '狂热', xpMul: 1.5, goldMul: 1.2, color: '#ff9f43' },
-  { at: 100, name: '灭世', xpMul: 2, goldMul: 1.35, color: '#ff5252' },
+  { at: 10, name: tr('连击', 'Combo'), xpMul: 1.1, goldMul: 1, color: '#61e5de' },
+  { at: 25, name: tr('杀戮', 'Slaughter'), xpMul: 1.25, goldMul: 1.1, color: '#ffd166' },
+  { at: 50, name: tr('狂热', 'Frenzy'), xpMul: 1.5, goldMul: 1.2, color: '#ff9f43' },
+  { at: 100, name: tr('灭世', 'Apocalypse'), xpMul: 2, goldMul: 1.35, color: '#ff5252' },
 ];
 
 // ---------------------------------------------------------------------------

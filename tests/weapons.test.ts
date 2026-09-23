@@ -17,6 +17,7 @@ function freshStats(): PlayerStats {
     level: 1, xp: 0, xpToNext: xpToNext(1), kills: 0,
     damageMul: 1, fireRateMul: 1, moveSpeed: PLAYER_BASE.moveSpeed, maxHp: PLAYER_BASE.maxHp,
     pierceBonus: 0, magnet: 0, projectileBonus: 0, crit: 0, lifesteal: 0,
+    detonate: 0, chill: 0, desperate: 0, evoDiscount: 0,
   };
 }
 
@@ -43,8 +44,8 @@ function makeCtx(): GameContext {
   const ctx: GameContext = {
     world, player: 0, hash: new SpatialHash(40), fx: new FX(), audio: new AudioBus(),
     time: { elapsed: 0, hitStop: 0 }, director: { budget: 0, bossSpawned: false, bossDead: false },
-    stats: freshStats(), input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
-    rng: world.rng, camera: { x: 0, y: 0 }, screen: { shake: 0 },
+    stats: freshStats(), passives: new Map<string, number>(), input: { axis: () => ({ x: 0, y: 0 }), aim: () => ({ x: 1, y: 0 }) },
+    rng: world.rng, seed: 5, camera: { x: 0, y: 0 }, screen: { shake: 0 },
     events: { onLevelUp: () => {}, onDeath: () => {}, onVictory: () => {} },
     equip: freshEquip(),
     skills: freshSkills(),
@@ -59,8 +60,8 @@ describe('weapon handling', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
     lo.weapons = [
-      { def: WEAPONS.pistol!, level: 1, cd: 10 },
-      { def: WEAPONS.nova!, level: 1, cd: 0 },
+      { def: WEAPONS.pistol, level: 1, cd: 10 },
+      { def: WEAPONS.nova, level: 1, cd: 0 },
     ];
     lo.activeWeapon = 'pistol';
 
@@ -72,13 +73,13 @@ describe('weapon handling', () => {
   it('aimed bullets start at the weapon muzzle instead of the player center', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
-    lo.weapons = [{ def: WEAPONS.pistol!, level: 1, cd: 0 }];
+    lo.weapons = [{ def: WEAPONS.pistol, level: 1, cd: 0 }];
 
     weaponSystem(ctx, 0);
 
     const bullets = ctx.world.query(Bullet, Transform);
     expect(bullets).toHaveLength(1);
-    const bt = ctx.world.get(bullets[0]!, Transform)!;
+    const bt = ctx.world.get(bullets[0], Transform)!;
     expect(bt.x).toBeGreaterThan(PLAYER_BASE.radius);
     expect(bt.y).toBeLessThan(-PLAYER_BASE.radius * 3);
   });
@@ -87,8 +88,8 @@ describe('weapon handling', () => {
     const ctx = makeCtx();
     const lo = ctx.world.get(ctx.player, Loadout)!;
     lo.weapons = [
-      { def: WEAPONS.pistol!, level: 1, cd: 0 },
-      { def: WEAPONS.shotgun!, level: 1, cd: 10 },
+      { def: WEAPONS.pistol, level: 1, cd: 0 },
+      { def: WEAPONS.shotgun, level: 1, cd: 10 },
     ];
     lo.activeWeapon = 'shotgun';
 

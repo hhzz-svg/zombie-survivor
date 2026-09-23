@@ -27,6 +27,8 @@ interface Streak {
  * & draw. Mirrors the particle approach from the existing Mario clone, generalized & pooled.
  */
 export class FX {
+  /** Presentation switch owned by the Game layer; systems keep calling text() unconditionally. */
+  showNumbers = true;
   private parts: Particle[] = [];
   private texts: FloatText[] = [];
   private flashes: Flash[] = [];
@@ -92,6 +94,12 @@ export class FX {
   }
 
   text(x: number, y: number, str: string, color = '#fff', size = 13): void {
+    // Only damage readouts are suppressed — they start with a digit. Announcements
+    // ("肾上腺素！", "+40 金币") always come through.
+    if (!this.showNumbers) {
+      const c = str.charCodeAt(0);
+      if (c >= 48 && c <= 57) return;
+    }
     let t = this.texts.find((q) => !q.active);
     if (!t) {
       t = { x: 0, y: 0, vy: 0, text: '', color: '', life: 0, max: 0, active: false, size: 13 };

@@ -1,5 +1,7 @@
+import { ASSET_BASE } from '../assetPath';
+
 /**
- * Loads sprite images listed in /assets/manifest.json. Everything is optional: if the manifest
+ * Loads sprite images listed in <base>/assets/manifest.json. Everything is optional: if the manifest
  * is missing/empty or an image fails to load, `get()` returns null and the renderer falls back to
  * procedural shapes. This is what makes art a drop-in: add the PNG + a manifest entry, done.
  *
@@ -10,7 +12,7 @@
 export class AssetStore {
   private readonly images = new Map<string, HTMLImageElement>();
 
-  async load(base = '/assets'): Promise<void> {
+  async load(base = ASSET_BASE): Promise<void> {
     try {
       const res = await fetch(`${base}/manifest.json`);
       if (!res.ok) return;

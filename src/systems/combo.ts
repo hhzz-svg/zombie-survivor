@@ -18,9 +18,13 @@ export function freshRunState(): RunState {
     goldenKilled: 0,
     evolved: false,
     firstHpHitAt: null,
-    adrenalineUsed: false,
+    adrenalineLeft: 1,
+    revivesLeft: 0,
     curse: 0,
     rescued: 0,
+    rerolls: 0,
+    banishes: 0,
+    banished: new Set<string>(),
   };
 }
 
@@ -31,7 +35,7 @@ export function comboPitch(ctx: GameContext): number {
 
 /** Highest tier reached at `count` kills. */
 export function comboTier(count: number): ComboTier {
-  let tier = COMBO_TIERS[0]!;
+  let tier = COMBO_TIERS[0];
   for (const t of COMBO_TIERS) {
     if (count >= t.at) tier = t;
     else break;

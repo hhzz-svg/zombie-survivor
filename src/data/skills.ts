@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { SkillDefSchema, type SkillDef } from './schemas';
+import { tr } from '../i18n';
 
 const raw = [
   {
     id: 'dash',
-    name: '疾冲',
-    desc: '向瞄准方向瞬移 160px，并获得 0.25 秒无敌。',
+    name: tr('疾冲', 'Dash'),
+    desc: tr('向瞄准方向瞬移 160px，并获得 0.25 秒无敌。', 'Blink 160px toward your aim with 0.25s of invulnerability.'),
     cost: 32,
     unlockStage: 3,
     cooldown: 8,
@@ -14,8 +15,8 @@ const raw = [
   },
   {
     id: 'burst',
-    name: '冲击爆破',
-    desc: '对周围 190px 内敌人造成 95 伤害并击退。',
+    name: tr('冲击爆破', 'Shockblast'),
+    desc: tr('对周围 190px 内敌人造成 95 伤害并击退。', 'Deal 95 damage and knock back everything within 190px.'),
     cost: 38,
     unlockStage: 3,
     cooldown: 14,
@@ -24,8 +25,8 @@ const raw = [
   },
   {
     id: 'barrier',
-    name: '能量屏障',
-    desc: '获得 3 层临时护盾，持续 10 秒。',
+    name: tr('能量屏障', 'Barrier'),
+    desc: tr('获得 3 层临时护盾，持续 10 秒。', 'Gain 3 layers of temporary shield for 10 seconds.'),
     cost: 42,
     unlockStage: 4,
     cooldown: 22,
@@ -34,8 +35,8 @@ const raw = [
   },
   {
     id: 'slow',
-    name: '时间迟滞',
-    desc: '6 秒内敌人移动和攻击节奏降低 35%。',
+    name: tr('时间迟滞', 'Time Warp'),
+    desc: tr('6 秒内敌人移动和攻击节奏降低 35%。', 'Enemies move and attack 35% slower for 6 seconds.'),
     cost: 46,
     unlockStage: 4,
     cooldown: 28,

@@ -13,3 +13,9 @@ pnpm-debug.log*
 
 .DS_Store
 Thumbs.db
+
+# Throwaway measurement scripts. Balance work constantly needs one-off harness runs
+# (parameter sweeps, A/B grids, diagnostics); they are scaffolding for a decision, not
+# tests anyone should keep. Name them tests/_*.test.ts so `npm test` still picks them up
+# while they exist and git never does.
+tests/_*.test.ts
