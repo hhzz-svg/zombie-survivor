@@ -39,6 +39,13 @@ export interface SimOptions {
   shop?: boolean;
   /** Override the scripted player's steering weights (used to calibrate the bot itself). */
   bot?: Partial<BotTuning>;
+  /**
+   * Called after every simulation step. The harness is the only way to watch a fight that
+   * takes three minutes to go wrong, and reading the systems is not a substitute: the reason
+   * the siege boss looked unbeatable was a standoff between two thresholds in two different
+   * files, visible in ten lines of probe output and in nothing else.
+   */
+  probe?: (ctx: GameContext, step: number) => void;
 }
 
 export interface SimResult {
@@ -312,6 +319,7 @@ export function runHeadless(seed: number, maxSeconds: number, opts: SimOptions =
   let sinceSpend = 0;
   for (let i = 0; i < maxSteps; i++) {
     runSystems(ctx, STEP);
+    opts.probe?.(ctx, i);
     if (useShop) {
       sinceSpend += STEP;
       if (sinceSpend >= 1.5) {

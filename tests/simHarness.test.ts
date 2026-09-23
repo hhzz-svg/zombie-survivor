@@ -62,8 +62,9 @@ describe('scripted player', () => {
   it('minimises the threat field when steering is judged on threat alone', () => {
     const ctx = makeCtx();
     const ai = new AiInput();
-    // Momentum and loot off: this asserts the threat field itself, not the shipped policy.
-    ai.tuning = { momentum: 0, loot: 0, soften: 900 };
+    // Momentum, loot and boss-seek off: this asserts the threat field itself, not the
+    // shipped policy.
+    ai.tuning = { momentum: 0, loot: 0, soften: 900, boss: 0 };
     ai.ctx = ctx;
     spawnEnemyAt(ctx, ENEMIES['walker'], 60, 0);
     rebuildEnemyHash(ctx);
@@ -72,6 +73,38 @@ describe('scripted player', () => {
 
     expect(Math.hypot(dir.x, dir.y)).toBeCloseTo(1); // always a unit heading
     expect(dir.x).toBeLessThan(0); // the threat is east
+  });
+
+  it('closes on a distant boss instead of only fleeing it', () => {
+    // A boss is weighted six times a walker in the threat field, so steering on threat alone
+    // walks AWAY from one. That is survivable against a boss that charges and fatal against
+    // the siege boss, which retreats below 260px: the two thresholds lock into a standoff and
+    // the fight never happens. Asserted as a sign flip rather than an angle, because the
+    // point is the direction of the decision, not its precision.
+    const west = (boss: number): number => {
+      const ctx = makeCtx();
+      const ai = new AiInput();
+      ai.tuning = { momentum: 0, loot: 0, soften: 900, boss };
+      ai.ctx = ctx;
+      spawnEnemyAt(ctx, ENEMIES['siege'], -600, 0); // out past BOSS_ENGAGE, due west
+      rebuildEnemyHash(ctx);
+      return ai.axis().x;
+    };
+
+    expect(west(0)).toBeGreaterThan(0); // old behaviour: backs away from the boss
+    expect(west(4)).toBeLessThan(0); // with the seek term: goes to meet it
+  });
+
+  it('stops closing once the boss is inside engagement range', () => {
+    // The pull has to hand back to the threat field, or the bot walks into contact damage.
+    const ctx = makeCtx();
+    const ai = new AiInput();
+    ai.tuning = { momentum: 0, loot: 0, soften: 900, boss: 4 };
+    ai.ctx = ctx;
+    spawnEnemyAt(ctx, ENEMIES['siege'], -150, 0); // inside BOSS_ENGAGE
+    rebuildEnemyHash(ctx);
+
+    expect(ai.axis().x).toBeGreaterThan(0); // threat field is back in charge
   });
 
   it('commits to a heading under the shipped weights rather than re-deciding every frame', () => {

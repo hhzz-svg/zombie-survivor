@@ -28,15 +28,26 @@ export interface BotTuning {
   loot: number;
   /** Softening term in the inverse-square threat falloff; larger = flatter near field. */
   soften: number;
+  /**
+   * Pull toward a living boss that is out of engagement range. Without it the bot only ever
+   * flees, which is survivable but cannot finish a fight against a boss that retreats.
+   */
+  boss: number;
 }
 
-export const DEFAULT_BOT: BotTuning = { momentum: 2.5, loot: 6, soften: 900 };
+export const DEFAULT_BOT: BotTuning = { momentum: 2.5, loot: 6, soften: 900, boss: 4 };
 
 const DIRECTIONS = 16;
 const PROBE = 52; // how far ahead a candidate heading is evaluated
 const THREAT_RADIUS = 230;
 const MAX_THREATS = 48;
 const LOOT_RADIUS = 300;
+/**
+ * How close the bot tries to get to a boss. Sits just inside the siege boss's 260px retreat
+ * band and inside THREAT_RADIUS, so the pull hands over to the threat field rather than
+ * fighting it: approach above this, get pushed back below it, hover in between.
+ */
+const BOSS_ENGAGE = 200;
 
 interface Threat {
   x: number;
@@ -66,6 +77,29 @@ export class AiInput implements InputProvider {
       this.threats.push({ x: t.x, y: t.y, weight });
       if (this.threats.length >= MAX_THREATS) break;
     }
+  }
+
+  /**
+   * Unit vector toward a living boss that is further away than the bot wants to fight from,
+   * or null when there is no boss or it is already in range.
+   *
+   * The threat field alone cannot produce this. A boss is weighted x6 there, so the bot backs
+   * away from it harder than from anything else — fine against one that charges, fatal against
+   * the siege boss, which retreats below 260px. The two thresholds form a standoff ring that
+   * neither side ever leaves, and the fight simply never happens.
+   */
+  private bossSeek(px: number, py: number): { x: number; y: number } | null {
+    const w = this.ctx.world;
+    for (const e of w.query(Enemy, Transform)) {
+      if (!w.get(e, Enemy)!.def.isBoss) continue;
+      const t = w.get(e, Transform)!;
+      const dx = t.x - px;
+      const dy = t.y - py;
+      const d = Math.hypot(dx, dy);
+      if (d <= BOSS_ENGAGE || d < 1) return null;
+      return { x: dx / d, y: dy / d };
+    }
+    return null;
   }
 
   /** Summed inverse-square pressure at a point — the thing the bot is trying to minimise. */
@@ -124,6 +158,7 @@ export class AiInput implements InputProvider {
     this.gatherThreats(p.x, p.y);
     const loot = this.lootPull(p.x, p.y);
     const crowded = this.danger(p.x, p.y) > 0.002; // under real pressure, loot stops mattering
+    const boss = this.tuning.boss > 0 ? this.bossSeek(p.x, p.y) : null;
 
     let bestX = this.lastDirX;
     let bestY = this.lastDirY;
@@ -141,6 +176,8 @@ export class AiInput implements InputProvider {
       // Never steer into cover: the push-out would eat the movement anyway.
       if (blockedAt(this.ctx.seed, tx, ty, 16)) score -= 40;
       if (!crowded) score += (dx * loot.x + dy * loot.y) * this.tuning.loot;
+      // Sized like the loot term: it shades the choice, it never overrules a threat.
+      if (boss) score += (dx * boss.x + dy * boss.y) * this.tuning.boss;
       // Commitment. Measured, not guessed: dropping this to a tiebreaker made every single
       // decision locally safer and the run far shorter, because a survivor bot that
       // re-evaluates every frame dithers itself into the middle of the horde.
