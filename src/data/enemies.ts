@@ -90,6 +90,18 @@ export const SIEGE_LEAD = 105; // slightly more than one blast radius, so the sh
  * "lost". Splitting the failures showed the matriarch kills the player once in twenty fights,
  * exactly as often as the tyrant does — she was never the more lethal boss, and softening her
  * was aimed at a problem that did not exist. Reverted to the designed values.
+ *
+ * It happened a second time, for a second reason, and the residue of the first fix is what
+ * hid it: raising the cap left 3/20 timeouts behind, which read as "nearly fixed". They were
+ * not. The sim bot weights a boss x6 in its threat field within 230px, and this boss retreats
+ * within 260px, so the two thresholds locked into a standoff and the fight never happened at
+ * all -- 7.8 DPS from a level-47 player. That is a bug in the yardstick, not in her. Fixed in
+ * `aiInput.ts`; timeouts then went to 0/24 at the LOWER 420s cap, and her kill rate to 100%.
+ *
+ * So: twice now these constants have been blamed for a fault in the measuring apparatus. If a
+ * report makes her look unfair again, verify the instrument before touching this line --
+ * split the losses into deaths and timeouts first. She has still never been the one killing
+ * players.
  */
 export const SIEGE_SUMMON_INTERVAL = 7;
 /** Fraction of max HP at which it enrages. Same threshold as the tyrant. */
